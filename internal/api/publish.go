@@ -1,0 +1,346 @@
+package api
+
+import (
+	"net/http"
+	"strconv"
+
+	"github.com/gin-gonic/gin"
+
+	"iptv-tool-v2/internal/model"
+	"iptv-tool-v2/internal/publish"
+	"iptv-tool-v2/internal/task"
+)
+
+// PublishController handles CRUD for publish interfaces
+type PublishController struct {
+	scheduler *task.Scheduler
+}
+
+func NewPublishController(scheduler *task.Scheduler) *PublishController {
+	return &PublishController{scheduler: scheduler}
+}
+
+// ListInterfaces returns all publish interfaces
+// GET /api/publish
+func (pc *PublishController) ListInterfaces(c *gin.Context) {
+	var interfaces []model.PublishInterface
+	if err := model.DB.Order("id desc").Find(&interfaces).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, interfaces)
+}
+
+// GetInterface returns a single publish interface
+// GET /api/publish/:id
+func (pc *PublishController) GetInterface(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的 ID"})
+		return
+	}
+
+	var iface model.PublishInterface
+	if err := model.DB.First(&iface, uint(id)).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "未找到该发布接口"})
+		return
+	}
+	c.JSON(http.StatusOK, iface)
+}
+
+// CreateInterfaceRequest is the request body for creating a publish interface
+type CreateInterfaceRequest struct {
+	Name               string              `json:"name" binding:"required"`
+	Description        string              `json:"description"`
+	Path               string              `json:"path" binding:"required"`
+	Type               string              `json:"type" binding:"required,oneof=live epg"`
+	Format             model.PublishFormat `json:"format" binding:"required"`
+	SourceIDs          string              `json:"source_ids"`
+	RuleIDs            string              `json:"rule_ids"`
+	TvgIDMode          string              `json:"tvg_id_mode"`
+	EPGDays            int                 `json:"epg_days"`
+	GzipEnabled        bool                `json:"gzip_enabled"`
+	AddressType        string              `json:"address_type"`
+	MulticastType      string              `json:"multicast_type"`
+	UDPxyURL           string              `json:"udpxy_url"`
+	M3UCatchupTemplate string              `json:"m3u_catchup_template"`
+}
+
+// CreateInterface adds a new publish interface
+// POST /api/publish
+func (pc *PublishController) CreateInterface(c *gin.Context) {
+	var req CreateInterfaceRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Validate format based on type
+	if req.Type == "live" && (req.Format != model.PublishFormatM3U && req.Format != model.PublishFormatTXT) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "直播类型只支持 m3u 和 txt 格式"})
+		return
+	}
+	if req.Type == "epg" && (req.Format != model.PublishFormatXMLTV && req.Format != model.PublishFormatDIYP) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "EPG类型只支持 xmltv 和 diyp JSON 格式"})
+		return
+	}
+
+	// Check name uniqueness
+	var existingName int64
+	model.DB.Model(&model.PublishInterface{}).Where("name = ?", req.Name).Count(&existingName)
+	if existingName > 0 {
+		c.JSON(http.StatusConflict, gin.H{"error": "该接口名称已存在，请换一个名称"})
+		return
+	}
+
+	// Check path uniqueness
+	var existing int64
+	model.DB.Model(&model.PublishInterface{}).Where("path = ? AND type = ?", req.Path, req.Type).Count(&existing)
+	if existing > 0 {
+		c.JSON(http.StatusConflict, gin.H{"error": "该路径已存在"})
+		return
+	}
+
+	iface := model.PublishInterface{
+		Name:               req.Name,
+		Description:        req.Description,
+		Path:               req.Path,
+		Type:               req.Type,
+		Format:             req.Format,
+		SourceIDs:          req.SourceIDs,
+		RuleIDs:            req.RuleIDs,
+		TvgIDMode:          req.TvgIDMode,
+		Status:             true,
+		EPGDays:            req.EPGDays,
+		GzipEnabled:        req.GzipEnabled,
+		MulticastType:      req.MulticastType,
+		UDPxyURL:           req.UDPxyURL,
+		M3UCatchupTemplate: req.M3UCatchupTemplate,
+	}
+
+	if err := model.DB.Create(&iface).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, iface)
+}
+
+// UpdateInterfaceRequest is the request body for updating a publish interface
+type UpdateInterfaceRequest struct {
+	Name               *string              `json:"name"`
+	Description        *string              `json:"description"`
+	Path               *string              `json:"path"`
+	Format             *model.PublishFormat `json:"format"`
+	SourceIDs          *string              `json:"source_ids"`
+	RuleIDs            *string              `json:"rule_ids"`
+	TvgIDMode          *string              `json:"tvg_id_mode"`
+	Status             *bool                `json:"status"`
+	EPGDays            *int                 `json:"epg_days"`
+	GzipEnabled        *bool                `json:"gzip_enabled"`
+	AddressType        *string              `json:"address_type"`
+	MulticastType      *string              `json:"multicast_type"`
+	UDPxyURL           *string              `json:"udpxy_url"`
+	M3UCatchupTemplate *string              `json:"m3u_catchup_template"`
+}
+
+// UpdateInterface modifies a publish interface
+// PUT /api/publish/:id
+func (pc *PublishController) UpdateInterface(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的 ID"})
+		return
+	}
+
+	var iface model.PublishInterface
+	if err := model.DB.First(&iface, uint(id)).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "未找到该发布接口"})
+		return
+	}
+
+	var req UpdateInterfaceRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	updates := make(map[string]interface{})
+	if req.Name != nil {
+		var existingName int64
+		model.DB.Model(&model.PublishInterface{}).Where("name = ? AND id != ?", *req.Name, id).Count(&existingName)
+		if existingName > 0 {
+			c.JSON(http.StatusConflict, gin.H{"error": "该接口名称已存在，请换一个名称"})
+			return
+		}
+		updates["name"] = *req.Name
+	}
+	if req.Description != nil {
+		updates["description"] = *req.Description
+	}
+	if req.Path != nil {
+		// Check uniqueness
+		var existing int64
+		// Combine type and path for uniqueness check
+		interfaceType := iface.Type // Default to existing type
+		model.DB.Model(&model.PublishInterface{}).Where("path = ? AND type = ? AND id != ?", *req.Path, interfaceType, id).Count(&existing)
+		if existing > 0 {
+			c.JSON(http.StatusConflict, gin.H{"error": "该路径已存在"})
+			return
+		}
+		updates["path"] = *req.Path
+	}
+	if req.Format != nil {
+		updates["format"] = *req.Format
+	}
+	if req.SourceIDs != nil {
+		updates["source_ids"] = *req.SourceIDs
+	}
+	if req.RuleIDs != nil {
+		updates["rule_ids"] = *req.RuleIDs
+	}
+	if req.Status != nil {
+		updates["status"] = *req.Status
+	}
+	if req.EPGDays != nil {
+		updates["epg_days"] = *req.EPGDays
+	}
+	if req.GzipEnabled != nil {
+		updates["gzip_enabled"] = *req.GzipEnabled
+	}
+	if req.TvgIDMode != nil {
+		updates["tvg_id_mode"] = *req.TvgIDMode
+	}
+	if req.AddressType != nil {
+		updates["address_type"] = *req.AddressType
+	}
+	if req.MulticastType != nil {
+		updates["multicast_type"] = *req.MulticastType
+	}
+	if req.UDPxyURL != nil {
+		updates["udpxy_url"] = *req.UDPxyURL
+	}
+	if req.M3UCatchupTemplate != nil {
+		updates["m3u_catchup_template"] = *req.M3UCatchupTemplate
+	}
+
+	if len(updates) > 0 {
+		if err := model.DB.Model(&iface).Updates(updates).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+	}
+
+	model.DB.First(&iface, uint(id))
+	c.JSON(http.StatusOK, iface)
+}
+
+// DeleteInterface removes a publish interface
+// DELETE /api/publish/:id
+func (pc *PublishController) DeleteInterface(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的 ID"})
+		return
+	}
+
+	if err := model.DB.Delete(&model.PublishInterface{}, uint(id)).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "发布接口已删除"})
+}
+
+// GetCronOptions returns the available cron time options for frontend dropdowns
+// GET /api/settings/cron-options
+func GetCronOptions(c *gin.Context) {
+	c.JSON(http.StatusOK, task.CronTimeOptions)
+}
+
+// PreviewRequest is the request body for previewing the publish output
+type PreviewRequest struct {
+	Type          string `json:"type" binding:"required"`
+	SourceIDs     string `json:"source_ids"`
+	RuleIDs       string `json:"rule_ids"`
+	AddressType   string `json:"address_type"`
+	MulticastType string `json:"multicast_type"`
+	UDPxyURL      string `json:"udpxy_url"`
+}
+
+// PreviewInterface generates a dry-run preview of the aggregated channels/epgs
+// POST /api/publish/preview
+func (pc *PublishController) PreviewInterface(c *gin.Context) {
+	var req PreviewRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Create a dummy interface purely for the engine to consume IDs
+	dummyIface := model.PublishInterface{
+		Type:          req.Type,
+		SourceIDs:     req.SourceIDs,
+		RuleIDs:       req.RuleIDs,
+		AddressType:   req.AddressType,
+		MulticastType: req.MulticastType,
+		UDPxyURL:      req.UDPxyURL,
+	}
+
+	eng, err := publish.NewEngine(dummyIface)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	requestHost := c.Request.Host
+	if fwd := c.GetHeader("X-Forwarded-Host"); fwd != "" {
+		requestHost = fwd
+	}
+
+	if req.Type == "live" {
+		channels, err := eng.AggregateLiveChannels(requestHost)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, channels)
+	} else {
+		epgs, err := eng.AggregateEPGPrograms()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		// Map EPGs back to channels and count them for simple preview
+		type EPGPreviewRow struct {
+			ChannelID    string `json:"channel_id"`
+			OriginalName string `json:"original_name"`
+			Alias        string `json:"alias"`
+			ProgramCount int    `json:"program_count"`
+		}
+
+		counts := make(map[string]*EPGPreviewRow)
+		var order []string
+
+		for _, p := range epgs {
+			if _, exists := counts[p.Channel]; !exists {
+				counts[p.Channel] = &EPGPreviewRow{
+					ChannelID:    p.Channel,
+					OriginalName: p.ChannelName,
+					Alias:        p.Alias,
+					ProgramCount: 0,
+				}
+				order = append(order, p.Channel)
+			}
+			counts[p.Channel].ProgramCount++
+		}
+
+		var result []EPGPreviewRow
+		for _, ch := range order {
+			result = append(result, *counts[ch])
+		}
+
+		c.JSON(http.StatusOK, result)
+	}
+}
