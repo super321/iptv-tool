@@ -21,13 +21,20 @@ api.interceptors.response.use(
   error => {
     if (error.response) {
       const { status, data } = error.response
-      if (status === 401) {
-        // If already on login page or this is a login request, show the actual error message
-        const isLoginPage = window.location.hash === '#/login' || window.location.hash === '#/'
-        const isLoginRequest = error.config && error.config.url === '/login' && error.config.method === 'post'
-        if (isLoginPage || isLoginRequest) {
-          ElMessage.error((data && data.error) || '用户名或密码错误')
+      const isLoginRequest = error.config && error.config.url === '/login' && error.config.method === 'post'
+
+      if (status === 429) {
+        // 频率限制 - 登录请求由 Login.vue 自行处理，其他请求全局提示
+        if (!isLoginRequest) {
+          ElMessage.error((data && data.error) || '请求过于频繁，请稍后再试')
+        }
+      } else if (status === 403 && isLoginRequest) {
+        // 验证码相关的 403 由 Login.vue 自行处理，不在此全局弹出
+      } else if (status === 401) {
+        if (isLoginRequest) {
+          // 登录请求的 401 由 Login.vue 自行处理，不在此全局弹出
         } else {
+          // 其他请求的 401 表示 token 过期
           localStorage.removeItem('token')
           window.location.hash = '#/login'
           ElMessage.error('登录已过期，请重新登录')

@@ -19,14 +19,23 @@ export const useAuthStore = defineStore('auth', {
       await api.post('/init', { username, password })
       this.initialized = true
     },
-    async login(username, password) {
-      const { data } = await api.post('/login', { username, password })
+    async login(username, password, captchaId, captchaCode) {
+      const payload = { username, password }
+      if (captchaId) {
+        payload.captcha_id = captchaId
+        payload.captcha_code = captchaCode
+      }
+      const { data } = await api.post('/login', payload)
       this.token = data.token
       localStorage.setItem('token', data.token)
     },
     logout() {
       this.token = ''
       localStorage.removeItem('token')
+    },
+    async getCaptcha() {
+      const { data } = await api.get('/captcha')
+      return data // { captcha_id, captcha_image }
     },
     async changePassword(oldPassword, newPassword) {
       await api.post('/user/password', {

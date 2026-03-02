@@ -16,6 +16,21 @@
           <el-form-item prop="password">
             <el-input v-model="form.password" type="password" placeholder="请输入密码" :prefix-icon="Lock" show-password @keyup.enter="handleLogin" />
           </el-form-item>
+          <!-- 验证码区域 - 动态显示 -->
+          <el-form-item v-if="captchaRequired" prop="captchaCode">
+            <div class="captcha-row">
+              <el-input v-model="form.captchaCode" placeholder="请输入验证码" :prefix-icon="Key" @keyup.enter="handleLogin" />
+              <img
+                v-if="captchaImage"
+                :src="captchaImage"
+                class="captcha-img"
+                @click="refreshCaptcha"
+                title="点击刷新验证码"
+                alt="验证码"
+              />
+              <div v-else class="captcha-placeholder" @click="refreshCaptcha">加载中...</div>
+            </div>
+          </el-form-item>
           <el-form-item>
             <el-button type="primary" @click="handleLogin" :loading="loading" style="width: 100%" size="large">登录</el-button>
           </el-form-item>
@@ -30,28 +45,75 @@ import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { ElMessage } from 'element-plus'
-import { User, Lock, Monitor } from '@element-plus/icons-vue'
+import { User, Lock, Key, Monitor } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const auth = useAuthStore()
 const formRef = ref()
 const loading = ref(false)
 
-const form = reactive({ username: '', password: '' })
+// 验证码状态
+const captchaRequired = ref(false)
+const captchaId = ref('')
+const captchaImage = ref('')
+
+const form = reactive({ username: '', password: '', captchaCode: '' })
 const rules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
   password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
+  captchaCode: [{ required: true, message: '请输入验证码', trigger: 'blur' }],
+}
+
+// 获取/刷新验证码
+async function refreshCaptcha() {
+  try {
+    const data = await auth.getCaptcha()
+    captchaId.value = data.captcha_id
+    captchaImage.value = data.captcha_image
+    form.captchaCode = ''
+  } catch {
+    ElMessage.error('验证码获取失败')
+  }
 }
 
 async function handleLogin() {
   await formRef.value.validate()
   loading.value = true
   try {
-    await auth.login(form.username, form.password)
+    await auth.login(
+      form.username,
+      form.password,
+      captchaRequired.value ? captchaId.value : undefined,
+      captchaRequired.value ? form.captchaCode : undefined
+    )
     ElMessage.success('登录成功')
     router.push('/')
-  } catch { /* handled by interceptor */ }
-  finally { loading.value = false }
+  } catch (err) {
+    const resp = err.response
+    if (!resp) return
+
+    const { status, data } = resp
+    if (status === 429) {
+      ElMessage.error((data && data.error) || '登录尝试过于频繁，请稍后再试')
+      return
+    }
+
+    // 401 (密码错误) 或 403 (验证码相关)
+    if (data && data.error) {
+      ElMessage.error(data.error)
+    }
+
+    // 后端指示需要验证码
+    if (data && data.captcha_required) {
+      captchaRequired.value = true
+      await refreshCaptcha()
+    } else if (captchaRequired.value) {
+      // 已经在验证码模式下，刷新验证码供下次使用
+      await refreshCaptcha()
+    }
+  } finally {
+    loading.value = false
+  }
 }
 </script>
 
@@ -114,5 +176,33 @@ async function handleLogin() {
   font-size: 14px;
   color: #909399;
   margin: 0;
+}
+.captcha-row {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  align-items: center;
+}
+.captcha-row .el-input {
+  flex: 1;
+}
+.captcha-img {
+  height: 40px;
+  border-radius: 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.captcha-placeholder {
+  height: 40px;
+  width: 120px;
+  border-radius: 4px;
+  background: #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: #999;
+  cursor: pointer;
+  flex-shrink: 0;
 }
 </style>

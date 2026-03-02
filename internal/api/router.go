@@ -23,6 +23,7 @@ func SetupRouter(scheduler *task.Scheduler, logoDir string, frontendFS fs.FS) *g
 	r.GET("/api/init/status", systemCtrl.CheckInit)
 	r.POST("/api/init", systemCtrl.Init)
 	r.POST("/api/login", systemCtrl.Login)
+	r.GET("/api/captcha", systemCtrl.GetCaptcha)
 
 	// Logo static files (public access for player clients)
 	r.Static("/logo", logoDir)

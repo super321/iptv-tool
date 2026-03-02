@@ -6,11 +6,15 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/mojocn/base64Captcha"
 
 	"iptv-tool-v2/internal/iptv/huawei"
 	"iptv-tool-v2/internal/service"
 	"iptv-tool-v2/pkg/utils"
 )
+
+// captchaStore 验证码存储（内存，默认10分钟过期，自动GC）
+var captchaStore = base64Captcha.DefaultMemStore
 
 // SystemController handles system initialization and authentication
 type SystemController struct {
@@ -64,31 +68,100 @@ func (sc *SystemController) Init(c *gin.Context) {
 
 // LoginRequest is the request body for login
 type LoginRequest struct {
-	Username string `json:"username" binding:"required"`
-	Password string `json:"password" binding:"required"`
+	Username    string `json:"username" binding:"required"`
+	Password    string `json:"password" binding:"required"`
+	CaptchaID   string `json:"captcha_id"`   // 验证码 ID（需要验证码时必填）
+	CaptchaCode string `json:"captcha_code"` // 验证码答案（需要验证码时必填）
 }
 
 // Login authenticates a user and returns a JWT token
 // POST /api/login
 func (sc *SystemController) Login(c *gin.Context) {
+	// ① IP 频率限制
+	clientIP := c.ClientIP()
+	if !globalRateLimiter.Allow(clientIP) {
+		c.JSON(http.StatusTooManyRequests, gin.H{
+			"error": "登录尝试过于频繁，请稍后再试",
+		})
+		return
+	}
+
+	// ② 解析请求体
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
+	// ③ 检查是否需要验证码（连续失败 >= 3 次）
+	if globalAttemptTracker.NeedCaptcha(req.Username) {
+		if req.CaptchaID == "" || req.CaptchaCode == "" {
+			c.JSON(http.StatusForbidden, gin.H{
+				"error":            "请完成验证码校验",
+				"captcha_required": true,
+			})
+			return
+		}
+		// 校验验证码（Verify 会自动删除已使用的验证码，防止重放）
+		if !captchaStore.Verify(req.CaptchaID, req.CaptchaCode, true) {
+			c.JSON(http.StatusForbidden, gin.H{
+				"error":            "验证码错误",
+				"captcha_required": true,
+			})
+			return
+		}
+	}
+
+	// ④ 用户名密码校验
 	token, err := sc.userService.Login(req.Username, req.Password)
 	if err != nil {
-		status := http.StatusUnauthorized
+		// 系统未初始化的特殊状态码
 		if err == service.ErrSystemNotInit {
-			status = http.StatusPreconditionFailed
+			c.JSON(http.StatusPreconditionFailed, gin.H{"error": err.Error()})
+			return
 		}
-		c.JSON(status, gin.H{"error": err.Error()})
+
+		// 记录失败次数并判断是否需要验证码
+		globalAttemptTracker.RecordFailure(req.Username)
+		needCaptcha := globalAttemptTracker.NeedCaptcha(req.Username)
+
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error":            "用户名或密码错误",
+			"captcha_required": needCaptcha,
+		})
+		return
+	}
+
+	// ⑤ 登录成功：重置失败计数
+	globalAttemptTracker.Reset(req.Username)
+
+	c.JSON(http.StatusOK, gin.H{
+		"token": token,
+	})
+}
+
+// GetCaptcha 生成并返回验证码图片
+// GET /api/captcha
+func (sc *SystemController) GetCaptcha(c *gin.Context) {
+	// 4位数字验证码
+	driver := base64Captcha.NewDriverDigit(
+		80,  // 高度
+		240, // 宽度
+		4,   // 位数
+		0.7, // 最大倾斜角度
+		80,  // 干扰点数量
+	)
+
+	captcha := base64Captcha.NewCaptcha(driver, captchaStore)
+	id, b64s, _, err := captcha.Generate()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "验证码生成失败"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"token": token,
+		"captcha_id":    id,
+		"captcha_image": b64s,
 	})
 }
 
