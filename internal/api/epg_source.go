@@ -350,7 +350,7 @@ func (ec *EPGSourceController) GetPrograms(c *gin.Context) {
 	}
 	if dateFilter != "" {
 		// Filter by date: start_time between date 00:00:00 and date+1 00:00:00
-		query = query.Where("DATE(start_time) = ?", dateFilter)
+		query = query.Where("DATE(start_time, 'localtime') = ?", dateFilter)
 	}
 
 	var programs []model.ParsedEPG
@@ -367,7 +367,7 @@ func (ec *EPGSourceController) GetPrograms(c *gin.Context) {
 		countQuery = countQuery.Where("channel = ?", channelFilter)
 	}
 	if dateFilter != "" {
-		countQuery = countQuery.Where("DATE(start_time) = ?", dateFilter)
+		countQuery = countQuery.Where("DATE(start_time, 'localtime') = ?", dateFilter)
 	}
 	countQuery.Count(&total)
 
@@ -432,9 +432,9 @@ func (ec *EPGSourceController) GetDates(c *gin.Context) {
 
 	var dates []DateInfo
 	if err := model.DB.Model(&model.ParsedEPG{}).
-		Select("DATE(start_time) as date, COUNT(*) as count").
+		Select("DATE(start_time, 'localtime') as date, COUNT(*) as count").
 		Where("source_id = ? AND channel = ?", uint(id), channelFilter).
-		Group("DATE(start_time)").
+		Group("DATE(start_time, 'localtime')").
 		Order("date asc").
 		Find(&dates).Error; err != nil {
 		slog.Error("Internal server error", "error", err, "path", c.Request.URL.Path)

@@ -46,7 +46,7 @@
           <el-tooltip content="频道列表" placement="top" :show-after="500">
             <el-button :icon="List" size="small" circle @click="showChannels(row)" />
           </el-tooltip>
-          <el-tooltip content="刷新抓取" placement="top" :show-after="500">
+          <el-tooltip content="同步" placement="top" :show-after="500">
             <el-button :icon="Refresh" size="small" circle type="warning" @click="triggerFetch(row)" />
           </el-tooltip>
           <el-tooltip content="编辑" placement="top" :show-after="500">
