@@ -11,6 +11,7 @@ import (
 
 	"iptv-tool-v2/internal/iptv/huawei"
 	"iptv-tool-v2/internal/service"
+	"iptv-tool-v2/pkg/auth"
 	"iptv-tool-v2/pkg/utils"
 )
 
@@ -36,6 +37,12 @@ func (sc *SystemController) CheckInit(c *gin.Context) {
 	})
 }
 
+// GetPublicKey returns the RSA public key for frontend password encryption
+// GET /api/system/pubkey
+func (sc *SystemController) GetPublicKey(c *gin.Context) {
+	c.Data(http.StatusOK, "text/plain; charset=utf-8", []byte(auth.GetRSAPublicKey()))
+}
+
 // InitRequest is the request body for system initialization
 type InitRequest struct {
 	Username string `json:"username" binding:"required,min=3"`
@@ -51,7 +58,13 @@ func (sc *SystemController) Init(c *gin.Context) {
 		return
 	}
 
-	user, err := sc.userService.Register(req.Username, req.Password)
+	plainPassword, err := auth.DecryptRSA(req.Password)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "密码解密失败，请刷新页面重试"})
+		return
+	}
+
+	user, err := sc.userService.Register(req.Username, plainPassword)
 	if err != nil {
 		status := http.StatusInternalServerError
 		if err == service.ErrUserExists {
@@ -117,7 +130,13 @@ func (sc *SystemController) Login(c *gin.Context) {
 	}
 
 	// ④ 用户名密码校验
-	token, err := sc.userService.Login(req.Username, req.Password)
+	plainPassword, err := auth.DecryptRSA(req.Password)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "密码解密失败，请刷新页面重试"})
+		return
+	}
+
+	token, err := sc.userService.Login(req.Username, plainPassword)
 	if err != nil {
 		// 系统未初始化的特殊状态码
 		if err == service.ErrSystemNotInit {
@@ -188,7 +207,19 @@ func (sc *SystemController) ChangePassword(c *gin.Context) {
 		return
 	}
 
-	if err := sc.userService.ChangePassword(userID.(uint), req.OldPassword, req.NewPassword); err != nil {
+	plainOldPassword, err := auth.DecryptRSA(req.OldPassword)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "旧密码解密失败，请刷新页面重试"})
+		return
+	}
+
+	plainNewPassword, err := auth.DecryptRSA(req.NewPassword)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "新密码解密失败，请刷新页面重试"})
+		return
+	}
+
+	if err := sc.userService.ChangePassword(userID.(uint), plainOldPassword, plainNewPassword); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
