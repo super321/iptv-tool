@@ -85,6 +85,20 @@
           <el-input v-model="form.url" placeholder="http://example.com/live.m3u 或 live.txt (系统自动识别M3U或TXT格式)" />
         </el-form-item>
 
+        <template v-if="form.type === 'network_url'">
+          <el-divider content-position="left">自定义HTTP请求头</el-divider>
+          <div style="margin-bottom: 16px; padding: 0 40px">
+            <div v-for="(header, idx) in form.network_headers" :key="idx" style="display: flex; gap: 8px; margin-bottom: 8px">
+              <el-input v-model="header.name" placeholder="Header名称" style="width: 200px" />
+              <el-input v-model="header.value" placeholder="Header值" style="flex: 1" />
+              <el-button :icon="Delete" circle size="small" @click="form.network_headers.splice(idx, 1)" />
+            </div>
+            <el-button size="small" @click="form.network_headers.push({ name: '', value: '' })">
+              <el-icon><Plus /></el-icon> 添加请求头
+            </el-button>
+          </div>
+        </template>
+
         <!-- network_manual fields -->
         <el-form-item label="内容" v-if="form.type === 'network_manual'" prop="content">
           <el-input v-model="form.content" type="textarea" :rows="8" placeholder="支持纯文本粘贴，系统会自动识别格式：&#10;[M3U格式]&#10;#EXTM3U&#10;#EXTINF:-1,CCTV1&#10;http://...&#10;&#10;[TXT格式]&#10;央视,#genre#&#10;CCTV1,http://..." />
@@ -294,6 +308,7 @@ const authParamsExample = JSON.stringify({
 
 const defaultForm = () => ({
   name: '', description: '', type: 'network_url', url: '', content: '', cron_time: '',
+  network_headers: [],
   epg_enabled: false, status: true,
   iptv: {
     platform: 'huawei',
@@ -452,9 +467,21 @@ function showCreate() {
 function showEdit(row) {
   isEdit.value = true
   editId.value = row.id
+  
+  let network_headers = []
+  if (row.type === 'network_url' && row.headers) {
+    try {
+      const parsedHeaders = JSON.parse(row.headers)
+      for (const [k, v] of Object.entries(parsedHeaders)) {
+        network_headers.push({ name: k, value: v })
+      }
+    } catch {}
+  }
+  
   const iptvParsed = row.type === 'iptv' ? parseIptvConfig(row.iptv_config) : defaultForm().iptv
   Object.assign(form, {
     name: row.name, description: row.description || '', type: row.type, url: row.url, content: row.content,
+    network_headers,
     cron_time: row.cron_time, status: row.status,
     iptv: iptvParsed,
   })
@@ -464,16 +491,31 @@ function showEdit(row) {
 async function handleSubmit() {
   await formRef.value.validate()
   submitting.value = true
+  
+  // Build headers for network_url
+  let headersJson = null
+  if (form.type === 'network_url' && form.network_headers && form.network_headers.length > 0) {
+    const hdrs = {}
+    for (const h of form.network_headers) {
+      if (h.name && h.name.trim()) {
+        hdrs[h.name.trim()] = h.value || ''
+      }
+    }
+    if (Object.keys(hdrs).length > 0) {
+      headersJson = hdrs
+    }
+  }
+  
   try {
     if (isEdit.value) {
-      const body = { name: form.name, description: form.description, url: form.url, content: form.content, cron_time: form.cron_time, status: form.status }
+      const body = { name: form.name, description: form.description, url: form.url, content: form.content, headers: headersJson, cron_time: form.cron_time, status: form.status }
       if (form.type === 'iptv') {
         body.iptv_config = buildIptvConfig()
       }
       await api.put(`/live-sources/${editId.value}`, body)
       ElMessage.success('更新成功')
     } else {
-      const body = { name: form.name, description: form.description, type: form.type, url: form.url, content: form.content, cron_time: form.cron_time, epg_enabled: form.epg_enabled }
+      const body = { name: form.name, description: form.description, type: form.type, url: form.url, content: form.content, headers: headersJson, cron_time: form.cron_time, epg_enabled: form.epg_enabled }
       if (form.type === 'iptv') {
         body.iptv_config = buildIptvConfig()
       }

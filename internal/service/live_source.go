@@ -49,7 +49,7 @@ func (s *LiveSourceService) FetchAndUpdate(sourceID uint) error {
 	case model.LiveSourceTypeIPTV:
 		channels, fetchErr = s.fetchIPTV(source)
 	case model.LiveSourceTypeNetworkURL:
-		channels, fetchErr = s.fetchNetworkURL(source.URL)
+		channels, fetchErr = s.fetchNetworkURL(source.URL, source.Headers)
 	case model.LiveSourceTypeNetworkManual:
 		channels, fetchErr = s.parseManualContent(source.Content)
 	default:
@@ -83,8 +83,8 @@ func (s *LiveSourceService) FetchAndUpdate(sourceID uint) error {
 
 // ValidateNetworkURL validates a URL by fetching it and checking if the content is valid M3U or TXT format.
 // Returns the detected format ("m3u" or "txt") and any error.
-func (s *LiveSourceService) ValidateNetworkURL(sourceURL string) (string, error) {
-	content, err := s.fetchURLContent(sourceURL)
+func (s *LiveSourceService) ValidateNetworkURL(sourceURL string, headersJSON string) (string, error) {
+	content, err := s.fetchURLContent(sourceURL, headersJSON)
 	if err != nil {
 		return "", err
 	}
@@ -188,8 +188,8 @@ func createIPTVClient(config *iptv.Config) (iptv.Client, error) {
 	}
 }
 
-func (s *LiveSourceService) fetchNetworkURL(sourceURL string) ([]m3u.Channel, error) {
-	content, err := s.fetchURLContent(sourceURL)
+func (s *LiveSourceService) fetchNetworkURL(sourceURL string, headersJSON string) ([]m3u.Channel, error) {
+	content, err := s.fetchURLContent(sourceURL, headersJSON)
 	if err != nil {
 		return nil, err
 	}
@@ -197,13 +197,24 @@ func (s *LiveSourceService) fetchNetworkURL(sourceURL string) ([]m3u.Channel, er
 }
 
 // fetchURLContent fetches URL content with a proper timeout to prevent goroutine leaks
-func (s *LiveSourceService) fetchURLContent(sourceURL string) (string, error) {
+func (s *LiveSourceService) fetchURLContent(sourceURL string, headersJSON string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, sourceURL, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to create request for %s: %w", sourceURL, err)
+	}
+
+	if headersJSON != "" {
+		var headers map[string]string
+		if err := json.Unmarshal([]byte(headersJSON), &headers); err == nil {
+			for k, v := range headers {
+				req.Header.Set(k, v)
+			}
+		} else {
+			slog.Warn("Failed to parse custom headers for network URL", "url", sourceURL, "error", err)
+		}
 	}
 
 	resp, err := http.DefaultClient.Do(req)

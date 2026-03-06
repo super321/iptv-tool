@@ -31,6 +31,7 @@ type LiveSource struct {
 	URL           string         `json:"url"`                  // For network_url
 	Content       string         `json:"content"`              // For network_manual
 	CronTime      string         `json:"cron_time"`            // 1h, 2h, 4h, 6h, 12h, 24h
+	Headers       string         `json:"headers"`              // JSON string for network_url custom headers
 	Status        bool           `gorm:"default:true" json:"status"`
 	IsSyncing     bool           `gorm:"default:false" json:"is_syncing"`
 	IPTVConfig    string         `gorm:"column:iptv_config" json:"iptv_config"` // JSON string for IPTV specific configs (platform, credentials)

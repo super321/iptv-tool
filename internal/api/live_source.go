@@ -81,6 +81,7 @@ type CreateLiveSourceRequest struct {
 	Type        model.LiveSourceType `json:"type" binding:"required"`
 	URL         string               `json:"url"`
 	Content     string               `json:"content"`
+	Headers     json.RawMessage      `json:"headers"`
 	CronTime    string               `json:"cron_time"`
 	IPTVConfig  json.RawMessage      `json:"iptv_config"`
 	EPGEnabled  bool                 `json:"epg_enabled"` // Whether to auto-create EPG source
@@ -122,7 +123,7 @@ func (lc *LiveSourceController) Create(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "网络链接类型需要提供URL"})
 			return
 		}
-		if _, err := lc.liveService.ValidateNetworkURL(req.URL); err != nil {
+		if _, err := lc.liveService.ValidateNetworkURL(req.URL, string(req.Headers)); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
@@ -148,6 +149,7 @@ func (lc *LiveSourceController) Create(c *gin.Context) {
 		Type:        req.Type,
 		URL:         req.URL,
 		Content:     req.Content,
+		Headers:     string(req.Headers),
 		CronTime:    req.CronTime,
 		Status:      true,
 		IsSyncing:   true,
@@ -207,6 +209,7 @@ type UpdateLiveSourceRequest struct {
 	Description *string          `json:"description"`
 	URL         *string          `json:"url"`
 	Content     *string          `json:"content"`
+	Headers     *json.RawMessage `json:"headers"`
 	CronTime    *string          `json:"cron_time"`
 	Status      *bool            `json:"status"`
 	IPTVConfig  *json.RawMessage `json:"iptv_config"`
@@ -252,6 +255,9 @@ func (lc *LiveSourceController) Update(c *gin.Context) {
 	}
 	if req.Content != nil {
 		updates["content"] = *req.Content
+	}
+	if req.Headers != nil {
+		updates["headers"] = string(*req.Headers)
 	}
 	if req.Status != nil {
 		updates["status"] = *req.Status
