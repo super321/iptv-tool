@@ -1,110 +1,80 @@
 # AGENTS.md
 
-This file provides guidance for AI coding agents working in the `iptv-tool-v2` repository.
+Guidance for AI coding agents working in the `iptv-tool-v2` repository.
 
 ## Project Overview
 
-IPTV management tool with a Go backend (Gin + GORM + SQLite) and an embedded Vue 3 frontend (Element Plus + Vite). The server aggregates live TV channel sources, fetches EPG data, and publishes subscriptions in M3U/TXT/XMLTV formats. The Vue SPA is embedded into the Go binary at build time.
+IPTV management tool with a Go 1.25+ backend (Gin + GORM + SQLite) and an embedded Vue 3 frontend (Element Plus + Vite). The server aggregates live TV channel sources, fetches EPG data, and publishes subscriptions in M3U/TXT/XMLTV formats. The Vue SPA is embedded into the Go binary at build time via `//go:embed` in `web/embed.go`.
 
 ## Repository Structure
 
 ```
-cmd/iptv-server/main.go    # Application entrypoint (CLI flags, init, server start)
+cmd/iptv-server/main.go    # Entrypoint (CLI flags, init order, server start)
 internal/
-  api/                      # Gin HTTP handlers (controllers), router setup
-  iptv/                     # IPTV platform client abstractions (Huawei, ZTE)
-  model/                    # GORM models and DB initialization (global model.DB)
+  api/                      # Gin HTTP handlers, router setup, rate limiting
+  iptv/                     # IPTV platform client abstractions (Huawei; ZTE is empty placeholder)
+  model/                    # GORM models (models.go) and DB init (db.go); global model.DB
   publish/                  # Aggregation engine and /sub/ endpoint handlers
-  service/                  # Business logic layer
+  service/                  # Business logic (user, live_source, epg_source, detect)
   task/                     # Cron scheduler (robfig/cron)
 pkg/
-  auth/                     # JWT generation, parsing, Gin middleware
+  auth/                     # JWT generation/parsing, RSA key management, Gin middleware
   epg/                      # XMLTV parsing and generation
+  logger/                   # slog setup with lumberjack log rotation
   m3u/                      # M3U and TXT/DIYP parsing and generation
   utils/                    # 3DES crypto, brute-force cracker
-web/                        # Vue 3 frontend (embedded via Go embed)
+web/                        # Vue 3 frontend (JS, not TypeScript)
   src/                      # Vue source (views, components, stores, api, router)
   dist/                     # Built frontend output (committed, embedded into binary)
 ```
 
 ## Build Commands
 
-### Go Backend
-
 ```bash
-# Build
+# Go backend
 go build -o bin/iptv-server ./cmd/iptv-server
-
-# Run directly
 go run ./cmd/iptv-server
-
-# Vet / static analysis
 go vet ./...
-
-# Format
-go fmt ./...
-
-# Tidy dependencies
+go fmt ./...          # Run before committing
 go mod tidy
-```
 
-### Vue Frontend (run from web/ directory)
-
-```bash
+# Vue frontend (run from web/ directory)
 npm install           # Install dependencies
 npm run dev           # Vite dev server (proxies /api, /sub, /logo to localhost:8080)
 npm run build         # Production build to web/dist/
-npm run preview       # Preview production build
 ```
 
 ## Test Commands
 
 ```bash
-# Run all tests
-go test ./...
-
-# Run tests in a specific package
-go test ./pkg/m3u/
-go test ./internal/service/
-
-# Run a single test by name (regex match)
-go test -run TestParseM3U ./pkg/m3u/
-
-# Run a specific sub-test
-go test -v -run "TestParseM3U/empty_input" ./pkg/m3u/
-
-# Verbose output
-go test -v ./...
-
-# With race detection
-go test -race ./...
-
-# With coverage
-go test -cover ./...
-go test -coverprofile=coverage.out ./...
+go test ./...                                     # All tests
+go test ./pkg/m3u/                                # Single package
+go test -run TestParseM3U ./pkg/m3u/              # Single test (regex match)
+go test -v -run "TestParseM3U/empty_input" ./pkg/m3u/  # Single sub-test
+go test -race ./...                               # With race detection
+go test -coverprofile=coverage.out ./...          # With coverage
 ```
 
-Note: Go tests by package, not by file. Use `-run` with a regex to target specific test functions.
+Go tests by package, not by file. Use `-run` with a regex to target specific test functions. Note: no test files currently exist in the codebase -- these commands show the correct syntax for when tests are added.
 
 ## Code Style Guidelines
 
 ### Formatting
 
-Use standard `gofmt` (tabs for indentation). No additional linters or formatters are configured. Run `go fmt ./...` before committing.
+Standard `gofmt` (tabs). No additional linters are configured.
 
 ### Import Ordering
 
-Three groups separated by blank lines:
+Three groups separated by blank lines (omit empty groups):
 1. Standard library
 2. Third-party packages
-3. Internal project packages (`iptv-tool-v2/...`)
+3. Internal packages (`iptv-tool-v2/...`)
 
 ```go
 import (
     "context"
     "fmt"
     "net/http"
-    "time"
 
     "github.com/gin-gonic/gin"
     "gorm.io/gorm"
@@ -114,19 +84,18 @@ import (
 )
 ```
 
-When there are no third-party imports, use two groups (stdlib + internal).
+Use package aliases to disambiguate: `epgpkg "iptv-tool-v2/pkg/epg"`.
 
 ### Naming Conventions
 
 - **Packages:** lowercase, single word (`api`, `model`, `service`, `auth`, `m3u`)
 - **Types/Structs:** PascalCase (`LiveSourceController`, `HTTPClient`, `TripleDESCrypto`)
-- **Constants:** PascalCase with type prefix (`LiveSourceTypeIPTV`, `PublishFormatM3U`, `RuleTypeAlias`, `MatchModeRegex`)
+- **Constants:** PascalCase with type prefix (`LiveSourceTypeIPTV`, `PublishFormatM3U`, `RuleTypeAlias`)
 - **Errors:** package-level `var` with `Err` prefix (`ErrUserExists`, `ErrInvalidPassword`, `ErrNoToken`)
-- **Constructors:** `NewXxx()` pattern (`NewLiveSourceController()`, `NewHTTPClient()`)
-- **Methods:** PascalCase exported, camelCase unexported (`FetchAndUpdate`, `fetchIPTV`)
+- **Constructors:** `NewXxx()` (`NewLiveSourceController()`, `NewHTTPClient()`)
 - **Request DTOs:** suffixed with `Request` (`CreateLiveSourceRequest`, `LoginRequest`)
 - **JSON tags:** snake_case (`json:"source_id"`, `json:"cron_time"`)
-- **GORM tags:** include column/index directives (`gorm:"primarykey"`, `gorm:"uniqueIndex;not null"`)
+- **GORM tags:** `gorm:"primarykey"`, `gorm:"uniqueIndex;not null"`, `gorm:"default:true"`
 - **Binding tags:** Gin validation (`binding:"required,min=3"`)
 
 ### Types
@@ -140,50 +109,38 @@ When there are no third-party imports, use two groups (stdlib + internal).
 
 ### Error Handling
 
-1. **Sentinel errors** at package level:
-   ```go
-   var ErrUserExists = errors.New("user already exists")
-   ```
+1. **Sentinel errors** at package level: `var ErrUserExists = errors.New("user already exists")`
+2. **Wrapped errors** with `%w`: `return nil, fmt.Errorf("failed to fetch channels: %w", err)`
+3. **API responses**: `c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})`
+4. **Status by error type**: map sentinel errors to HTTP status codes (e.g., `ErrUserExists` -> 409)
+5. **Middleware abort**: always `c.Abort()` + `return` after unauthorized responses
+6. **Context timeouts**: `context.WithTimeout` for external calls (30s network, 5-10min IPTV/EPG)
+7. **Fatal at startup only**: `logger.Fatalf` (custom wrapper: `slog.Error` + `os.Exit(1)`)
 
-2. **Wrapped errors** with `fmt.Errorf` and `%w`:
-   ```go
-   return nil, fmt.Errorf("failed to fetch channels: %w", err)
-   ```
+### Logging
 
-3. **API error responses** via Gin:
-   ```go
-   c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-   ```
+Uses `log/slog` (Go structured logging) exclusively. Initialized in `pkg/logger` with dual output (stdout + rotated file via lumberjack). Use structured key-value pairs:
 
-4. **Status selection by error type**:
-   ```go
-   status := http.StatusInternalServerError
-   if err == service.ErrUserExists {
-       status = http.StatusConflict
-   }
-   c.JSON(status, gin.H{"error": err.Error()})
-   ```
-
-5. **Middleware abort pattern**: always call `c.Abort()` + `return` after unauthorized responses.
-
-6. **Context timeouts**: use `context.WithTimeout` for external calls (30s-5min).
-
-7. **Fatal at startup only**: `log.Fatalf` for unrecoverable init errors (DB, scheduler).
-
-### Architectural Patterns
-
-- **Global DB**: `model.DB` (GORM instance), accessed directly from controllers and services
-- **Auto-migration**: all models auto-migrated at startup in `model.InitDB()`
-- **Strategy pattern**: `EPGFetchStrategy` interface for platform-specific EPG fetching
-- **Factory pattern**: `createIPTVClient()` for IPTV platform instantiation
-- **init() registration**: platform implementations register via blank imports (`_ "iptv-tool-v2/internal/iptv/huawei"`)
-- **Worker pool concurrency**: `sync.WaitGroup` + channels (see `pkg/utils/crack.go`)
-- **Rate limiting**: buffered channel as semaphore (`internal/iptv/http.go`)
-- **Batch DB inserts**: `CreateInBatches(records, 100)`
+```go
+slog.Info("fetched channels", "source_id", id, "count", len(channels))
+slog.Error("failed to sync", "error", err)
+```
 
 ### Localization
 
-Some user-facing error messages and comments are in Chinese (Simplified). Maintain this convention for UI-facing strings (e.g., `"该名称已存在"`). System/API messages use English.
+User-facing error messages and UI strings are in Chinese (Simplified). Maintain this convention (e.g., `"该名称已存在"`, `"用户名或密码错误"`). Internal/system log messages use English.
+
+## Architectural Patterns
+
+- **Global DB**: `model.DB` accessed directly from controllers and services (no DI)
+- **Auto-migration**: all models migrated at startup in `model.InitDB()`
+- **Strategy pattern**: `EPGFetchStrategy` interface for platform-specific EPG fetching
+- **init() registration**: EPG strategies register in `init()`, triggered via blank import in main.go (`_ "iptv-tool-v2/internal/iptv/huawei"`)
+- **Factory pattern**: `createIPTVClient()` for IPTV platform instantiation
+- **Worker pool**: `sync.WaitGroup` + channels for concurrent operations (crack, detect)
+- **Rate limiting**: buffered channel as semaphore (`internal/iptv/http.go`); sliding-window IP rate limiter on login (`internal/api/ratelimit.go`)
+- **Batch DB inserts**: `CreateInBatches(records, 100)` for channels, 200 for EPG programs
+- **Security**: RSA-OAEP password encryption (frontend encrypts, backend decrypts); CAPTCHA after 3 failed login attempts (`base64Captcha`); per-IP rate limiting on login
 
 ## Key Dependencies
 
@@ -193,5 +150,7 @@ Some user-facing error messages and comments are in Chinese (Simplified). Mainta
 | `gorm.io/gorm` + `github.com/glebarez/sqlite` | ORM + pure-Go SQLite |
 | `github.com/golang-jwt/jwt/v5` | JWT auth |
 | `github.com/robfig/cron/v3` | Cron scheduler |
+| `github.com/mojocn/base64Captcha` | Login CAPTCHA generation |
 | `golang.org/x/crypto` | bcrypt password hashing |
-| `vue` 3 + `element-plus` + `pinia` + `axios` | Frontend stack |
+| `gopkg.in/natefinch/lumberjack.v2` | Log file rotation |
+| `vue` 3 + `element-plus` + `pinia` + `axios` | Frontend stack (JS, hash routing) |
