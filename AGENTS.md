@@ -40,7 +40,7 @@ go mod tidy
 
 # Vue frontend (run from web/ directory)
 npm install           # Install dependencies
-npm run dev           # Vite dev server (proxies /api, /sub, /logo to localhost:8080)
+npm run dev           # Vite dev server (proxies /api, /sub, /logo to localhost:8023)
 npm run build         # Production build to web/dist/
 ```
 

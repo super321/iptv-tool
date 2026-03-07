@@ -28,7 +28,7 @@ func main() {
 	exeDir := filepath.Dir(exePath)
 
 	// Command-line flags
-	addr := flag.String("addr", ":8080", "HTTP listen address (e.g., :8080 or 0.0.0.0:9090)")
+	addr := flag.String("addr", ":8023", "HTTP listen address (e.g., :8023 or 0.0.0.0:9090)")
 	dataDirFlag := flag.String("data", "data", "Directory for data storage including db and logos (relative to executable by default)")
 	logDirFlag := flag.String("log-dir", "logs", "Directory for log files (relative to executable by default)")
 	jwtSecret := flag.String("jwt-secret", "", "JWT secret (auto-generated if empty)")

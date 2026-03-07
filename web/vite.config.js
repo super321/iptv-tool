@@ -5,9 +5,9 @@ export default defineConfig({
   plugins: [vue()],
   server: {
     proxy: {
-      '/api': 'http://localhost:8080',
-      '/sub': 'http://localhost:8080',
-      '/logo': 'http://localhost:8080',
+      '/api': 'http://localhost:8023',
+      '/sub': 'http://localhost:8023',
+      '/logo': 'http://localhost:8023',
     }
   },
   build: {
