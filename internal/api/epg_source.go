@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -12,6 +13,7 @@ import (
 
 	"iptv-tool-v2/internal/model"
 	"iptv-tool-v2/internal/task"
+	"iptv-tool-v2/pkg/utils"
 )
 
 // EPGSourceController handles CRUD operations for EPG sources
@@ -400,12 +402,18 @@ func (ec *EPGSourceController) GetChannels(c *gin.Context) {
 		Select("channel, MAX(channel_name) as channel_name, COUNT(*) as count").
 		Where("source_id = ?", uint(id)).
 		Group("channel").
-		Order("channel asc").
 		Find(&channels).Error; err != nil {
 		slog.Error("Internal server error", "error", err, "path", c.Request.URL.Path)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	sort.Slice(channels, func(i, j int) bool {
+		if channels[i].ChannelName == channels[j].ChannelName {
+			return utils.NaturalLess(channels[i].Channel, channels[j].Channel)
+		}
+		return utils.NaturalLess(channels[i].ChannelName, channels[j].ChannelName)
+	})
 
 	c.JSON(http.StatusOK, gin.H{
 		"total":    len(channels),

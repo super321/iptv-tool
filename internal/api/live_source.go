@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"iptv-tool-v2/internal/model"
 	"iptv-tool-v2/internal/service"
 	"iptv-tool-v2/internal/task"
+	"iptv-tool-v2/pkg/utils"
 )
 
 // LiveSourceController handles CRUD operations for live sources
@@ -504,6 +506,13 @@ func (lc *LiveSourceController) GetChannels(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	sort.Slice(channels, func(i, j int) bool {
+		if channels[i].Name == channels[j].Name {
+			return utils.NaturalLess(channels[i].TVGId, channels[j].TVGId)
+		}
+		return utils.NaturalLess(channels[i].Name, channels[j].Name)
+	})
 	c.JSON(http.StatusOK, gin.H{
 		"total":    len(channels),
 		"channels": channels,
