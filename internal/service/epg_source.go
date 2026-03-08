@@ -46,7 +46,15 @@ func (s *EPGSourceService) FetchAndUpdate(sourceID uint) error {
 	case model.EPGSourceTypeNetworkXMLTV:
 		programs, fetchErr = s.fetchNetworkXMLTV(source.URL)
 	case model.EPGSourceTypeIPTV:
-		programs, fetchErr = s.fetchIPTVEPG(source)
+		// Wait for associated live source to finish syncing to avoid auth token conflicts
+		if source.LiveSourceID != nil {
+			if err := s.WaitForLiveSourceSyncComplete(*source.LiveSourceID, 10*time.Minute); err != nil {
+				fetchErr = err
+			}
+		}
+		if fetchErr == nil {
+			programs, fetchErr = s.fetchIPTVEPG(source)
+		}
 	default:
 		fetchErr = fmt.Errorf("unsupported EPG source type: %s", source.Type)
 	}
@@ -85,9 +93,6 @@ func (s *EPGSourceService) fetchNetworkXMLTV(url string) ([]epgpkg.Program, erro
 }
 
 func (s *EPGSourceService) fetchIPTVEPG(source model.EPGSource) ([]epgpkg.Program, error) {
-	// 防并发冲突保护：延迟 30 秒执行，避免与 LiveSource 在同一秒内并发登录华为服务器导致 Token 互相踢下线
-	time.Sleep(30 * time.Second)
-
 	var config iptv.Config
 	if err := json.Unmarshal([]byte(source.IPTVConfig), &config); err != nil {
 		return nil, fmt.Errorf("failed to parse IPTV EPG config: %w", err)
@@ -172,4 +177,27 @@ func (s *EPGSourceService) saveParsedEPG(sourceID uint, programs []epgpkg.Progra
 	}
 
 	return nil
+}
+
+// WaitForLiveSourceSyncComplete polls the associated live source's is_syncing status
+// until it becomes false or maxWait duration is reached.
+func (s *EPGSourceService) WaitForLiveSourceSyncComplete(sourceID uint, maxWait time.Duration) error {
+	deadline := time.Now().Add(maxWait)
+	ticker := time.NewTicker(3 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		var lSource model.LiveSource
+		if err := model.DB.First(&lSource, sourceID).Error; err != nil {
+			// If not found, skip wait
+			return nil
+		}
+		if !lSource.IsSyncing {
+			return nil
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("等待关联的首发直播源刷新完成超时（超过 %v）", maxWait)
+		}
+		<-ticker.C
+	}
 }

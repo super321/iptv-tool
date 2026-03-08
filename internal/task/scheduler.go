@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+	"time"
 
 	"github.com/robfig/cron/v3"
 
@@ -11,15 +12,40 @@ import (
 	"iptv-tool-v2/internal/service"
 )
 
-// CronTimeMap maps the UI dropdown values to actual cron expressions.
-// Minimum interval is 1 hour to avoid excessive requests to upstream servers.
-var CronTimeMap = map[string]string{
-	"1h":  "0 * * * *",    // Every hour at minute 0
-	"2h":  "0 */2 * * *",  // Every 2 hours
-	"4h":  "0 */4 * * *",  // Every 4 hours
-	"6h":  "0 */6 * * *",  // Every 6 hours
-	"12h": "0 */12 * * *", // Every 12 hours
-	"24h": "0 0 * * *",    // Every day at midnight
+// validCronTimes is the set of valid user-facing interval keys.
+var validCronTimes = map[string]bool{
+	"1h": true, "2h": true, "4h": true,
+	"6h": true, "12h": true, "24h": true,
+}
+
+// BuildCronExpr generates a cron expression for the given interval key based on
+// the current time, so that tasks are spread across the clock instead of all
+// firing at the top of every hour.
+//
+// Examples (assuming current time is 16:19):
+//
+//	"1h"  -> "19 * * * *"       (every hour at minute 19)
+//	"2h"  -> "19 */2 * * *"     (every 2 hours at minute 19)
+//	"24h" -> "19 16 * * *"      (every day at 16:19)
+func BuildCronExpr(cronTime string) (string, error) {
+	if !validCronTimes[cronTime] {
+		return "", fmt.Errorf("invalid cron time: %s", cronTime)
+	}
+
+	now := time.Now()
+	minute := now.Minute()
+	hour := now.Hour()
+
+	switch cronTime {
+	case "1h":
+		return fmt.Sprintf("%d * * * *", minute), nil
+	case "24h":
+		return fmt.Sprintf("%d %d * * *", minute, hour), nil
+	default:
+		// 2h, 4h, 6h, 12h — extract the number portion
+		intervalStr := cronTime[:len(cronTime)-1] // strip trailing "h"
+		return fmt.Sprintf("%d */%s * * *", minute, intervalStr), nil
+	}
 }
 
 // CronTimeOptions returns the available options for the frontend dropdown
@@ -131,9 +157,9 @@ func (s *Scheduler) AddLiveSourceTask(sourceID uint, cronTime string) error {
 		delete(s.liveEntries, sourceID)
 	}
 
-	cronExpr, ok := CronTimeMap[cronTime]
-	if !ok {
-		return fmt.Errorf("invalid cron time: %s", cronTime)
+	cronExpr, err := BuildCronExpr(cronTime)
+	if err != nil {
+		return err
 	}
 
 	id := sourceID // Capture for closure
@@ -175,9 +201,9 @@ func (s *Scheduler) AddEPGSourceTask(sourceID uint, cronTime string) error {
 		delete(s.epgEntries, sourceID)
 	}
 
-	cronExpr, ok := CronTimeMap[cronTime]
-	if !ok {
-		return fmt.Errorf("invalid cron time: %s", cronTime)
+	cronExpr, err := BuildCronExpr(cronTime)
+	if err != nil {
+		return err
 	}
 
 	id := sourceID // Capture for closure
@@ -239,9 +265,9 @@ func (s *Scheduler) AddDetectTask(sourceID uint, cronTime string) error {
 		delete(s.detectEntries, sourceID)
 	}
 
-	cronExpr, ok := CronTimeMap[cronTime]
-	if !ok {
-		return fmt.Errorf("invalid cron time: %s", cronTime)
+	cronExpr, err := BuildCronExpr(cronTime)
+	if err != nil {
+		return err
 	}
 
 	id := sourceID // Capture for closure
@@ -290,6 +316,5 @@ func (s *Scheduler) TriggerDetectNow(sourceID uint) {
 
 // ValidateCronTime checks if a cronTime value is valid
 func ValidateCronTime(cronTime string) bool {
-	_, ok := CronTimeMap[cronTime]
-	return ok
+	return validCronTimes[cronTime]
 }
