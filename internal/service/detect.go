@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os/exec"
@@ -16,11 +17,11 @@ import (
 )
 
 const (
-	DefaultDetectConcurrency = 3
+	DefaultDetectConcurrency = 10
 	DefaultDetectTimeout     = 5
 )
 
-// DetectService handles channel latency detection using ffmpeg
+// DetectService handles channel detection using ffprobe
 type DetectService struct {
 	dataDir string
 }
@@ -29,25 +30,25 @@ func NewDetectService(dataDir string) *DetectService {
 	return &DetectService{dataDir: dataDir}
 }
 
-// GetFFmpegPath returns the path to the ffmpeg executable, or error if not found
-func (s *DetectService) GetFFmpegPath() (string, error) {
-	name := "ffmpeg"
+// GetFFprobePath returns the path to the ffprobe executable, or error if not found
+func (s *DetectService) GetFFprobePath() (string, error) {
+	name := "ffprobe"
 	if runtime.GOOS == "windows" {
-		name = "ffmpeg.exe"
+		name = "ffprobe.exe"
 	}
-	ffmpegPath := filepath.Join(s.dataDir, "detect", name)
+	ffprobePath := filepath.Join(s.dataDir, "detect", name)
 
-	// Check existence by trying to stat
-	cmd := exec.Command(ffmpegPath, "-version")
+	// Check existence by trying to run
+	cmd := exec.Command(ffprobePath, "-version")
 	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("ffmpeg 可执行文件未找到或无法运行: %w", err)
+		return "", fmt.Errorf("ffprobe 可执行文件未找到或无法运行: %w", err)
 	}
-	return ffmpegPath, nil
+	return ffprobePath, nil
 }
 
-// GetFFmpegVersion returns the version string of the installed ffmpeg
-func (s *DetectService) GetFFmpegVersion() (string, error) {
-	ffmpegPath, err := s.GetFFmpegPath()
+// GetFFprobeVersion returns the version string of the installed ffprobe
+func (s *DetectService) GetFFprobeVersion() (string, error) {
+	ffprobePath, err := s.GetFFprobePath()
 	if err != nil {
 		return "", err
 	}
@@ -55,13 +56,13 @@ func (s *DetectService) GetFFmpegVersion() (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, ffmpegPath, "-version")
+	cmd := exec.CommandContext(ctx, ffprobePath, "-version")
 	output, err := cmd.Output()
 	if err != nil {
-		return "", fmt.Errorf("获取 ffmpeg 版本失败: %w", err)
+		return "", fmt.Errorf("获取 ffprobe 版本失败: %w", err)
 	}
 
-	// Parse first line: "ffmpeg version N-xxxxx-gxxxxxxx Copyright ..."
+	// Parse first line: "ffprobe version N-xxxxx-gxxxxxxx Copyright ..."
 	lines := strings.Split(string(output), "\n")
 	if len(lines) > 0 {
 		return strings.TrimSpace(lines[0]), nil
@@ -80,7 +81,7 @@ func (s *DetectService) getDetectConfig() (concurrency int, timeout int) {
 	for _, setting := range settings {
 		switch setting.Key {
 		case "detect_concurrency":
-			if v, err := strconv.Atoi(setting.Value); err == nil && v >= 1 && v <= 10 {
+			if v, err := strconv.Atoi(setting.Value); err == nil && v >= 1 && v <= 30 {
 				concurrency = v
 			}
 		case "detect_timeout":
@@ -92,7 +93,7 @@ func (s *DetectService) getDetectConfig() (concurrency int, timeout int) {
 	return
 }
 
-// DetectChannels performs latency detection on all parsed channels for a given source.
+// DetectChannels performs detection on all parsed channels for a given source.
 // manual=true: fails immediately if the source is syncing.
 // manual=false: waits for syncing to finish (up to 10 minutes) before starting detection.
 func (s *DetectService) DetectChannels(sourceID uint, manual bool) error {
@@ -122,8 +123,8 @@ func (s *DetectService) DetectChannels(sourceID uint, manual bool) error {
 		}
 	}
 
-	// Get ffmpeg path
-	ffmpegPath, err := s.GetFFmpegPath()
+	// Get ffprobe path
+	ffprobePath, err := s.GetFFprobePath()
 	if err != nil {
 		return err
 	}
@@ -134,10 +135,12 @@ func (s *DetectService) DetectChannels(sourceID uint, manual bool) error {
 		model.DB.Model(&model.LiveSource{}).Where("id = ?", sourceID).Update("is_detecting", false)
 	}()
 
-	// Reset latency and detected_at for all channels in this source before detecting
+	// Reset latency, video_codec, video_resolution, and detected_at for all channels in this source before detecting
 	model.DB.Model(&model.ParsedChannel{}).Where("source_id = ?", sourceID).Updates(map[string]interface{}{
-		"latency":     nil,
-		"detected_at": nil,
+		"latency":          nil,
+		"detected_at":      nil,
+		"video_codec":      nil,
+		"video_resolution": nil,
 	})
 
 	// Load channels
@@ -176,7 +179,7 @@ func (s *DetectService) DetectChannels(sourceID uint, manual bool) error {
 				testURL = strings.TrimSpace(testURL[:idx])
 			}
 
-			latency, detectErr := s.detectSingleChannel(ffmpegPath, testURL, timeout)
+			latency, codec, resolution, detectErr := s.detectSingleChannel(ffprobePath, testURL, timeout)
 			now := time.Now()
 
 			if detectErr != nil {
@@ -185,13 +188,21 @@ func (s *DetectService) DetectChannels(sourceID uint, manual bool) error {
 				ch.Latency = &timeoutVal
 			} else {
 				ch.Latency = &latency
+				if codec != "" {
+					ch.VideoCodec = &codec
+				}
+				if resolution != "" {
+					ch.VideoResolution = &resolution
+				}
 			}
 			ch.DetectedAt = &now
 
 			// Update single channel result in DB
 			model.DB.Model(&model.ParsedChannel{}).Where("id = ?", ch.ID).Updates(map[string]interface{}{
-				"latency":     ch.Latency,
-				"detected_at": ch.DetectedAt,
+				"latency":          ch.Latency,
+				"detected_at":      ch.DetectedAt,
+				"video_codec":      ch.VideoCodec,
+				"video_resolution": ch.VideoResolution,
 			})
 		}(&channels[i])
 	}
@@ -202,32 +213,66 @@ func (s *DetectService) DetectChannels(sourceID uint, manual bool) error {
 	return nil
 }
 
-// detectSingleChannel runs ffmpeg to probe a single URL and returns the latency in milliseconds
-func (s *DetectService) detectSingleChannel(ffmpegPath string, url string, timeoutSec int) (int, error) {
+// ffprobeResult represents the JSON output from ffprobe -show_streams
+type ffprobeResult struct {
+	Streams []ffprobeStream `json:"streams"`
+}
+
+type ffprobeStream struct {
+	CodecType string `json:"codec_type"` // "video", "audio"
+	CodecName string `json:"codec_name"` // "h264", "hevc", etc.
+	Width     int    `json:"width"`
+	Height    int    `json:"height"`
+}
+
+// detectSingleChannel runs ffprobe to probe a single URL and returns the latency, video codec, and resolution
+func (s *DetectService) detectSingleChannel(ffprobePath string, url string, timeoutSec int) (latency int, codec string, resolution string, err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutSec)*time.Second)
 	defer cancel()
 
 	start := time.Now()
 
-	// ffmpeg -i <url> -t 1 -f null - : try to read 1 second of data and discard
-	cmd := exec.CommandContext(ctx, ffmpegPath, "-i", url, "-t", "1", "-f", "null", "-")
+	// ffprobe -v quiet -print_format json -show_streams -i <url>
+	cmd := exec.CommandContext(ctx, ffprobePath,
+		"-v", "quiet",
+		"-print_format", "json",
+		"-show_streams",
+		"-i", url,
+	)
 
-	// Combine stdout and stderr (ffmpeg writes progress to stderr)
-	err := cmd.Run()
+	output, runErr := cmd.Output()
 
 	elapsed := time.Since(start)
 	latencyMs := int(elapsed.Milliseconds())
 
 	if ctx.Err() == context.DeadlineExceeded {
-		return 0, fmt.Errorf("timeout after %ds", timeoutSec)
+		return 0, "", "", fmt.Errorf("timeout after %ds", timeoutSec)
 	}
 
-	if err != nil {
-		// ffmpeg returned non-zero exit code — stream is unreachable or invalid
-		return 0, fmt.Errorf("ffmpeg error: %w", err)
+	if runErr != nil {
+		// ffprobe returned non-zero exit code — stream is unreachable or invalid
+		return 0, "", "", fmt.Errorf("ffprobe error: %w", runErr)
 	}
 
-	return latencyMs, nil
+	// Parse JSON output
+	var result ffprobeResult
+	if err := json.Unmarshal(output, &result); err != nil {
+		// ffprobe ran successfully but JSON parsing failed — still return latency
+		return latencyMs, "", "", nil
+	}
+
+	// Find the first video stream
+	for _, stream := range result.Streams {
+		if stream.CodecType == "video" {
+			codec = stream.CodecName
+			if stream.Width > 0 && stream.Height > 0 {
+				resolution = fmt.Sprintf("%dx%d", stream.Width, stream.Height)
+			}
+			break
+		}
+	}
+
+	return latencyMs, codec, resolution, nil
 }
 
 // waitForSyncComplete polls the source's is_syncing status until it becomes false

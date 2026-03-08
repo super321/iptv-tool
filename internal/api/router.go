@@ -89,7 +89,7 @@ func SetupRouter(scheduler *task.Scheduler, logoDir string, dataDir string, fron
 		settingsCtrl := NewSettingsController(dataDir)
 		authorized.GET("/settings/detect", settingsCtrl.GetDetectSettings)
 		authorized.PUT("/settings/detect", settingsCtrl.UpdateDetectSettings)
-		authorized.POST("/settings/detect/ffmpeg", settingsCtrl.UploadFFmpeg)
+		authorized.POST("/settings/detect/ffprobe", settingsCtrl.UploadFFprobe)
 
 		// Publish Interfaces
 		publishCtrl := NewPublishController(scheduler)

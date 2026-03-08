@@ -519,9 +519,9 @@ func (lc *LiveSourceController) TriggerDetect(c *gin.Context) {
 		return
 	}
 
-	// Check if ffmpeg is available before triggering detection
-	if err := lc.scheduler.CheckFFmpeg(); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "请先在系统设置中上传 ffmpeg 文件"})
+	// Check if ffprobe is available before triggering detection
+	if err := lc.scheduler.CheckFFprobe(); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "请先在系统设置中上传 ffprobe 文件"})
 		return
 	}
 

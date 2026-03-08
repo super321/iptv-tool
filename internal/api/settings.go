@@ -46,19 +46,19 @@ func (sc *SettingsController) GetDetectSettings(c *gin.Context) {
 		}
 	}
 
-	// Get ffmpeg version if available
-	ffmpegVersion := ""
-	if ver, err := sc.detectService.GetFFmpegVersion(); err == nil {
-		ffmpegVersion = ver
+	// Get ffprobe version if available
+	ffprobeVersion := ""
+	if ver, err := sc.detectService.GetFFprobeVersion(); err == nil {
+		ffprobeVersion = ver
 	}
 
 	concurrencyInt, _ := strconv.Atoi(concurrency)
 	timeoutInt, _ := strconv.Atoi(timeout)
 
 	c.JSON(http.StatusOK, gin.H{
-		"concurrency":    concurrencyInt,
-		"timeout":        timeoutInt,
-		"ffmpeg_version": ffmpegVersion,
+		"concurrency":     concurrencyInt,
+		"timeout":         timeoutInt,
+		"ffprobe_version": ffprobeVersion,
 	})
 }
 
@@ -75,8 +75,8 @@ func (sc *SettingsController) UpdateDetectSettings(c *gin.Context) {
 	}
 
 	if req.Concurrency != nil {
-		if *req.Concurrency < 1 || *req.Concurrency > 10 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "检测并发数范围为 1-10"})
+		if *req.Concurrency < 1 || *req.Concurrency > 30 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "检测并发数范围为 1-30"})
 			return
 		}
 		sc.upsertSetting("detect_concurrency", strconv.Itoa(*req.Concurrency))
@@ -93,9 +93,9 @@ func (sc *SettingsController) UpdateDetectSettings(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "检测配置已更新"})
 }
 
-// UploadFFmpeg handles ffmpeg executable file upload
-// POST /api/settings/detect/ffmpeg
-func (sc *SettingsController) UploadFFmpeg(c *gin.Context) {
+// UploadFFprobe handles ffprobe executable file upload
+// POST /api/settings/detect/ffprobe
+func (sc *SettingsController) UploadFFprobe(c *gin.Context) {
 	file, err := c.FormFile("file")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "请选择要上传的文件"})
@@ -103,9 +103,9 @@ func (sc *SettingsController) UploadFFmpeg(c *gin.Context) {
 	}
 
 	// Determine target filename
-	targetName := "ffmpeg"
+	targetName := "ffprobe"
 	if runtime.GOOS == "windows" {
-		targetName = "ffmpeg.exe"
+		targetName = "ffprobe.exe"
 	}
 
 	// Ensure detect directory exists
@@ -120,7 +120,7 @@ func (sc *SettingsController) UploadFFmpeg(c *gin.Context) {
 
 	// Save uploaded file
 	if err := c.SaveUploadedFile(file, targetPath); err != nil {
-		slog.Error("Failed to save ffmpeg file", "error", err)
+		slog.Error("Failed to save ffprobe file", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "保存文件失败"})
 		return
 	}
@@ -132,18 +132,18 @@ func (sc *SettingsController) UploadFFmpeg(c *gin.Context) {
 		}
 	}
 
-	// Verify the uploaded file is actually ffmpeg
-	version, err := sc.detectService.GetFFmpegVersion()
+	// Verify the uploaded file is actually ffprobe
+	version, err := sc.detectService.GetFFprobeVersion()
 	if err != nil {
 		// Remove invalid file
 		os.Remove(targetPath)
-		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("上传的文件不是有效的 ffmpeg 可执行文件: %s", err.Error())})
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("上传的文件不是有效的 ffprobe 可执行文件: %s", err.Error())})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message":        "ffmpeg 上传成功",
-		"ffmpeg_version": version,
+		"message":         "ffprobe 上传成功",
+		"ffprobe_version": version,
 	})
 }
 

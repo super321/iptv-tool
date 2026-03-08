@@ -179,7 +179,7 @@
             <el-option v-for="opt in cronOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
           </el-select>
           <div style="color: #909399; font-size: 12px; line-height: 1.4; margin-top: 4px">
-            使用 ffmpeg 定时检测频道延迟，需先在系统设置中上传 ffmpeg 文件
+            使用 ffprobe 定时检测频道延迟、编码和分辨率，需先在系统设置中上传 ffprobe 文件
           </div>
         </el-form-item>
 
@@ -240,14 +240,14 @@
     </el-dialog>
 
     <!-- Channels Dialog -->
-    <el-dialog v-model="channelsVisible" title="已解析频道列表" width="900px" destroy-on-close :close-on-click-modal="false">
+    <el-dialog v-model="channelsVisible" title="频道列表" width="1100px" destroy-on-close :close-on-click-modal="false">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px">
         <span style="color: #909399">共 {{ channels.length }} 个频道</span>
         <el-button type="warning" size="small" @click="triggerDetect" :loading="detectTriggering" :disabled="channelsDetecting">
           {{ channelsDetecting ? '检测中...' : '检测' }}
         </el-button>
       </div>
-      <el-table :data="channels" max-height="400" border stripe size="small">
+      <el-table :data="channels" max-height="400" border stripe size="small" style="user-select: text">
         <el-table-column prop="tvg_id" label="频道ID" width="120" show-overflow-tooltip />
         <el-table-column prop="name" label="频道名" width="130" />
         <el-table-column prop="group" label="分组" width="100" />
@@ -261,6 +261,24 @@
             <span v-else-if="row.latency < 500" style="color: #67c23a; font-weight: 600">{{ row.latency }}ms</span>
             <span v-else-if="row.latency < 1000" style="color: #409eff; font-weight: 600">{{ row.latency }}ms</span>
             <span v-else style="color: #e6a23c; font-weight: 600">{{ row.latency }}ms</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="视频编码" width="100" align="center">
+          <template #default="{ row }">
+            <span v-if="channelsDetecting && (row.video_codec === null || row.video_codec === undefined) && (row.latency === null || row.latency === undefined)">
+              <el-icon class="is-loading" :size="14"><Loading /></el-icon>
+            </span>
+            <span v-else-if="row.video_codec" style="font-weight: 600">{{ row.video_codec }}</span>
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="视频分辨率" width="110" align="center">
+          <template #default="{ row }">
+            <span v-if="channelsDetecting && (row.video_resolution === null || row.video_resolution === undefined) && (row.latency === null || row.latency === undefined)">
+              <el-icon class="is-loading" :size="14"><Loading /></el-icon>
+            </span>
+            <span v-else-if="row.video_resolution" style="font-weight: 600">{{ row.video_resolution }}</span>
+            <span v-else>-</span>
           </template>
         </el-table-column>
         <el-table-column label="地址" min-width="250">
@@ -620,7 +638,11 @@ async function triggerDetect() {
     channelsDetecting.value = true
     
     // Reset local channels state so UI immediately shows loading state
-    channels.value.forEach(ch => ch.latency = null)
+    channels.value.forEach(ch => {
+      ch.latency = null
+      ch.video_codec = null
+      ch.video_resolution = null
+    })
     
     startDetectPolling()
     await loadSources(false)

@@ -148,18 +148,20 @@ type AggregationRule struct {
 
 // ParsedChannel represents a channel parsed from any source
 type ParsedChannel struct {
-	ID          uint       `gorm:"primarykey" json:"id"`
-	SourceID    uint       `gorm:"index" json:"source_id"`
-	TVGId       string     `json:"tvg_id"`
-	TVGName     string     `json:"tvg_name"`
-	Name        string     `gorm:"index" json:"name"`
-	Group       string     `json:"group"`
-	Logo        string     `json:"logo"`
-	URL         string     `json:"url"`
-	CatchupURL  string     `json:"catchup_url"`  // Original timeshift/catchup base URL
-	CatchupDays int        `json:"catchup_days"` // Days available for catchup
-	Latency     *int       `json:"latency"`      // Detection latency in ms: nil=not detected, -1=timeout, >0=normal latency
-	DetectedAt  *time.Time `json:"detected_at"`  // Last detection time
+	ID              uint       `gorm:"primarykey" json:"id"`
+	SourceID        uint       `gorm:"index" json:"source_id"`
+	TVGId           string     `json:"tvg_id"`
+	TVGName         string     `json:"tvg_name"`
+	Name            string     `gorm:"index" json:"name"`
+	Group           string     `json:"group"`
+	Logo            string     `json:"logo"`
+	URL             string     `json:"url"`
+	CatchupURL      string     `json:"catchup_url"`      // Original timeshift/catchup base URL
+	CatchupDays     int        `json:"catchup_days"`     // Days available for catchup
+	Latency         *int       `json:"latency"`          // Detection latency in ms: nil=not detected, -1=timeout, >0=normal latency
+	DetectedAt      *time.Time `json:"detected_at"`      // Last detection time
+	VideoCodec      *string    `json:"video_codec"`      // nil=not detected, e.g. "h264", "hevc"
+	VideoResolution *string    `json:"video_resolution"` // nil=not detected, e.g. "1920x1080"
 }
 
 // SystemSetting stores key-value system configuration

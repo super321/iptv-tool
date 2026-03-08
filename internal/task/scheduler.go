@@ -272,9 +272,9 @@ func (s *Scheduler) RemoveDetectTask(sourceID uint) {
 	}
 }
 
-// CheckFFmpeg checks whether the ffmpeg executable is available
-func (s *Scheduler) CheckFFmpeg() error {
-	_, err := s.detectService.GetFFmpegPath()
+// CheckFFprobe checks whether the ffprobe executable is available
+func (s *Scheduler) CheckFFprobe() error {
+	_, err := s.detectService.GetFFprobePath()
 	return err
 }
 
