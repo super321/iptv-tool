@@ -406,9 +406,9 @@ func (e *Engine) FormatM3U(channels []AggregatedChannel) string {
 
 		// 只有当 tvgID 不为空时才输出 tvg-id 属性
 		if tvgID != "" {
-			sb.WriteString(fmt.Sprintf(`#EXTINF:-1 tvg-id="%s" tvg-name="%s"`, tvgID, ch.TVGName))
+			sb.WriteString(fmt.Sprintf(`#EXTINF:-1 tvg-id="%s" tvg-name="%s"`, tvgID, displayName))
 		} else {
-			sb.WriteString(fmt.Sprintf(`#EXTINF:-1 tvg-name="%s"`, ch.TVGName))
+			sb.WriteString(fmt.Sprintf(`#EXTINF:-1 tvg-name="%s"`, displayName))
 		}
 
 		if ch.Logo != "" {
