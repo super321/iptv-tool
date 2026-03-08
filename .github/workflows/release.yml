@@ -62,6 +62,9 @@ jobs:
 
           # Define target matrix
           # Format: GOOS:GOARCH[:GOARM|GOMIPS_VARIANT]
+          # Note: mips* targets are excluded because the pure-Go SQLite driver
+          # (modernc.org/libc) does not support MIPS architectures.
+          # freebsd/arm is also excluded for the same reason.
           TARGETS=(
             # --- windows ---
             "windows:amd64"
@@ -69,28 +72,15 @@ jobs:
             # --- darwin ---
             "darwin:amd64"
             "darwin:arm64"
-            # --- linux / amd64 & arm64 ---
+            # --- linux ---
             "linux:amd64"
             "linux:arm64"
-            # --- linux / arm ---
             "linux:arm:5"
             "linux:arm:6"
             "linux:arm:7"
-            # --- linux / mips (hardfloat & softfloat) ---
-            "linux:mips:hardfloat"
-            "linux:mips:softfloat"
-            "linux:mipsle:hardfloat"
-            "linux:mipsle:softfloat"
-            "linux:mips64:hardfloat"
-            "linux:mips64:softfloat"
-            "linux:mips64le:hardfloat"
-            "linux:mips64le:softfloat"
             # --- freebsd ---
             "freebsd:amd64"
             "freebsd:arm64"
-            "freebsd:arm:5"
-            "freebsd:arm:6"
-            "freebsd:arm:7"
           )
 
           for target in "${TARGETS[@]}"; do
@@ -100,19 +90,9 @@ jobs:
             EXTRA_ENV=""
 
             # Determine arch-specific env vars
-            if [[ "${GOARCH}" == "arm" ]]; then
+            if [[ "${GOARCH}" == "arm" && -n "${VARIANT}" ]]; then
               EXTRA_ENV="GOARM=${VARIANT}"
               SUFFIX="${SUFFIX}v${VARIANT}"
-            elif [[ "${GOARCH}" == "mips64" || "${GOARCH}" == "mips64le" ]]; then
-              EXTRA_ENV="GOMIPS64=${VARIANT}"
-              if [[ -n "${VARIANT}" ]]; then
-                SUFFIX="${SUFFIX}-${VARIANT}"
-              fi
-            elif [[ "${GOARCH}" == "mips" || "${GOARCH}" == "mipsle" ]]; then
-              EXTRA_ENV="GOMIPS=${VARIANT}"
-              if [[ -n "${VARIANT}" ]]; then
-                SUFFIX="${SUFFIX}-${VARIANT}"
-              fi
             fi
 
             BIN_NAME="${BINARY_NAME}-${SUFFIX}"
