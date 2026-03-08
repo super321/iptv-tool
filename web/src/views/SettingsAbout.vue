@@ -11,6 +11,10 @@
       </template>
       <el-descriptions :column="1" border size="small">
         <el-descriptions-item label="系统名称">IPTV Tool</el-descriptions-item>
+        <el-descriptions-item label="系统版本">
+          <el-tag v-if="appVersion" size="small" type="primary">{{ appVersion }}</el-tag>
+          <span v-else style="color: #909399; font-size: 12px">获取中...</span>
+        </el-descriptions-item>
         <el-descriptions-item label="技术栈">Vue 3 + Element Plus / Go + Gin + SQLite</el-descriptions-item>
         <el-descriptions-item label="运行模式">单文件部署 (go:embed)</el-descriptions-item>
       </el-descriptions>
@@ -112,14 +116,25 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { InfoFilled, Link, CopyDocument, Wallet } from '@element-plus/icons-vue'
 import { Coffee } from '@element-plus/icons-vue'
 import ethQrCode from '../assets/eth_qrcode.jpg'
+import api from '../api'
 
 const showEthDialog = ref(false)
 const ethAddress = ref('0x6989acE6Eb2CC196fAFce3cEcAEC6b6b63716C83')
+const appVersion = ref('')
+
+onMounted(async () => {
+  try {
+    const { data } = await api.get('/system/version')
+    appVersion.value = data.version || 'unknown'
+  } catch {
+    appVersion.value = 'unknown'
+  }
+})
 
 function openLink(url) {
   window.open(url, '_blank')

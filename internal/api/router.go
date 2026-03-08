@@ -22,6 +22,7 @@ func SetupRouter(scheduler *task.Scheduler, logoDir string, dataDir string, fron
 	systemCtrl := NewSystemController()
 	r.GET("/api/init/status", systemCtrl.CheckInit)
 	r.GET("/api/system/pubkey", systemCtrl.GetPublicKey)
+	r.GET("/api/system/version", GetVersion)
 	r.POST("/api/init", systemCtrl.Init)
 	r.POST("/api/login", systemCtrl.Login)
 	r.GET("/api/captcha", systemCtrl.GetCaptcha)

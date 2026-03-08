@@ -11,6 +11,7 @@ import (
 
 	"iptv-tool-v2/internal/iptv/huawei"
 	"iptv-tool-v2/internal/service"
+	"iptv-tool-v2/internal/version"
 	"iptv-tool-v2/pkg/auth"
 	"iptv-tool-v2/pkg/utils"
 )
@@ -263,4 +264,10 @@ func GetEPGStrategies(c *gin.Context) {
 		result = append(result, gin.H{"value": s.Name(), "label": s.Name()})
 	}
 	c.JSON(http.StatusOK, result)
+}
+
+// GetVersion returns the current application version
+// GET /api/system/version
+func GetVersion(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"version": version.Version})
 }
