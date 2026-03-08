@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -26,7 +27,9 @@ jobs:
 
       - name: Get version from tag
         id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+        run: |
+          VERSION=$(git describe --tags --abbrev=0)
+          echo "VERSION=${VERSION}" >> "$GITHUB_OUTPUT"
 
       # ---------- Frontend ----------
       - name: Setup Node.js
@@ -152,7 +155,9 @@ jobs:
 
       - name: Get version from tag
         id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+        run: |
+          VERSION=$(git describe --tags --abbrev=0)
+          echo "VERSION=${VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Generate changelog
         id: changelog
@@ -239,7 +244,9 @@ jobs:
 
       - name: Get version from tag
         id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+        run: |
+          VERSION=$(git describe --tags --abbrev=0)
+          echo "VERSION=${VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
