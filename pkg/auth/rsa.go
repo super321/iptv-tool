@@ -47,7 +47,9 @@ func GetRSAPublicKey() string {
 	return string(rsaPublicKey)
 }
 
-// DecryptRSA decrypts a base64 encoded RSA-OAEP encrypted string
+// DecryptRSA decrypts a base64 encoded RSA encrypted string.
+// It tries RSA-OAEP (Web Crypto API path) first, then falls back to
+// PKCS#1 v1.5 (JSEncrypt fallback path for insecure HTTP contexts).
 func DecryptRSA(cipherTextBase64 string) (string, error) {
 	rsaOnce.Do(initRSA)
 
@@ -56,10 +58,15 @@ func DecryptRSA(cipherTextBase64 string) (string, error) {
 		return "", fmt.Errorf("invalid base64 encoding")
 	}
 
-	// Web Crypto API typically uses SHA-256 for OAEP padding
+	// Try OAEP first (Web Crypto API uses SHA-256 for OAEP padding)
 	hash := sha256.New()
-
 	plainText, err := rsa.DecryptOAEP(hash, rand.Reader, rsaPrivateKey, cipherText, nil)
+	if err == nil {
+		return string(plainText), nil
+	}
+
+	// Fall back to PKCS#1 v1.5 (JSEncrypt in insecure HTTP contexts)
+	plainText, err = rsa.DecryptPKCS1v15(rand.Reader, rsaPrivateKey, cipherText)
 	if err != nil {
 		return "", fmt.Errorf("failed to decrypt password: %w", err)
 	}
