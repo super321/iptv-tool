@@ -420,7 +420,7 @@ async function handleDelete(row) {
 
 async function triggerFetch(row) {
   await api.post(`/epg-sources/${row.id}/trigger`)
-  ElMessage.success(t('epg_sources.trigger_success'))
+  ElMessage.success(t('common.trigger_success'))
   await loadSources(false)
 }
 

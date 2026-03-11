@@ -293,10 +293,10 @@ async function handleSubmit() {
     if (isEdit.value) {
       body.status = form.status
       await api.put(`/rules/${editId.value}`, body)
-      ElMessage.success(t('rules.update_success'))
+      ElMessage.success(t('common.update_success'))
     } else {
       await api.post('/rules', body)
-      ElMessage.success(t('rules.create_success'))
+      ElMessage.success(t('common.create_success'))
     }
     dialogVisible.value = false
     await loadRules()

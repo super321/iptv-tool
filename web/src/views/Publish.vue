@@ -48,7 +48,7 @@
     </el-table>
     <!-- Create/Edit Dialog -->
     <el-dialog v-model="dialogVisible" :title="isEdit ? $t('publish.edit_title') : $t('publish.add_title')" width="600px" destroy-on-close :close-on-click-modal="false">
-      <el-form :model="form" :rules="formRules" ref="formRef" label-width="100px">
+      <el-form :model="form" :rules="formRules" ref="formRef" label-width="auto">
         <el-form-item :label="$t('common.name')" prop="name">
           <el-input v-model="form.name" />
         </el-form-item>
@@ -411,10 +411,10 @@ async function handleSubmit() {
     if (isEdit.value) {
       body.status = form.status
       await api.put(`/publish/${editId.value}`, body)
-      ElMessage.success(t('publish.update_success'))
+      ElMessage.success(t('common.update_success'))
     } else {
       await api.post('/publish', body)
-      ElMessage.success(t('publish.create_success'))
+      ElMessage.success(t('common.create_success'))
     }
     dialogVisible.value = false
     await loadInterfaces()

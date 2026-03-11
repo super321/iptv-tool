@@ -23,7 +23,12 @@
       "confirm_delete": "确认删除",
       "required_name": "请输入名称",
       "required_type": "请选择类型",
-      "update_time": "更新时间"
+      "update_time": "更新时间",
+      "trigger_success": "已触发刷新",
+      "name_exists": "该名称已存在，请换一个名称",
+      "not_found": "未找到该资源",
+      "deleted": "已删除",
+      "invalid_params": "参数无效"
     },
     "nav": {
       "live_sources": "直播源",
@@ -129,7 +134,7 @@
       "required_auth_params": "请输入认证参数",
       "invalid_auth_json": "认证参数JSON格式不正确",
       "delete_confirm": "确定删除直播源 \"{name}\"？关联的EPG源和频道数据也将被删除。",
-      "trigger_success": "已触发刷新",
+
       "trigger_detect": "已触发检测",
       "no_ffprobe": "请先在系统设置中上传 ffprobe 文件",
       "network_url_need_url": "网络链接类型需要提供URL",
@@ -173,6 +178,7 @@
       "title": "EPG源管理",
       "add": "新增EPG源",
       "cron_refresh": "定时刷新",
+      "no_cron_refresh": "不定时刷新",
       "channel_count": "频道数",
       "program_count": "节目数",
       "edit_title": "编辑EPG源",
@@ -190,7 +196,7 @@
       "required_live_source": "请选择关联的IPTV直播源",
       "tooltip_programs": "节目单",
       "delete_confirm": "确定删除EPG源 \"{name}\"？关联的节目数据将被清除。",
-      "trigger_success": "已触发刷新",
+
       "programs_title": "节目单",
       "channel_list": "频道列表",
       "col_channel_id": "频道ID",
@@ -213,7 +219,13 @@
       "source_not_iptv": "关联的直播源不是IPTV类型",
       "source_already_linked": "该IPTV直播源已关联其他EPG源",
       "epg_ref_publish": "该EPG源正被发布接口「{name}」引用，请先移除引用后再删除",
-      "missing_channel_param": "缺少 channel 参数"
+      "missing_channel_param": "缺少 channel 参数",
+      "xmltv_url_placeholder": "请输入XMLTV URL",
+      "select_unlinked": "选择一个未关联的IPTV直播源",
+      "only_unlinked": "仅显示尚未关联EPG源的IPTV直播源",
+      "epg_strategy": "EPG策略",
+      "epg_strategy_help": "选择\"自动检测\"将依次尝试所有策略，成功后自动记录",
+      "tooltip_sync": "同步"
     },
     "logos": {
       "title": "台标管理",
@@ -283,7 +295,15 @@
       "rule_name_exists": "该规则名称已存在，请换一个名称",
       "not_found": "未找到该规则",
       "deleted": "规则已删除",
-      "rule_ref_publish": "该规则正被发布接口「{name}」引用，请先移除引用后再删除"
+      "rule_ref_publish": "该规则正被发布接口「{name}」引用，请先移除引用后再删除",
+      "match_mode_placeholder": "请选择匹配模式",
+      "match_content_placeholder": "请输入匹配内容 (正则或精确字符串)",
+      "replacement_placeholder": "请输入替换后的别名内容",
+      "match_target_placeholder": "请选择匹配目标",
+      "filter_content_placeholder": "请输入要过滤的特征内容",
+      "match_content_short": "匹配内容",
+      "add_match_condition": "+ 增加匹配条件",
+      "config_empty": "请至少填写一条有效的规则配置"
     },
     "publish": {
       "title": "聚合发布",
@@ -335,9 +355,7 @@
       "col_logo": "台标",
       "col_live_url": "直播地址",
       "col_program_count": "节目数",
-      "required_path": "请输入路径",
-      "required_format": "请选择格式",
-      "required_source": "请至少选择一个数据源",
+
       "source_fallback": "数据源 #{id}",
       "select_source_first": "请先选择至少一个数据源",
       "preview_failed": "预览失败",
@@ -347,7 +365,21 @@
       "name_exists": "该接口名称已存在，请换一个名称",
       "path_exists": "该路径已存在",
       "not_found": "未找到该发布接口",
-      "deleted": "发布接口已删除"
+      "deleted": "发布接口已删除",
+      "tvg_id_channel_id": "使用原始频道ID (默认)",
+      "address_type_help": "直播地址提取与降级策略。组播优先：优先提取IGMP，无组播时平滑降级使用单播；单播优先：提取单播地址，若无可借用时移地址填补。",
+      "desc_placeholder": "可选的描述信息",
+      "name_required": "请输入名称",
+      "path_required": "请输入路径",
+      "format_required": "请选择格式",
+      "source_required": "请至少选择一个数据源",
+      "udpxy_address_required": "请填写UDPxy地址",
+      "udpxy_placeholder": "例如: http://192.168.1.1:4022",
+
+      "data_source": "数据源",
+      "select_source_placeholder": "请选择启用的数据源",
+      "agg_rules_placeholder": "可选，按选择顺序执行匹配",
+      "live_address": "直播地址"
     },
     "settings_detect": {
       "title": "直播检测设置",
@@ -359,8 +391,7 @@
       "update_ffprobe": "更新 ffprobe",
       "upload_ffprobe": "上传 ffprobe",
       "upload_help": "请上传 ffprobe 可执行文件。上传后系统将自动验证文件有效性。",
-      "download_help": "ffprobe 包含在 FFmpeg 发行包中，如需下载请前往",
-      "ffmpeg_download": "ffmpeg 官网下载页面",
+
       "params_section": "检测参数",
       "concurrency": "检测并发数",
       "concurrency_help": "范围 1-30，默认 10",
@@ -368,7 +399,10 @@
       "timeout_help": "范围 1-30 秒，默认 5 秒",
       "save_config": "保存配置",
       "upload_success": "ffprobe 上传成功",
-      "config_saved": "配置已保存"
+      "upload_failed": "ffprobe 上传失败",
+      "config_saved": "配置已保存",
+      "ffmpeg_download_prefix": "ffprobe 包含在 FFmpeg 发行包中，如需下载请前往",
+      "ffmpeg_download_link": "ffmpeg 官网下载页面"
     },
     "settings_password": {
       "title": "修改密码",
@@ -376,12 +410,12 @@
       "new_password": "新密码",
       "confirm_password": "确认新密码",
       "change_btn": "修改密码",
-      "required_current": "请输入当前密码",
-      "required_new": "请输入新密码",
       "min_password": "至少6个字符",
-      "required_confirm": "请确认新密码",
       "password_mismatch": "两次密码不一致",
-      "change_success": "密码修改成功"
+      "change_success": "密码修改成功",
+      "current_password_required": "请输入当前密码",
+      "new_password_required": "请输入新密码",
+      "confirm_password_required": "请确认新密码"
     },
     "settings_about": {
       "title": "关于系统",

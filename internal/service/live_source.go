@@ -197,7 +197,7 @@ func createIPTVClient(config *iptv.Config) (iptv.Client, error) {
 	// case "zte":
 	//     return zte.NewClient(config), nil
 	default:
-		return nil, fmt.Errorf("unsupported IPTV platform: %s", config.Platform)
+		return nil, fmt.Errorf("error.unsupported_platform")
 	}
 }
 

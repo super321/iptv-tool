@@ -9,7 +9,7 @@
           <span>{{ $t('settings_password.title') }}</span>
         </div>
       </template>
-      <el-form :model="pwdForm" :rules="pwdRules" ref="pwdFormRef" label-width="100px">
+      <el-form :model="pwdForm" :rules="pwdRules" ref="pwdFormRef" label-width="auto">
         <el-form-item :label="$t('settings_password.current_password')" prop="oldPassword">
           <el-input v-model="pwdForm.oldPassword" type="password" show-password />
         </el-form-item>

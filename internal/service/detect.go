@@ -48,9 +48,9 @@ func (s *DetectService) GetFFprobePath() (string, string, error) {
 			// Uploaded file exists but cannot run
 			errMsg := err.Error()
 			if runtime.GOOS == "linux" && strings.Contains(errMsg, "no such file or directory") {
-				return "", "", fmt.Errorf("uploaded file exists but cannot execute (possible cause: architecture mismatch, or missing dynamic libraries needed by the binary. In Alpine/Docker environments with glibc-compiled programs, try uploading a static build): %w", err)
+				return "", "", fmt.Errorf("error.ffprobe_cannot_execute")
 			}
-			return "", "", fmt.Errorf("uploaded ffprobe executable failed to run: %w", err)
+			return "", "", fmt.Errorf("error.ffprobe_run_failed")
 		}
 	}
 
@@ -316,7 +316,7 @@ func (s *DetectService) waitForSyncComplete(sourceID uint, maxWait time.Duration
 			return nil
 		}
 		if time.Now().After(deadline) {
-			return fmt.Errorf("timed out waiting for source sync to complete (exceeded %v)", maxWait)
+			return fmt.Errorf("error.wait_sync_timeout")
 		}
 		<-ticker.C
 	}

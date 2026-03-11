@@ -196,7 +196,7 @@ func (s *EPGSourceService) WaitForLiveSourceSyncComplete(sourceID uint, maxWait 
 			return nil
 		}
 		if time.Now().After(deadline) {
-			return fmt.Errorf("timed out waiting for linked live source sync to complete (exceeded %v)", maxWait)
+			return fmt.Errorf("error.wait_epg_sync_timeout")
 		}
 		<-ticker.C
 	}

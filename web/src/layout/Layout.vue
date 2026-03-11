@@ -69,13 +69,13 @@
         </el-breadcrumb>
         <el-dropdown @command="switchLanguage" style="margin-right: 16px">
           <span class="user-dropdown" style="font-size: 13px">
-            {{ currentLocale === 'zh' ? '中文' : 'EN' }}
+            {{ currentLocale === 'zh' ? $t('language.zh') : $t('language.en') }}
             <el-icon style="margin-left: 4px"><ArrowDown /></el-icon>
           </span>
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item command="zh">中文</el-dropdown-item>
-              <el-dropdown-item command="en">English</el-dropdown-item>
+              <el-dropdown-item command="zh">{{ $t('language.zh') }}</el-dropdown-item>
+              <el-dropdown-item command="en">{{ $t('language.en') }}</el-dropdown-item>
             </el-dropdown-menu>
           </template>
         </el-dropdown>

@@ -23,7 +23,12 @@
       "confirm_delete": "Confirm Delete",
       "required_name": "Please enter a name",
       "required_type": "Please select a type",
-      "update_time": "Updated At"
+      "update_time": "Updated At",
+      "trigger_success": "Refresh triggered",
+      "name_exists": "Name already exists, please choose another",
+      "not_found": "Resource not found",
+      "deleted": "Deleted",
+      "invalid_params": "Invalid parameters"
     },
     "nav": {
       "live_sources": "Live Sources",
@@ -129,7 +134,7 @@
       "required_auth_params": "Please enter auth parameters",
       "invalid_auth_json": "Auth parameters JSON format is invalid",
       "delete_confirm": "Delete live source \"{name}\"? Associated EPG sources and channel data will also be deleted.",
-      "trigger_success": "Refresh triggered",
+
       "trigger_detect": "Detection triggered",
       "no_ffprobe": "Please upload ffprobe in System Settings first",
       "network_url_need_url": "Network URL type requires a URL",
@@ -173,6 +178,7 @@
       "title": "EPG Sources",
       "add": "Add EPG Source",
       "cron_refresh": "Cron Refresh",
+      "no_cron_refresh": "No scheduled refresh",
       "channel_count": "Channels",
       "program_count": "Programs",
       "edit_title": "Edit EPG Source",
@@ -190,7 +196,7 @@
       "required_live_source": "Please select a linked IPTV live source",
       "tooltip_programs": "Programs",
       "delete_confirm": "Delete EPG source \"{name}\"? Associated program data will be cleared.",
-      "trigger_success": "Refresh triggered",
+
       "programs_title": "Program Guide",
       "channel_list": "Channel List",
       "col_channel_id": "Channel ID",
@@ -213,7 +219,13 @@
       "source_not_iptv": "Linked live source is not IPTV type",
       "source_already_linked": "This IPTV live source is already linked to another EPG source",
       "epg_ref_publish": "This EPG source is referenced by publish interface \"{name}\", please remove the reference first",
-      "missing_channel_param": "Missing channel parameter"
+      "missing_channel_param": "Missing channel parameter",
+      "xmltv_url_placeholder": "Enter XMLTV URL",
+      "select_unlinked": "Select an unlinked IPTV live source",
+      "only_unlinked": "Only shows IPTV live sources not yet linked to an EPG source",
+      "epg_strategy": "EPG Strategy",
+      "epg_strategy_help": "Select \"Auto Detect\" to try all strategies in order, auto-save on success",
+      "tooltip_sync": "Sync"
     },
     "logos": {
       "title": "Logo Management",
@@ -283,7 +295,15 @@
       "rule_name_exists": "This rule name already exists, please choose another",
       "not_found": "Rule not found",
       "deleted": "Rule deleted",
-      "rule_ref_publish": "This rule is referenced by publish interface \"{name}\", please remove the reference first"
+      "rule_ref_publish": "This rule is referenced by publish interface \"{name}\", please remove the reference first",
+      "match_mode_placeholder": "Select match mode",
+      "match_content_placeholder": "Enter pattern to match (regex or string)",
+      "replacement_placeholder": "Enter replacement alias",
+      "match_target_placeholder": "Select match target",
+      "filter_content_placeholder": "Enter pattern to filter out",
+      "match_content_short": "Pattern",
+      "add_match_condition": "+ Add Condition",
+      "config_empty": "Please add at least one valid rule configuration"
     },
     "publish": {
       "title": "Publish",
@@ -335,9 +355,7 @@
       "col_logo": "Logo",
       "col_live_url": "Live URL",
       "col_program_count": "Programs",
-      "required_path": "Please enter path",
-      "required_format": "Please select format",
-      "required_source": "Please select at least one source",
+
       "source_fallback": "Source #{id}",
       "select_source_first": "Please select at least one source first",
       "preview_failed": "Preview failed",
@@ -347,7 +365,21 @@
       "name_exists": "This name already exists, please choose another",
       "path_exists": "This path already exists",
       "not_found": "Publish interface not found",
-      "deleted": "Publish interface deleted"
+      "deleted": "Publish interface deleted",
+      "tvg_id_channel_id": "Use original channel ID (default)",
+      "address_type_help": "Live address extraction strategy. Multicast first: prefer IGMP, degrade to unicast; Unicast first: prefer unicast, fallback to timeshift.",
+      "desc_placeholder": "Optional description",
+      "name_required": "Please enter a name",
+      "path_required": "Please enter path",
+      "format_required": "Please select format",
+      "source_required": "Please select at least one source",
+      "udpxy_address_required": "Please enter UDPxy address",
+      "udpxy_placeholder": "e.g. http://192.168.1.1:4022",
+
+      "data_source": "Data Source",
+      "select_source_placeholder": "Select enabled sources",
+      "agg_rules_placeholder": "Optional, matched in selection order",
+      "live_address": "Live Address"
     },
     "settings_detect": {
       "title": "Detection Settings",
@@ -359,8 +391,7 @@
       "update_ffprobe": "Update ffprobe",
       "upload_ffprobe": "Upload ffprobe",
       "upload_help": "Upload the ffprobe executable. The system will automatically verify the file.",
-      "download_help": "ffprobe is included in the FFmpeg package. Download from",
-      "ffmpeg_download": "FFmpeg official download page",
+
       "params_section": "Detection Parameters",
       "concurrency": "Concurrency",
       "concurrency_help": "Range 1-30, default 10",
@@ -368,7 +399,10 @@
       "timeout_help": "Range 1-30 seconds, default 5s",
       "save_config": "Save Config",
       "upload_success": "ffprobe uploaded successfully",
-      "config_saved": "Configuration saved"
+      "upload_failed": "ffprobe upload failed",
+      "config_saved": "Configuration saved",
+      "ffmpeg_download_prefix": "ffprobe is included in the FFmpeg package. Download from",
+      "ffmpeg_download_link": "FFmpeg official download page"
     },
     "settings_password": {
       "title": "Change Password",
@@ -376,12 +410,12 @@
       "new_password": "New Password",
       "confirm_password": "Confirm New Password",
       "change_btn": "Change Password",
-      "required_current": "Please enter current password",
-      "required_new": "Please enter new password",
       "min_password": "At least 6 characters",
-      "required_confirm": "Please confirm new password",
       "password_mismatch": "Passwords do not match",
-      "change_success": "Password changed successfully"
+      "change_success": "Password changed successfully",
+      "current_password_required": "Please enter current password",
+      "new_password_required": "Please enter new password",
+      "confirm_password_required": "Please confirm new password"
     },
     "settings_about": {
       "title": "About",
@@ -480,8 +514,6 @@
       "batch_name_exists": "%s: logo name already exists",
       "batch_save_failed": "%s: save failed",
       "batch_db_error": "%s: database error",
-      "form_parse_failed": "Failed to parse form",
-      "no_files_provided": "No files provided",
       "invalid_request_params": "Invalid request parameters",
       "live_ref_publish": "Live source is referenced by publish interface \"%s\", please remove the reference first",
       "live_epg_ref_publish": "Linked EPG source is referenced by publish interface \"%s\", please remove the EPG reference first",
