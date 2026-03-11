@@ -4,6 +4,8 @@
 [![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/super321/iptv-tool/total)](https://github.com/super321/iptv-tool/releases/latest)
 ![GitHub License](https://img.shields.io/github/license/super321/iptv-tool)
 
+[简体中文](README.md) | [English](README_EN.md)
+
 ## 项目简介
 IPTV Tool 是一个基于 Go 和 Vue 3 开发的轻量级 IPTV 管理和聚合分发平台。该平台致力于为用户提供便捷的直播源（M3U / TXT 等）管理、EPG（电子节目单）抓取与同步、以及台标管理等功能。通过本地部署，您可以轻松地将多个网络直播源和 EPG 数据聚合，并一键发布聚合后的订阅链接供各端播放器使用。
 
