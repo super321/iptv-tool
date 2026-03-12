@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"log/slog"
 
 	"github.com/glebarez/sqlite"
@@ -15,6 +16,17 @@ func InitDB(dsn string) error {
 	if err != nil {
 		return err
 	}
+
+	// Enable WAL mode: allows concurrent reads during writes,
+	// preventing scheduled task bulk inserts from blocking web queries.
+	sqlDB, err := DB.DB()
+	if err != nil {
+		return fmt.Errorf("failed to get underlying sql.DB: %w", err)
+	}
+	if _, err := sqlDB.Exec("PRAGMA journal_mode=WAL"); err != nil {
+		return fmt.Errorf("failed to enable WAL mode: %w", err)
+	}
+	slog.Info("SQLite WAL mode enabled")
 
 	// Auto-migrate the schema
 	err = DB.AutoMigrate(
