@@ -341,13 +341,36 @@ func (lc *LiveSourceController) Update(c *gin.Context) {
 	model.DB.First(&source, uint(id))
 
 	// Auto-update linked IPTV EPG source if LiveSource is IPTV type and IPTVConfig is updated
+	// Only sync IPTV connection parameters, preserving EPG-specific fields (e.g. epgStrategy)
 	if source.Type == model.LiveSourceTypeIPTV && req.IPTVConfig != nil {
-		if err := model.DB.Model(&model.EPGSource{}).
-			Where("live_source_id = ? AND type = ?", source.ID, model.EPGSourceTypeIPTV).
-			Update("iptv_config", string(*req.IPTVConfig)).Error; err != nil {
-			slog.Error("Failed to auto-update linked EPG source IPTV config", "error", err, "live_source_id", source.ID)
+		var linkedEPGs []model.EPGSource
+		if err := model.DB.Where("live_source_id = ? AND type = ?", source.ID, model.EPGSourceTypeIPTV).
+			Find(&linkedEPGs).Error; err != nil {
+			slog.Error("Failed to find linked EPG sources", "error", err, "live_source_id", source.ID)
 		} else {
-			slog.Info("Auto-updated linked EPG source IPTV config", "live_source_id", source.ID)
+			for _, epg := range linkedEPGs {
+				// Parse the new live source config
+				var newConfig map[string]interface{}
+				if err := json.Unmarshal(*req.IPTVConfig, &newConfig); err != nil {
+					slog.Error("Failed to parse new IPTV config", "error", err)
+					continue
+				}
+
+				// Preserve the EPG source's existing epgStrategy
+				var oldConfig map[string]interface{}
+				if err := json.Unmarshal([]byte(epg.IPTVConfig), &oldConfig); err == nil {
+					if strategy, ok := oldConfig["epgStrategy"]; ok {
+						newConfig["epgStrategy"] = strategy
+					}
+				}
+
+				merged, _ := json.Marshal(newConfig)
+				if err := model.DB.Model(&epg).Update("iptv_config", string(merged)).Error; err != nil {
+					slog.Error("Failed to auto-update linked EPG source IPTV config", "error", err, "epg_id", epg.ID)
+				} else {
+					slog.Info("Auto-updated linked EPG source IPTV config", "live_source_id", source.ID, "epg_id", epg.ID)
+				}
+			}
 		}
 	}
 
