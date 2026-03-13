@@ -179,6 +179,17 @@
           </div>
         </el-form-item>
 
+        <!-- Detect Strategy (shown when cron_detect is set) -->
+        <el-form-item :label="$t('live_sources.detect_strategy')" v-if="form.cron_detect">
+          <el-select v-model="form.detect_strategy" style="width: 100%">
+            <el-option :label="$t('live_sources.detect_strategy_unicast')" value="unicast" />
+            <el-option :label="$t('live_sources.detect_strategy_multicast')" value="multicast" />
+          </el-select>
+          <div style="color: #909399; font-size: 12px; line-height: 1.4; margin-top: 4px">
+            {{ $t('live_sources.detect_strategy_help') }}
+          </div>
+        </el-form-item>
+
         <!-- EPG sync for IPTV -->
         <template v-if="form.type === 'iptv' && !isEdit">
           <el-form-item :label="$t('live_sources.sync_epg')">
@@ -246,6 +257,10 @@
         </span>
         <div style="display: flex; gap: 12px; align-items: center">
           <el-input v-model="channelsSearch" :placeholder="$t('live_sources.search_channel')" style="width: 200px" size="small" clearable @input="handleSearchChange" />
+          <el-select v-model="detectStrategy" size="small" style="width: 140px">
+            <el-option :label="$t('live_sources.detect_strategy_unicast')" value="unicast" />
+            <el-option :label="$t('live_sources.detect_strategy_multicast')" value="multicast" />
+          </el-select>
           <el-button type="warning" size="small" @click="triggerDetect" :loading="detectTriggering" :disabled="channelsDetecting">
             {{ channelsDetecting ? $t('live_sources.detecting') : $t('live_sources.detect_btn') }}
           </el-button>
@@ -387,6 +402,7 @@ const detectedCount = computed(() => {
 })
 const channelsDetecting = ref(false)
 const detectTriggering = ref(false)
+const detectStrategy = ref('unicast')
 let detectPollingTimer = null
 const isEdit = ref(false)
 const editId = ref(null)
@@ -444,7 +460,7 @@ const authParamsExample = JSON.stringify({
 }, null, 2)
 
 const defaultForm = () => ({
-  name: '', description: '', type: 'network_url', url: '', content: '', cron_time: '', cron_detect: '',
+  name: '', description: '', type: 'network_url', url: '', content: '', cron_time: '', cron_detect: '', detect_strategy: 'unicast',
   network_headers: [],
   epg_enabled: false, status: true,
   iptv: {
@@ -619,7 +635,7 @@ function showEdit(row) {
   Object.assign(form, {
     name: row.name, description: row.description || '', type: row.type, url: row.url, content: row.content,
     network_headers,
-    cron_time: row.cron_time, cron_detect: row.cron_detect || '', status: row.status,
+    cron_time: row.cron_time, cron_detect: row.cron_detect || '', detect_strategy: row.detect_strategy || 'unicast', status: row.status,
     iptv: iptvParsed,
   })
   dialogVisible.value = true
@@ -645,7 +661,7 @@ async function handleSubmit() {
   
   try {
     if (isEdit.value) {
-      const body = { name: form.name, description: form.description, url: form.url, content: form.content, headers: headersJson, cron_time: form.cron_time, cron_detect: form.cron_detect, status: form.status }
+      const body = { name: form.name, description: form.description, url: form.url, content: form.content, headers: headersJson, cron_time: form.cron_time, cron_detect: form.cron_detect, detect_strategy: form.detect_strategy, status: form.status }
       if (form.type === 'iptv') {
         body.iptv_config = buildIptvConfig()
       }
@@ -655,7 +671,7 @@ async function handleSubmit() {
       await api.put(`/live-sources/${editId.value}`, body)
       ElMessage.success(t('common.update_success'))
     } else {
-      const body = { name: form.name, description: form.description, type: form.type, url: form.url, content: form.content, headers: headersJson, cron_time: form.cron_time, cron_detect: form.cron_detect, epg_enabled: form.epg_enabled }
+      const body = { name: form.name, description: form.description, type: form.type, url: form.url, content: form.content, headers: headersJson, cron_time: form.cron_time, cron_detect: form.cron_detect, detect_strategy: form.detect_strategy, epg_enabled: form.epg_enabled }
       if (form.type === 'iptv') {
         body.iptv_config = buildIptvConfig()
       }
@@ -709,7 +725,7 @@ async function triggerDetect() {
   if (!channelsSourceId.value) return
   detectTriggering.value = true
   try {
-    await api.post(`/live-sources/${channelsSourceId.value}/detect`)
+    await api.post(`/live-sources/${channelsSourceId.value}/detect`, { detect_strategy: detectStrategy.value })
     ElMessage.success(t('live_sources.trigger_detect'))
     channelsDetecting.value = true
     

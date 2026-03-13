@@ -24,23 +24,24 @@ const (
 
 // LiveSource represents a source of live TV channels (M3U/TXT/IPTV)
 type LiveSource struct {
-	ID            uint           `gorm:"primarykey" json:"id"`
-	Name          string         `gorm:"not null" json:"name"`
-	Description   string         `json:"description"`
-	Type          LiveSourceType `gorm:"not null" json:"type"` // iptv, network_url, network_manual
-	URL           string         `json:"url"`                  // For network_url
-	Content       string         `json:"content"`              // For network_manual
-	CronTime      string         `json:"cron_time"`            // 1h, 2h, 4h, 6h, 12h, 24h
-	CronDetect    string         `json:"cron_detect"`          // Scheduled detection interval, same options as CronTime
-	Headers       string         `json:"headers"`              // JSON string for network_url custom headers
-	Status        bool           `gorm:"default:true" json:"status"`
-	IsSyncing     bool           `gorm:"default:false" json:"is_syncing"`
-	IsDetecting   bool           `gorm:"default:false" json:"is_detecting"`
-	IPTVConfig    string         `gorm:"column:iptv_config" json:"iptv_config"` // JSON string for IPTV specific configs (platform, credentials)
-	LastFetchedAt *time.Time     `json:"last_fetched_at"`
-	LastError     string         `json:"last_error"`
-	CreatedAt     time.Time      `json:"created_at"`
-	UpdatedAt     time.Time      `json:"updated_at"`
+	ID             uint           `gorm:"primarykey" json:"id"`
+	Name           string         `gorm:"not null" json:"name"`
+	Description    string         `json:"description"`
+	Type           LiveSourceType `gorm:"not null" json:"type"` // iptv, network_url, network_manual
+	URL            string         `json:"url"`                  // For network_url
+	Content        string         `json:"content"`              // For network_manual
+	CronTime       string         `json:"cron_time"`            // 1h, 2h, 4h, 6h, 12h, 24h
+	CronDetect     string         `json:"cron_detect"`          // Scheduled detection interval, same options as CronTime
+	DetectStrategy string         `json:"detect_strategy"`      // unicast, multicast (for detection URL selection)
+	Headers        string         `json:"headers"`              // JSON string for network_url custom headers
+	Status         bool           `gorm:"default:true" json:"status"`
+	IsSyncing      bool           `gorm:"default:false" json:"is_syncing"`
+	IsDetecting    bool           `gorm:"default:false" json:"is_detecting"`
+	IPTVConfig     string         `gorm:"column:iptv_config" json:"iptv_config"` // JSON string for IPTV specific configs (platform, credentials)
+	LastFetchedAt  *time.Time     `json:"last_fetched_at"`
+	LastError      string         `json:"last_error"`
+	CreatedAt      time.Time      `json:"created_at"`
+	UpdatedAt      time.Time      `json:"updated_at"`
 }
 
 // EPGSourceType represents the type of EPG source

@@ -116,7 +116,8 @@ func (s *DetectService) getDetectConfig() (concurrency int, timeout int) {
 // DetectChannels performs detection on all parsed channels for a given source.
 // manual=true: fails immediately if the source is syncing.
 // manual=false: waits for syncing to finish (up to 10 minutes) before starting detection.
-func (s *DetectService) DetectChannels(sourceID uint, manual bool) error {
+// strategy: "unicast" or "multicast" — determines which URL to test for each channel.
+func (s *DetectService) DetectChannels(sourceID uint, manual bool, strategy string) error {
 	var source model.LiveSource
 	if err := model.DB.First(&source, sourceID).Error; err != nil {
 		return fmt.Errorf("live source %d not found: %w", sourceID, err)
@@ -193,11 +194,8 @@ func (s *DetectService) DetectChannels(sourceID uint, manual bool) error {
 			sem <- struct{}{}        // Acquire
 			defer func() { <-sem }() // Release
 
-			// For channels with multiple URLs (pipe-separated), test the first one
-			testURL := ch.URL
-			if idx := strings.Index(testURL, "|"); idx > 0 {
-				testURL = strings.TrimSpace(testURL[:idx])
-			}
+			// Select the best URL based on the detection strategy
+			testURL := SelectDetectURL(ch.URL, ch.CatchupURL, strategy)
 
 			latency, codec, resolution, detectErr := s.detectSingleChannel(ffprobePath, testURL, timeout)
 			now := time.Now()

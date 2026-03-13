@@ -130,7 +130,7 @@ func (s *Scheduler) Start() error {
 	}
 
 	for _, src := range detectSources {
-		if err := s.AddDetectTask(src.ID, src.CronDetect); err != nil {
+		if err := s.AddDetectTask(src.ID, src.CronDetect, src.DetectStrategy); err != nil {
 			slog.Warn("Failed to schedule detect task", "name", src.Name, "id", src.ID, "error", err)
 		}
 	}
@@ -256,7 +256,7 @@ func (s *Scheduler) TriggerEPGSourceNow(sourceID uint) {
 }
 
 // AddDetectTask adds or updates a cron job for channel detection on a live source
-func (s *Scheduler) AddDetectTask(sourceID uint, cronTime string) error {
+func (s *Scheduler) AddDetectTask(sourceID uint, cronTime string, strategy string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -272,9 +272,10 @@ func (s *Scheduler) AddDetectTask(sourceID uint, cronTime string) error {
 	}
 
 	id := sourceID // Capture for closure
+	st := strategy // Capture for closure
 	entryID, err := s.cron.AddFunc(cronExpr, func() {
-		slog.Info("Cron: detecting channels for live source", "id", id)
-		if err := s.detectService.DetectChannels(id, false); err != nil {
+		slog.Info("Cron: detecting channels for live source", "id", id, "strategy", st)
+		if err := s.detectService.DetectChannels(id, false, st); err != nil {
 			slog.Error("Cron: failed to detect channels", "id", id, "error", err)
 		}
 	})
@@ -283,7 +284,7 @@ func (s *Scheduler) AddDetectTask(sourceID uint, cronTime string) error {
 	}
 
 	s.detectEntries[sourceID] = entryID
-	slog.Info("Scheduled detect task", "id", sourceID, "interval", cronTime, "cron", cronExpr)
+	slog.Info("Scheduled detect task", "id", sourceID, "interval", cronTime, "strategy", strategy, "cron", cronExpr)
 	return nil
 }
 
@@ -306,10 +307,10 @@ func (s *Scheduler) CheckFFprobe() error {
 }
 
 // TriggerDetectNow manually triggers channel detection immediately
-func (s *Scheduler) TriggerDetectNow(sourceID uint) {
+func (s *Scheduler) TriggerDetectNow(sourceID uint, strategy string) {
 	go func() {
-		slog.Info("Manual trigger: detecting channels for live source", "id", sourceID)
-		if err := s.detectService.DetectChannels(sourceID, true); err != nil {
+		slog.Info("Manual trigger: detecting channels for live source", "id", sourceID, "strategy", strategy)
+		if err := s.detectService.DetectChannels(sourceID, true, strategy); err != nil {
 			slog.Error("Manual trigger: failed to detect channels", "id", sourceID, "error", err)
 		}
 	}()

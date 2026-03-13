@@ -78,16 +78,17 @@ func (lc *LiveSourceController) Get(c *gin.Context) {
 
 // CreateLiveSourceRequest is the request body for creating a live source
 type CreateLiveSourceRequest struct {
-	Name        string               `json:"name" binding:"required"`
-	Description string               `json:"description"`
-	Type        model.LiveSourceType `json:"type" binding:"required"`
-	URL         string               `json:"url"`
-	Content     string               `json:"content"`
-	Headers     json.RawMessage      `json:"headers"`
-	CronTime    string               `json:"cron_time"`
-	CronDetect  string               `json:"cron_detect"`
-	IPTVConfig  json.RawMessage      `json:"iptv_config"`
-	EPGEnabled  bool                 `json:"epg_enabled"` // Whether to auto-create EPG source
+	Name           string               `json:"name" binding:"required"`
+	Description    string               `json:"description"`
+	Type           model.LiveSourceType `json:"type" binding:"required"`
+	URL            string               `json:"url"`
+	Content        string               `json:"content"`
+	Headers        json.RawMessage      `json:"headers"`
+	CronTime       string               `json:"cron_time"`
+	CronDetect     string               `json:"cron_detect"`
+	DetectStrategy string               `json:"detect_strategy"`
+	IPTVConfig     json.RawMessage      `json:"iptv_config"`
+	EPGEnabled     bool                 `json:"epg_enabled"` // Whether to auto-create EPG source
 }
 
 // Create adds a new live source
@@ -157,17 +158,18 @@ func (lc *LiveSourceController) Create(c *gin.Context) {
 	}
 
 	source := model.LiveSource{
-		Name:        req.Name,
-		Description: req.Description,
-		Type:        req.Type,
-		URL:         req.URL,
-		Content:     req.Content,
-		Headers:     string(req.Headers),
-		CronTime:    req.CronTime,
-		CronDetect:  req.CronDetect,
-		Status:      true,
-		IsSyncing:   true,
-		IPTVConfig:  string(req.IPTVConfig),
+		Name:           req.Name,
+		Description:    req.Description,
+		Type:           req.Type,
+		URL:            req.URL,
+		Content:        req.Content,
+		Headers:        string(req.Headers),
+		CronTime:       req.CronTime,
+		CronDetect:     req.CronDetect,
+		DetectStrategy: req.DetectStrategy,
+		Status:         true,
+		IsSyncing:      true,
+		IPTVConfig:     string(req.IPTVConfig),
 	}
 
 	if err := model.DB.Create(&source).Error; err != nil {
@@ -230,7 +232,7 @@ func (lc *LiveSourceController) Create(c *gin.Context) {
 
 	// Schedule detect cron task if applicable
 	if source.CronDetect != "" {
-		lc.scheduler.AddDetectTask(source.ID, source.CronDetect)
+		lc.scheduler.AddDetectTask(source.ID, source.CronDetect, source.DetectStrategy)
 	}
 
 	// Trigger initial fetch for Live Source
@@ -250,16 +252,17 @@ func (lc *LiveSourceController) Create(c *gin.Context) {
 
 // UpdateLiveSourceRequest is the request body for updating a live source
 type UpdateLiveSourceRequest struct {
-	Name          *string          `json:"name"`
-	Description   *string          `json:"description"`
-	URL           *string          `json:"url"`
-	Content       *string          `json:"content"`
-	Headers       *json.RawMessage `json:"headers"`
-	CronTime      *string          `json:"cron_time"`
-	CronDetect    *string          `json:"cron_detect"`
-	Status        *bool            `json:"status"`
-	IPTVConfig    *json.RawMessage `json:"iptv_config"`
-	AutoCreateEPG *bool            `json:"auto_create_epg"` // Whether to auto-create EPG source from x-tvg-url
+	Name           *string          `json:"name"`
+	Description    *string          `json:"description"`
+	URL            *string          `json:"url"`
+	Content        *string          `json:"content"`
+	Headers        *json.RawMessage `json:"headers"`
+	CronTime       *string          `json:"cron_time"`
+	CronDetect     *string          `json:"cron_detect"`
+	DetectStrategy *string          `json:"detect_strategy"`
+	Status         *bool            `json:"status"`
+	IPTVConfig     *json.RawMessage `json:"iptv_config"`
+	AutoCreateEPG  *bool            `json:"auto_create_epg"` // Whether to auto-create EPG source from x-tvg-url
 }
 
 // Update modifies a live source
@@ -329,6 +332,9 @@ func (lc *LiveSourceController) Update(c *gin.Context) {
 			return
 		}
 		updates["cron_detect"] = *req.CronDetect
+	}
+	if req.DetectStrategy != nil {
+		updates["detect_strategy"] = *req.DetectStrategy
 	}
 
 	if err := model.DB.Model(&source).Updates(updates).Error; err != nil {
@@ -418,7 +424,7 @@ func (lc *LiveSourceController) Update(c *gin.Context) {
 
 	// Update scheduler for detect tasks
 	if source.CronDetect != "" && source.Status {
-		lc.scheduler.AddDetectTask(source.ID, source.CronDetect)
+		lc.scheduler.AddDetectTask(source.ID, source.CronDetect, source.DetectStrategy)
 	} else {
 		lc.scheduler.RemoveDetectTask(source.ID)
 	}
@@ -568,7 +574,17 @@ func (lc *LiveSourceController) TriggerDetect(c *gin.Context) {
 		return
 	}
 
-	lc.scheduler.TriggerDetectNow(uint(id))
+	// Parse optional detect strategy from request body
+	var req struct {
+		DetectStrategy string `json:"detect_strategy"`
+	}
+	c.ShouldBindJSON(&req)
+	strategy := req.DetectStrategy
+	if strategy == "" {
+		strategy = "unicast" // default
+	}
+
+	lc.scheduler.TriggerDetectNow(uint(id), strategy)
 	c.JSON(http.StatusOK, gin.H{"message": i18n.T(i18n.Lang(c), "message.trigger_detect")})
 }
 
