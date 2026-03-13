@@ -256,13 +256,14 @@ func (s *DetectService) detectSingleChannel(ffprobePath string, url string, time
 		probeURL = "rtp://" + strings.TrimPrefix(probeURL, "igmp://")
 	}
 
-	// ffprobe -v quiet -print_format json -show_streams -i <url>
-	cmd := exec.CommandContext(ctx, ffprobePath,
-		"-v", "quiet",
-		"-print_format", "json",
-		"-show_streams",
-		"-i", probeURL,
-	)
+	// ffprobe -v quiet -print_format json -show_streams [-rtsp_transport tcp] -i <url>
+	args := []string{"-v", "quiet", "-print_format", "json", "-show_streams"}
+	// Force TCP transport for RTSP streams (default UDP is unreliable)
+	if strings.HasPrefix(probeURL, "rtsp://") {
+		args = append(args, "-rtsp_transport", "tcp")
+	}
+	args = append(args, "-i", probeURL)
+	cmd := exec.CommandContext(ctx, ffprobePath, args...)
 
 	output, runErr := cmd.Output()
 
