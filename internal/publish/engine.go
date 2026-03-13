@@ -328,6 +328,24 @@ func (e *Engine) isMulticastURL(url string) bool {
 	return false
 }
 
+// transformMulticastURL 根据配置的组播协议和 UDPxy 地址转换组播 URL
+func (e *Engine) transformMulticastURL(multicastURL string) string {
+	switch e.iface.MulticastType {
+	case "udpxy":
+		if e.iface.UDPxyURL != "" && strings.HasPrefix(multicastURL, "igmp://") {
+			addr := strings.TrimPrefix(multicastURL, "igmp://")
+			return strings.TrimRight(e.iface.UDPxyURL, "/") + "/rtp/" + addr
+		}
+	case "rtp":
+		if strings.HasPrefix(multicastURL, "igmp://") {
+			return "rtp://" + strings.TrimPrefix(multicastURL, "igmp://")
+		}
+	case "igmp":
+		return multicastURL
+	}
+	return multicastURL
+}
+
 func (e *Engine) extractBestURL(rawURLs, catchupURL string) string {
 	urls := strings.Split(rawURLs, "|")
 
@@ -360,29 +378,16 @@ func (e *Engine) extractBestURL(rawURLs, catchupURL string) string {
 		if multicastURL != "" && catchupURL != "" && !e.isMulticastURL(catchupURL) {
 			return catchupURL
 		}
-		// 优先级 3: 以上都不满足，使用任意现有地址
+		// 优先级 3: 以上都不满足，使用组播地址（根据配置转换协议）
 		if multicastURL != "" {
-			return multicastURL
+			return e.transformMulticastURL(multicastURL)
 		}
 		return rawURLs
 	}
 
 	// 组播优先策略 (multicast) - 默认
 	if multicastURL != "" {
-		switch e.iface.MulticastType {
-		case "udpxy":
-			if e.iface.UDPxyURL != "" && strings.HasPrefix(multicastURL, "igmp://") {
-				addr := strings.TrimPrefix(multicastURL, "igmp://")
-				return strings.TrimRight(e.iface.UDPxyURL, "/") + "/rtp/" + addr
-			}
-		case "rtp":
-			if strings.HasPrefix(multicastURL, "igmp://") {
-				return "rtp://" + strings.TrimPrefix(multicastURL, "igmp://")
-			}
-		case "igmp":
-			return multicastURL
-		}
-		return multicastURL
+		return e.transformMulticastURL(multicastURL)
 	}
 
 	// 无组播地址时，使用任意现有地址

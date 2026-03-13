@@ -143,7 +143,7 @@
             </div>
           </el-form-item>
 
-          <el-form-item :label="$t('publish.multicast_protocol')" v-if="form.address_type === 'multicast'">
+          <el-form-item :label="$t('publish.multicast_protocol')">
             <el-select v-model="form.multicast_type" style="width: 100%">
               <el-option :label="$t('publish.udpxy_proxy')" value="udpxy" />
               <el-option :label="$t('publish.igmp_direct')" value="igmp" />
@@ -151,7 +151,7 @@
             </el-select>
           </el-form-item>
 
-          <el-form-item :label="$t('publish.udpxy_address')" v-if="form.address_type === 'multicast' && form.multicast_type === 'udpxy'" :rules="[{ required: true, message: $t('publish.udpxy_address_required'), trigger: 'blur' }]">
+          <el-form-item :label="$t('publish.udpxy_address')" v-if="form.multicast_type === 'udpxy'" :rules="[{ required: true, message: $t('publish.udpxy_address_required'), trigger: 'blur' }]">
             <el-input v-model.trim="form.udpxy_url" :placeholder="$t('publish.udpxy_placeholder')" />
           </el-form-item>
 
