@@ -555,7 +555,8 @@
       "trigger_fetch": "Fetch triggered",
       "trigger_detect": "Detection triggered",
       "detect_config_updated": "Detection configuration updated",
-      "ffprobe_uploaded": "ffprobe uploaded successfully"
+      "ffprobe_uploaded": "ffprobe uploaded successfully",
+      "epg_url_exists": "EPG source URL already exists, skipped auto-creation"
     },
     "label": {
       "auto_detect": "Auto Detect",

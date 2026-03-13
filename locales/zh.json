@@ -555,7 +555,8 @@
       "trigger_fetch": "已触发抓取",
       "trigger_detect": "已触发检测",
       "detect_config_updated": "检测配置已更新",
-      "ffprobe_uploaded": "ffprobe 上传成功"
+      "ffprobe_uploaded": "ffprobe 上传成功",
+      "epg_url_exists": "该EPG源URL已存在，跳过自动创建"
     },
     "label": {
       "auto_detect": "自动检测",

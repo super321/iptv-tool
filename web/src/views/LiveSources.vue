@@ -668,15 +668,21 @@ async function handleSubmit() {
       if ((form.type === 'network_url' || form.type === 'network_manual') && form.epg_enabled) {
         body.auto_create_epg = true
       }
-      await api.put(`/live-sources/${editId.value}`, body)
+      const { data } = await api.put(`/live-sources/${editId.value}`, body)
       ElMessage.success(t('common.update_success'))
+      if (data && data.warning) {
+        ElMessage.warning(data.warning)
+      }
     } else {
       const body = { name: form.name, description: form.description, type: form.type, url: form.url, content: form.content, headers: headersJson, cron_time: form.cron_time, cron_detect: form.cron_detect, detect_strategy: form.detect_strategy, epg_enabled: form.epg_enabled }
       if (form.type === 'iptv') {
         body.iptv_config = buildIptvConfig()
       }
-      await api.post('/live-sources', body)
+      const { data } = await api.post('/live-sources', body)
       ElMessage.success(t('common.create_success'))
+      if (data && data.warning) {
+        ElMessage.warning(data.warning)
+      }
     }
     dialogVisible.value = false
     await loadSources()

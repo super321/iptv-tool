@@ -200,6 +200,7 @@ func (lc *LiveSourceController) Create(c *gin.Context) {
 	}
 
 	// Auto-create EPG source from x-tvg-url for network_url/network_manual types
+	var epgSkippedWarning string
 	if (req.Type == model.LiveSourceTypeNetworkURL || req.Type == model.LiveSourceTypeNetworkManual) && req.EPGEnabled && tvgURL != "" {
 		// Check if an EPG source with the same URL already exists to avoid duplicates
 		var existingCount int64
@@ -222,6 +223,7 @@ func (lc *LiveSourceController) Create(c *gin.Context) {
 			}
 		} else {
 			slog.Info("Skipped auto-create EPG source, URL already exists", "url", tvgURL)
+			epgSkippedWarning = i18n.T(i18n.Lang(c), "message.epg_url_exists")
 		}
 	}
 
@@ -247,7 +249,11 @@ func (lc *LiveSourceController) Create(c *gin.Context) {
 		}(createdEPGSource.ID)
 	}
 
-	c.JSON(http.StatusCreated, source)
+	if epgSkippedWarning != "" {
+		c.JSON(http.StatusCreated, gin.H{"data": source, "warning": epgSkippedWarning})
+	} else {
+		c.JSON(http.StatusCreated, source)
+	}
 }
 
 // UpdateLiveSourceRequest is the request body for updating a live source
@@ -381,6 +387,7 @@ func (lc *LiveSourceController) Update(c *gin.Context) {
 	}
 
 	// Auto-create EPG source from x-tvg-url if requested during update
+	var updateEpgWarning string
 	if req.AutoCreateEPG != nil && *req.AutoCreateEPG {
 		if source.Type == model.LiveSourceTypeNetworkURL || source.Type == model.LiveSourceTypeNetworkManual {
 			var tvgURL string
@@ -410,6 +417,7 @@ func (lc *LiveSourceController) Update(c *gin.Context) {
 					}
 				} else {
 					slog.Info("Skipped auto-create EPG source (update), URL already exists", "url", tvgURL)
+					updateEpgWarning = i18n.T(i18n.Lang(c), "message.epg_url_exists")
 				}
 			}
 		}
@@ -429,7 +437,11 @@ func (lc *LiveSourceController) Update(c *gin.Context) {
 		lc.scheduler.RemoveDetectTask(source.ID)
 	}
 
-	c.JSON(http.StatusOK, source)
+	if updateEpgWarning != "" {
+		c.JSON(http.StatusOK, gin.H{"data": source, "warning": updateEpgWarning})
+	} else {
+		c.JSON(http.StatusOK, source)
+	}
 }
 
 // Delete removes a live source
