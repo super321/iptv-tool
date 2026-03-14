@@ -75,6 +75,10 @@ docker compose up -d
 3. **Edit Publishing Interface**: Enter the "Aggregated Publishing" menu, click "Add Publishing Interface", select the corresponding live streaming source and EPG source for mixed association configuration.
 4. **Get Subscription**: Click the `Address Path` below the corresponding name in the "Aggregated Publishing" list to get the real m3u or xmltv links to feed into your player (such as Tivimate, Kodi, etc.).
 
+## Changelog
+
+For detailed version update records, please refer to the [CHANGELOG](CHANGELOG.md).
+
 ## Star History
 
 <a href="https://www.star-history.com/?repos=super321%2Fiptv-tool&type=date&legend=top-left">

@@ -75,6 +75,10 @@ docker compose up -d
 3. **编辑发布接口**：进入“聚合发布”菜单，点击“新增发布接口”，选择对应的直播源及 EPG 源进行混合关联配置。
 4. **获取订阅**：在“聚合发布”列表点击所对应名称下方的 `地址路径`，即可获取真实的 m3u 或 xmltv 链接到您的播放器（如 Tivimate, Kodi 等）中食用。
 
+## 更新日志
+
+详细的版本更新记录请查阅 [CHANGELOG](CHANGELOG.md)。
+
 ## Star History
 
 <a href="https://www.star-history.com/?repos=super321%2Fiptv-tool&type=date&legend=top-left">
