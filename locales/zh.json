@@ -453,7 +453,18 @@
       "eth_note": "仅支持 Ethereum 资产 (ERC20)",
       "wallet_address": "钱包地址",
       "copied": "地址已复制到剪贴板",
-      "copy_failed": "复制失败，请手动复制"
+      "copy_failed": "复制失败，请手动复制",
+      "check_update": "检查更新",
+      "checking": "检查中...",
+      "already_latest": "已是最新版本",
+      "new_version_available": "发现新版本",
+      "new_version_title": "发现新版本",
+      "latest_version": "最新版本",
+      "current_version_label": "当前版本",
+      "release_notes": "更新内容",
+      "go_download": "前往下载",
+      "check_failed": "检查更新失败，请检查网络连接",
+      "checking_update": "正在检查更新..."
     },
     "api_interceptor": {
       "rate_limited": "请求过于频繁，请稍后再试",
@@ -549,7 +560,8 @@
       "ffprobe_version_failed": "获取 ffprobe 版本失败",
       "wait_sync_timeout": "等待直播源刷新完成超时（超过 %v）",
       "wait_epg_sync_timeout": "等待关联的首发直播源刷新完成超时（超过 %v）",
-      "load_channels_failed": "加载频道列表失败"
+      "load_channels_failed": "加载频道列表失败",
+      "check_update_failed": "检查更新失败，请检查网络连接"
     },
     "message": {
       "init_success": "系统初始化成功",

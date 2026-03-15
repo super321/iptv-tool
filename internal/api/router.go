@@ -61,6 +61,7 @@ func SetupRouter(scheduler *task.Scheduler, logoDir string, dataDir string, fron
 		// User management
 		authorized.POST("/user/password", systemCtrl.ChangePassword)
 		authorized.POST("/crack-key", systemCtrl.CrackKey)
+		authorized.GET("/system/check-update", CheckUpdate)
 
 		// Live Sources CRUD
 		liveCtrl := NewLiveSourceController(scheduler)

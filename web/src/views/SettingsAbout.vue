@@ -12,8 +12,35 @@
       <el-descriptions :column="1" border size="small">
         <el-descriptions-item :label="$t('settings_about.system_name')">IPTV Tool</el-descriptions-item>
         <el-descriptions-item :label="$t('settings_about.system_version')">
-          <el-tag v-if="appVersion" size="small" type="primary">{{ appVersion }}</el-tag>
-          <span v-else style="color: #909399; font-size: 12px">{{ $t('settings_about.fetching') }}</span>
+          <div class="version-cell">
+            <div class="version-cell-top">
+              <el-tag v-if="appVersion" size="small" type="primary">{{ appVersion }}</el-tag>
+              <span v-else style="color: #909399; font-size: 12px">{{ $t('settings_about.fetching') }}</span>
+
+              <!-- Update status hints -->
+              <span v-if="updateStatus === 'checking'" class="update-hint">
+                <el-icon class="is-loading" :size="12"><Loading /></el-icon>
+                {{ $t('settings_about.checking_update') }}
+              </span>
+              <el-tag v-else-if="updateStatus === 'latest'" size="small" type="success" effect="plain" class="update-status-tag">
+                <el-icon :size="12" style="margin-right: 2px"><CircleCheckFilled /></el-icon>
+                {{ $t('settings_about.already_latest') }}
+              </el-tag>
+              <el-link v-else-if="updateStatus === 'available'" type="warning" :underline="false" class="update-available-link" @click="showUpdateDialog = true">
+                <el-icon :size="14" style="margin-right: 2px"><TopRight /></el-icon>
+                {{ $t('settings_about.new_version_available') }}: {{ latestVersion }}
+              </el-link>
+
+              <el-button
+                size="small"
+                :icon="Refresh"
+                :loading="manualChecking"
+                @click="manualCheckUpdate"
+                circle
+                :title="$t('settings_about.check_update')"
+              />
+            </div>
+          </div>
         </el-descriptions-item>
         <el-descriptions-item :label="$t('settings_about.tech_stack')">Vue 3 + Element Plus / Go + Gin + SQLite</el-descriptions-item>
         <el-descriptions-item :label="$t('settings_about.runtime_mode')">{{ $t('settings_about.runtime_value') }}</el-descriptions-item>
@@ -122,15 +149,43 @@
         </div>
       </div>
     </el-dialog>
+
+    <!-- Update Dialog -->
+    <el-dialog v-model="showUpdateDialog" :title="$t('settings_about.new_version_title')" width="520px" align-center>
+      <div class="update-dialog-content">
+        <div class="update-version-info">
+          <div class="version-row">
+            <span class="version-label">{{ $t('settings_about.current_version_label') }}</span>
+            <el-tag size="small" type="info">{{ appVersion }}</el-tag>
+          </div>
+          <div class="version-row">
+            <span class="version-label">{{ $t('settings_about.latest_version') }}</span>
+            <el-tag size="small" type="success">{{ latestVersion }}</el-tag>
+          </div>
+        </div>
+        <div v-if="releaseNotes" class="release-notes-section">
+          <div class="release-notes-label">{{ $t('settings_about.release_notes') }}</div>
+          <div class="release-notes-content markdown-body" v-html="renderedNotes"></div>
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="showUpdateDialog = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="openLink(releaseUrl)">
+          <el-icon style="margin-right: 4px"><Link /></el-icon>
+          {{ $t('settings_about.go_download') }}
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
-import { InfoFilled, Link, CopyDocument, Wallet, Star } from '@element-plus/icons-vue'
+import { InfoFilled, Link, CopyDocument, Wallet, Refresh, Loading, CircleCheckFilled, TopRight } from '@element-plus/icons-vue'
 import { Coffee } from '@element-plus/icons-vue'
+import { marked } from 'marked'
 import ethQrCode from '../assets/eth_qrcode.jpg'
 import api from '../api'
 
@@ -140,14 +195,141 @@ const showEthDialog = ref(false)
 const ethAddress = ref('0x6989acE6Eb2CC196fAFce3cEcAEC6b6b63716C83')
 const appVersion = ref('')
 
+// Update check state
+const updateStatus = ref('') // '', 'checking', 'latest', 'available'
+const latestVersion = ref('')
+const releaseNotes = ref('')
+const releaseUrl = ref('')
+const showUpdateDialog = ref(false)
+const manualChecking = ref(false)
+
+// Rendered markdown for release notes
+const renderedNotes = computed(() => {
+  if (!releaseNotes.value) return ''
+  return marked(releaseNotes.value, { breaks: true })
+})
+
+// Cache keys for localStorage
+const CACHE_KEY_VERSION = 'iptv_update_latest_version'
+const CACHE_KEY_NOTES = 'iptv_update_release_notes'
+const CACHE_KEY_URL = 'iptv_update_release_url'
+const CACHE_KEY_TIME = 'iptv_update_check_time'
+const CACHE_TTL = 60 * 60 * 1000 // 1 hour in milliseconds
+
 onMounted(async () => {
+  // Fetch current version
   try {
     const { data } = await api.get('/system/version')
     appVersion.value = data.version || 'unknown'
   } catch {
     appVersion.value = 'unknown'
   }
+
+  // Auto-check for updates (respecting cache TTL)
+  autoCheckUpdate()
 })
+
+function isCacheValid() {
+  const lastCheck = localStorage.getItem(CACHE_KEY_TIME)
+  if (!lastCheck) return false
+  return (Date.now() - parseInt(lastCheck, 10)) < CACHE_TTL
+}
+
+function loadFromCache() {
+  latestVersion.value = localStorage.getItem(CACHE_KEY_VERSION) || ''
+  releaseNotes.value = localStorage.getItem(CACHE_KEY_NOTES) || ''
+  releaseUrl.value = localStorage.getItem(CACHE_KEY_URL) || ''
+}
+
+function saveToCache(version, notes, url) {
+  localStorage.setItem(CACHE_KEY_VERSION, version)
+  localStorage.setItem(CACHE_KEY_NOTES, notes)
+  localStorage.setItem(CACHE_KEY_URL, url)
+  localStorage.setItem(CACHE_KEY_TIME, Date.now().toString())
+}
+
+function compareVersions(current, latest) {
+  const stripV = v => v.replace(/^v/, '').trim()
+  const c = stripV(current)
+  const l = stripV(latest)
+  if (c === 'dev') return l === 'dev' ? 0 : -1
+  if (l === 'dev') return 1
+  const cp = c.split('.').map(Number)
+  const lp = l.split('.').map(Number)
+  const maxLen = Math.max(cp.length, lp.length)
+  for (let i = 0; i < maxLen; i++) {
+    const cv = cp[i] || 0
+    const lv = lp[i] || 0
+    if (cv < lv) return -1
+    if (cv > lv) return 1
+  }
+  return 0
+}
+
+function applyUpdateResult(current, latest, notes, url) {
+  latestVersion.value = latest
+  releaseNotes.value = notes
+  releaseUrl.value = url
+
+  if (compareVersions(current, latest) < 0) {
+    updateStatus.value = 'available'
+  } else {
+    updateStatus.value = 'latest'
+  }
+}
+
+async function autoCheckUpdate() {
+  // If cache is still valid, use cached data
+  if (isCacheValid()) {
+    loadFromCache()
+    const current = appVersion.value || 'dev'
+    if (latestVersion.value) {
+      if (compareVersions(current, latestVersion.value) < 0) {
+        updateStatus.value = 'available'
+      } else {
+        updateStatus.value = 'latest'
+      }
+    }
+    return
+  }
+
+  // Fetch from API
+  await fetchUpdateInfo(false)
+}
+
+async function manualCheckUpdate() {
+  manualChecking.value = true
+  await fetchUpdateInfo(true)
+  manualChecking.value = false
+}
+
+async function fetchUpdateInfo(isManual) {
+  updateStatus.value = 'checking'
+
+  try {
+    const { data } = await api.get('/system/check-update')
+    saveToCache(data.latest_version, data.release_notes || '', data.release_url || '')
+    applyUpdateResult(
+      data.current_version,
+      data.latest_version,
+      data.release_notes || '',
+      data.release_url || ''
+    )
+
+    if (isManual) {
+      if (data.has_update) {
+        showUpdateDialog.value = true
+      } else {
+        ElMessage.success(t('settings_about.already_latest'))
+      }
+    }
+  } catch {
+    updateStatus.value = ''
+    if (isManual) {
+      ElMessage.error(t('settings_about.check_failed'))
+    }
+  }
+}
 
 function openLink(url) {
   window.open(url, '_blank')
@@ -178,6 +360,136 @@ async function copyAddress() {
   color: #606266;
   font-size: 14px;
   line-height: 1.6;
+}
+
+/* Version cell layout */
+.version-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.version-cell-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Update hints */
+.update-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #909399;
+}
+.update-available-link {
+  font-size: 12px !important;
+  font-weight: 500;
+}
+
+/* Update dialog */
+.update-dialog-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.update-version-info {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 16px;
+  background: #f5f7fa;
+  border-radius: 8px;
+}
+.version-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.version-label {
+  font-size: 13px;
+  color: #606266;
+  min-width: 70px;
+}
+.release-notes-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.release-notes-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #303133;
+}
+.release-notes-content {
+  background: #f5f7fa;
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #606266;
+  word-break: break-word;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+/* Markdown body styles */
+.markdown-body :deep(h1),
+.markdown-body :deep(h2),
+.markdown-body :deep(h3) {
+  margin: 12px 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+}
+.markdown-body :deep(h1) { font-size: 16px; }
+.markdown-body :deep(h2) { font-size: 15px; }
+.markdown-body :deep(p) {
+  margin: 4px 0;
+}
+.markdown-body :deep(ul),
+.markdown-body :deep(ol) {
+  margin: 4px 0;
+  padding-left: 20px;
+}
+.markdown-body :deep(li) {
+  margin: 2px 0;
+}
+.markdown-body :deep(code) {
+  background: #e8eaed;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+.markdown-body :deep(pre) {
+  background: #e8eaed;
+  padding: 8px 12px;
+  border-radius: 6px;
+  overflow-x: auto;
+}
+.markdown-body :deep(pre code) {
+  background: none;
+  padding: 0;
+}
+.markdown-body :deep(a) {
+  color: #409eff;
+  text-decoration: none;
+}
+.markdown-body :deep(a:hover) {
+  text-decoration: underline;
+}
+.markdown-body :deep(blockquote) {
+  margin: 4px 0;
+  padding: 4px 12px;
+  border-left: 3px solid #dcdfe6;
+  color: #909399;
+}
+.markdown-body :deep(> :first-child) {
+  margin-top: 0;
+}
+.markdown-body :deep(> :last-child) {
+  margin-bottom: 0;
 }
 
 /* Sponsor list */

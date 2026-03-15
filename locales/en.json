@@ -453,7 +453,18 @@
       "eth_note": "Ethereum assets only (ERC20)",
       "wallet_address": "Wallet Address",
       "copied": "Address copied to clipboard",
-      "copy_failed": "Copy failed, please copy manually"
+      "copy_failed": "Copy failed, please copy manually",
+      "check_update": "Check for Updates",
+      "checking": "Checking...",
+      "already_latest": "You are using the latest version",
+      "new_version_available": "New version available",
+      "new_version_title": "New Version Available",
+      "latest_version": "Latest Version",
+      "current_version_label": "Current Version",
+      "release_notes": "Release Notes",
+      "go_download": "Go to Download",
+      "check_failed": "Failed to check for updates, please check your network",
+      "checking_update": "Checking for updates..."
     },
     "api_interceptor": {
       "rate_limited": "Too many requests, please try again later",
@@ -549,7 +560,8 @@
       "ffprobe_version_failed": "Failed to get ffprobe version",
       "wait_sync_timeout": "Timed out waiting for source refresh to complete (exceeded %v)",
       "wait_epg_sync_timeout": "Timed out waiting for linked live source refresh to complete (exceeded %v)",
-      "load_channels_failed": "Failed to load channel list"
+      "load_channels_failed": "Failed to load channel list",
+      "check_update_failed": "Failed to check for updates, please check your network connection"
     },
     "message": {
       "init_success": "System initialized successfully",
