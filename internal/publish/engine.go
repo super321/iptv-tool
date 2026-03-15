@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -504,13 +505,30 @@ func (e *Engine) FormatTXT(channels []AggregatedChannel) string {
 
 // --- EPG aggregation ---
 
-// AggregatedEPGProgram includes alias for EPG
-type AggregatedEPGProgram struct {
-	model.ParsedEPG
-	Alias string
+// EPGProgram holds a single program's display data
+type EPGProgram struct {
+	Title     string
+	Desc      string
+	StartTime time.Time
+	EndTime   time.Time
 }
 
-func (e *Engine) AggregateEPGPrograms() ([]AggregatedEPGProgram, error) {
+// EPGChannelPrograms holds all programs for one channel, grouped by date
+type EPGChannelPrograms struct {
+	ChannelID      string                  // XMLTV channel id (ParsedEPG.Channel)
+	ChannelName    string                  // Original channel name
+	Alias          string                  // Applied alias (may be empty)
+	DatePrograms   map[string][]EPGProgram // key: "2006-01-02", value: programs sorted by StartTime
+	seenStartTimes map[string]bool         // used during aggregation to dedup by start time
+}
+
+// AggregatedEPG is the top-level cached structure
+type AggregatedEPG struct {
+	Channels     map[string]*EPGChannelPrograms // key: lowercase effective name (优先使用 alias，无 alias 则用原始名称)
+	ChannelOrder []string                       // preserves insertion order (lowercase keys) for deterministic XMLTV output
+}
+
+func (e *Engine) AggregateEPG() (*AggregatedEPG, error) {
 	sourceIDs := parseSourceIDs(e.iface.SourceIDs)
 	if len(sourceIDs) == 0 {
 		return nil, nil
@@ -540,13 +558,15 @@ func (e *Engine) AggregateEPGPrograms() ([]AggregatedEPGProgram, error) {
 		return nil, fmt.Errorf("failed to load EPG programs: %w", err)
 	}
 
-	var result []AggregatedEPGProgram
-
 	// Filter cache by channel to avoid re-evaluating rules for every program
 	channelStateCache := make(map[string]struct {
 		ShouldDrop bool
 		Alias      string
 	})
+
+	result := &AggregatedEPG{
+		Channels: make(map[string]*EPGChannelPrograms),
+	}
 
 	for _, p := range programs {
 		cache, exists := channelStateCache[p.ChannelName]
@@ -567,62 +587,101 @@ func (e *Engine) AggregateEPGPrograms() ([]AggregatedEPGProgram, error) {
 			continue
 		}
 
-		result = append(result, AggregatedEPGProgram{
-			ParsedEPG: p,
-			Alias:     cache.Alias,
+		// Effective display name: alias first, fallback to original name
+		effName := cache.Alias
+		if effName == "" {
+			effName = p.ChannelName
+		}
+		lowerKey := strings.ToLower(effName)
+
+		chEntry, ok := result.Channels[lowerKey]
+		if !ok {
+			chEntry = &EPGChannelPrograms{
+				ChannelID:      p.Channel,
+				ChannelName:    p.ChannelName,
+				Alias:          cache.Alias,
+				DatePrograms:   make(map[string][]EPGProgram),
+				seenStartTimes: make(map[string]bool),
+			}
+			result.Channels[lowerKey] = chEntry
+			result.ChannelOrder = append(result.ChannelOrder, lowerKey)
+		}
+
+		// Dedup: skip programs with duplicate start times within the same channel
+		startKey := p.StartTime.Format("20060102150405")
+		if chEntry.seenStartTimes[startKey] {
+			continue
+		}
+		chEntry.seenStartTimes[startKey] = true
+
+		dateKey := p.StartTime.Format("2006-01-02")
+		chEntry.DatePrograms[dateKey] = append(chEntry.DatePrograms[dateKey], EPGProgram{
+			Title:     p.Title,
+			Desc:      p.Desc,
+			StartTime: p.StartTime,
+			EndTime:   p.EndTime,
 		})
 	}
 
 	return result, nil
 }
 
-func (e *Engine) FormatXMLTV(programs []AggregatedEPGProgram) string {
-	channelMap := make(map[string]string) // XMLTV channel id -> DisplayName
+func (e *Engine) FormatXMLTV(epg *AggregatedEPG) string {
+	if epg == nil {
+		return `<?xml version="1.0" encoding="UTF-8"?>` + "\n<tv generator-info-name=\"iptv-tool\">\n</tv>\n"
+	}
 
-	// 针对频道/节目映射，准备存储结构
-	type uniqueProg struct {
+	channelMap := make(map[string]string) // XMLTV channel id -> DisplayName
+	// 维护 XMLTV channel id 的出现顺序
+	var xmltvChIDOrder []string
+	// channelProgs: map[xmltvChID] -> ordered list of programs for output
+	type xmltvProg struct {
 		start string
 		end   string
 		title string
 		desc  string
 	}
-	// uniqueProgramMap 结构: map[xmltv_channel_id]map[start_time]uniqueProg
-	// 用来防止同一 channel_id 下存在起止时间完全相同的重复节目
-	uniqueProgramMap := make(map[string]map[string]uniqueProg)
+	channelProgs := make(map[string][]xmltvProg)
 
-	for _, p := range programs {
-		displayName := p.ChannelName
-		if p.Alias != "" {
-			displayName = p.Alias
+	for _, key := range epg.ChannelOrder {
+		chEntry := epg.Channels[key]
+
+		displayName := chEntry.ChannelName
+		if chEntry.Alias != "" {
+			displayName = chEntry.Alias
 		}
 
 		// ====== channel id 处理逻辑 ======
-		xmltvChID := p.Channel
+		xmltvChID := chEntry.ChannelID
 		if e.iface.TvgIDMode == "name" {
 			xmltvChID = displayName
 		}
-
-		// 如果没有获取到有效ID，为了保证 XMLTV 规范，用 displayName 兜底
 		if xmltvChID == "" {
 			xmltvChID = displayName
 		}
 
 		// 填充唯一的顶部频道映射
+		if _, exists := channelMap[xmltvChID]; !exists {
+			xmltvChIDOrder = append(xmltvChIDOrder, xmltvChID)
+		}
 		channelMap[xmltvChID] = displayName
 
-		// 填充排重节目表
-		if uniqueProgramMap[xmltvChID] == nil {
-			uniqueProgramMap[xmltvChID] = make(map[string]uniqueProg)
+		// 对日期排序，确保节目按时间顺序输出
+		dates := make([]string, 0, len(chEntry.DatePrograms))
+		for d := range chEntry.DatePrograms {
+			dates = append(dates, d)
 		}
+		sort.Strings(dates)
 
-		start := p.StartTime.Format("20060102150405 -0700")
-		// 根据 start time 作为排重 key，如果同时间存在节目则保留第一个（抛弃后续的）
-		if _, exists := uniqueProgramMap[xmltvChID][start]; !exists {
-			uniqueProgramMap[xmltvChID][start] = uniqueProg{
-				start: start,
-				end:   p.EndTime.Format("20060102150405 -0700"),
-				title: p.Title,
-				desc:  p.Desc,
+		// DatePrograms 已在 AggregateEPG 中按 start time 排重，直接遍历即可
+		for _, date := range dates {
+			for _, prog := range chEntry.DatePrograms[date] {
+				channelProgs[xmltvChID] = append(channelProgs[xmltvChID], xmltvProg{
+					start: prog.StartTime.Format("20060102150405 -0700"),
+					end:   prog.EndTime.Format("20060102150405 -0700"),
+					title: prog.Title,
+					desc:  prog.Desc,
+				})
 			}
 		}
 	}
@@ -633,8 +692,9 @@ func (e *Engine) FormatXMLTV(programs []AggregatedEPGProgram) string {
 	sb.WriteString(`<tv generator-info-name="iptv-tool">`)
 	sb.WriteString("\n")
 
-	// 1. 生成 <channel> 头部，完全去重
-	for chID, dispName := range channelMap {
+	// 1. 生成 <channel> 头部，完全去重，按出现顺序输出
+	for _, chID := range xmltvChIDOrder {
+		dispName := channelMap[chID]
 		sb.WriteString(fmt.Sprintf(`  <channel id="%s">`, xmlEscape(chID)))
 		sb.WriteString("\n")
 		sb.WriteString(fmt.Sprintf(`    <display-name lang="zh">%s</display-name>`, xmlEscape(dispName)))
@@ -642,9 +702,9 @@ func (e *Engine) FormatXMLTV(programs []AggregatedEPGProgram) string {
 		sb.WriteString("  </channel>\n")
 	}
 
-	// 2. 生成 <programme> 内容
-	for chID, progsByStart := range uniqueProgramMap {
-		for _, prog := range progsByStart {
+	// 2. 生成 <programme> 内容，数据已在聚合阶段排重，按日期顺序输出
+	for _, chID := range xmltvChIDOrder {
+		for _, prog := range channelProgs[chID] {
 			sb.WriteString(fmt.Sprintf(`  <programme start="%s" stop="%s" channel="%s">`,
 				prog.start, prog.end, xmlEscape(chID)))
 			sb.WriteString("\n")
@@ -662,19 +722,19 @@ func (e *Engine) FormatXMLTV(programs []AggregatedEPGProgram) string {
 	return sb.String()
 }
 
-func (e *Engine) FormatXMLTVGzip(programs []AggregatedEPGProgram, w http.ResponseWriter) error {
+func (e *Engine) FormatXMLTVGzip(epg *AggregatedEPG, w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/gzip")
 	w.Header().Set("Content-Disposition", "attachment; filename=epg.xml.gz")
 
 	gz := gzip.NewWriter(w)
 	defer gz.Close()
 
-	content := e.FormatXMLTV(programs)
+	content := e.FormatXMLTV(epg)
 	_, err := gz.Write([]byte(content))
 	return err
 }
 
-func (e *Engine) FormatDIYP(programs []AggregatedEPGProgram, filterChannelName, dateStr string) string {
+func (e *Engine) FormatDIYP(epg *AggregatedEPG, filterChannelName, dateStr string) string {
 	// 强制设定为空时的默认查询日期（今日）
 	if dateStr == "" {
 		dateStr = time.Now().Format("2006-01-02")
@@ -701,37 +761,27 @@ func (e *Engine) FormatDIYP(programs []AggregatedEPGProgram, filterChannelName, 
 		return string(data)
 	}
 
-	var filtered []AggregatedEPGProgram
-	for _, p := range programs {
-		effName := p.Alias
-		if effName == "" {
-			effName = p.ChannelName
-		}
-		if !strings.EqualFold(effName, filterChannelName) {
-			continue
-		}
+	// O(1) lookup by channel name (case-insensitive)
+	var epgData []DIYPProgram
 
-		// 此时 dateStr 必有值，精确匹配该日期的节目
-		progDate := p.StartTime.Format("2006-01-02")
-		if progDate != dateStr {
-			continue
+	if epg != nil {
+		if chEntry, ok := epg.Channels[strings.ToLower(filterChannelName)]; ok {
+			if progs, ok := chEntry.DatePrograms[dateStr]; ok {
+				epgData = make([]DIYPProgram, 0, len(progs))
+				for _, p := range progs {
+					epgData = append(epgData, DIYPProgram{
+						Title: p.Title,
+						Desc:  p.Desc,
+						Start: p.StartTime.Format("15:04"),
+						End:   p.EndTime.Format("15:04"),
+					})
+				}
+			}
 		}
-
-		filtered = append(filtered, p)
 	}
 
-	epgData := make([]DIYPProgram, 0, len(filtered))
-	for _, p := range filtered {
-		epgData = append(epgData, DIYPProgram{
-			Title: p.Title,
-			Desc:  p.Desc,
-			Start: p.StartTime.Format("15:04"),
-			End:   p.EndTime.Format("15:04"),
-		})
-	}
-
-	if dateStr == "" {
-		dateStr = time.Now().Format("2006-01-02")
+	if epgData == nil {
+		epgData = []DIYPProgram{}
 	}
 
 	resp := DIYPResponse{

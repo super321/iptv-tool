@@ -88,8 +88,8 @@ func serveLive(c *gin.Context, engine *Engine, iface model.PublishInterface, req
 	}
 }
 
-func serveEPG(c *gin.Context, engine *Engine, iface model.PublishInterface, requestHost string) {
-	programs, err := LoadOrStoreEPGPrograms(iface.ID, engine.AggregateEPGPrograms)
+func serveEPG(c *gin.Context, engine *Engine, iface model.PublishInterface, _ string) {
+	epg, err := LoadOrStoreEPGPrograms(iface.ID, engine.AggregateEPG)
 	if err != nil {
 		c.String(http.StatusInternalServerError, "%s: %s", i18n.T(i18n.Lang(c), "publish_handler.epg_agg_failed"), err.Error())
 		return
@@ -99,19 +99,19 @@ func serveEPG(c *gin.Context, engine *Engine, iface model.PublishInterface, requ
 	case model.PublishFormatXMLTV:
 		// Only use gzip when explicitly enabled in the interface settings
 		if iface.GzipEnabled {
-			if err := engine.FormatXMLTVGzip(programs, c.Writer); err != nil {
+			if err := engine.FormatXMLTVGzip(epg, c.Writer); err != nil {
 				c.String(http.StatusInternalServerError, i18n.T(i18n.Lang(c), "publish_handler.gzip_failed"))
 			}
 		} else {
 			c.Header("Content-Type", "application/xml; charset=utf-8")
-			c.String(http.StatusOK, engine.FormatXMLTV(programs))
+			c.String(http.StatusOK, engine.FormatXMLTV(epg))
 		}
 	case model.PublishFormatDIYP:
 		// DIYP JSON format supports query params: ?ch=频道名&date=2024-01-15
 		channelName := c.Query("ch")
 		dateStr := c.Query("date")
 		c.Header("Content-Type", "application/json; charset=utf-8")
-		c.String(http.StatusOK, engine.FormatDIYP(programs, channelName, dateStr))
+		c.String(http.StatusOK, engine.FormatDIYP(epg, channelName, dateStr))
 	default:
 		c.String(http.StatusBadRequest, i18n.T(i18n.Lang(c), "publish_handler.epg_format_unsupported"))
 	}

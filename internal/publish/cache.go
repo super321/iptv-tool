@@ -25,10 +25,10 @@ func (e *cacheEntry[T]) isExpired() bool {
 var pubCache = struct {
 	mu        sync.RWMutex
 	liveCache map[uint]cacheEntry[[]AggregatedChannel]
-	epgCache  map[uint]cacheEntry[[]AggregatedEPGProgram]
+	epgCache  map[uint]cacheEntry[*AggregatedEPG]
 }{
 	liveCache: make(map[uint]cacheEntry[[]AggregatedChannel]),
-	epgCache:  make(map[uint]cacheEntry[[]AggregatedEPGProgram]),
+	epgCache:  make(map[uint]cacheEntry[*AggregatedEPG]),
 }
 
 // keyMutexes provides per-interface-ID mutexes to prevent cache stampede.
@@ -67,9 +67,9 @@ func setLiveChannels(ifaceID uint, channels []AggregatedChannel) {
 	}
 }
 
-// getEPGPrograms returns the cached EPG programs for the given interface ID.
+// getEPGPrograms returns the cached EPG data for the given interface ID.
 // Returns nil and false on cache miss or TTL expiration.
-func getEPGPrograms(ifaceID uint) ([]AggregatedEPGProgram, bool) {
+func getEPGPrograms(ifaceID uint) (*AggregatedEPG, bool) {
 	pubCache.mu.RLock()
 	defer pubCache.mu.RUnlock()
 
@@ -80,13 +80,13 @@ func getEPGPrograms(ifaceID uint) ([]AggregatedEPGProgram, bool) {
 	return entry.Data, true
 }
 
-// setEPGPrograms stores the aggregated EPG programs for the given interface ID.
-func setEPGPrograms(ifaceID uint, programs []AggregatedEPGProgram) {
+// setEPGPrograms stores the aggregated EPG data for the given interface ID.
+func setEPGPrograms(ifaceID uint, epg *AggregatedEPG) {
 	pubCache.mu.Lock()
 	defer pubCache.mu.Unlock()
 
-	pubCache.epgCache[ifaceID] = cacheEntry[[]AggregatedEPGProgram]{
-		Data:      programs,
+	pubCache.epgCache[ifaceID] = cacheEntry[*AggregatedEPG]{
+		Data:      epg,
 		CreatedAt: time.Now(),
 	}
 }
@@ -121,13 +121,13 @@ func LoadOrStoreLiveChannels(ifaceID uint, loader func() ([]AggregatedChannel, e
 	return channels, nil
 }
 
-// LoadOrStoreEPGPrograms returns cached EPG programs, or calls the loader to
+// LoadOrStoreEPGPrograms returns cached EPG data, or calls the loader to
 // populate the cache on a miss. Uses per-key mutex with double-checked locking
 // to prevent cache stampede.
-func LoadOrStoreEPGPrograms(ifaceID uint, loader func() ([]AggregatedEPGProgram, error)) ([]AggregatedEPGProgram, error) {
+func LoadOrStoreEPGPrograms(ifaceID uint, loader func() (*AggregatedEPG, error)) (*AggregatedEPG, error) {
 	// Fast path: read lock only
-	if programs, ok := getEPGPrograms(ifaceID); ok {
-		return programs, nil
+	if epg, ok := getEPGPrograms(ifaceID); ok {
+		return epg, nil
 	}
 
 	// Slow path: acquire per-key mutex to prevent stampede
@@ -136,18 +136,18 @@ func LoadOrStoreEPGPrograms(ifaceID uint, loader func() ([]AggregatedEPGProgram,
 	defer mu.Unlock()
 
 	// Double-check: another goroutine may have populated the cache while we waited
-	if programs, ok := getEPGPrograms(ifaceID); ok {
-		return programs, nil
+	if epg, ok := getEPGPrograms(ifaceID); ok {
+		return epg, nil
 	}
 
 	// Actually load from DB
-	programs, err := loader()
+	epg, err := loader()
 	if err != nil {
 		return nil, err
 	}
 
-	setEPGPrograms(ifaceID, programs)
-	return programs, nil
+	setEPGPrograms(ifaceID, epg)
+	return epg, nil
 }
 
 // InvalidateAll clears all cached publish data.
@@ -158,7 +158,7 @@ func InvalidateAll() {
 	defer pubCache.mu.Unlock()
 
 	pubCache.liveCache = make(map[uint]cacheEntry[[]AggregatedChannel])
-	pubCache.epgCache = make(map[uint]cacheEntry[[]AggregatedEPGProgram])
+	pubCache.epgCache = make(map[uint]cacheEntry[*AggregatedEPG])
 	keyMutexes.Clear()
 	slog.Debug("Publish cache invalidated")
 }

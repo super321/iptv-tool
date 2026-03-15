@@ -370,7 +370,7 @@ func (pc *PublishController) PreviewInterface(c *gin.Context) {
 		}
 		c.JSON(http.StatusOK, channels)
 	} else {
-		epgs, err := eng.AggregateEPGPrograms()
+		epg, err := eng.AggregateEPG()
 		if err != nil {
 			slog.Error("Internal server error", "error", err, "path", c.Request.URL.Path)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -385,25 +385,21 @@ func (pc *PublishController) PreviewInterface(c *gin.Context) {
 			ProgramCount int    `json:"program_count"`
 		}
 
-		counts := make(map[string]*EPGPreviewRow)
-		var order []string
-
-		for _, p := range epgs {
-			if _, exists := counts[p.Channel]; !exists {
-				counts[p.Channel] = &EPGPreviewRow{
-					ChannelID:    p.Channel,
-					OriginalName: p.ChannelName,
-					Alias:        p.Alias,
-					ProgramCount: 0,
-				}
-				order = append(order, p.Channel)
-			}
-			counts[p.Channel].ProgramCount++
-		}
-
 		var result []EPGPreviewRow
-		for _, ch := range order {
-			result = append(result, *counts[ch])
+		if epg != nil {
+			for _, key := range epg.ChannelOrder {
+				chEntry := epg.Channels[key]
+				count := 0
+				for _, progs := range chEntry.DatePrograms {
+					count += len(progs)
+				}
+				result = append(result, EPGPreviewRow{
+					ChannelID:    chEntry.ChannelID,
+					OriginalName: chEntry.ChannelName,
+					Alias:        chEntry.Alias,
+					ProgramCount: count,
+				})
+			}
 		}
 
 		c.JSON(http.StatusOK, result)
