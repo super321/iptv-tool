@@ -2,6 +2,13 @@ module iptv-tool-v2
 
 go 1.25.8
 
+ignore (
+	./docker
+	./docs
+	./web/node_modules
+	vendor
+)
+
 require (
 	github.com/gin-gonic/gin v1.12.0
 	github.com/glebarez/sqlite v1.11.0

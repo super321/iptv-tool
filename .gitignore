@@ -230,3 +230,5 @@ go.work.sum
 
 # env file
 
+# custom
+/bin
