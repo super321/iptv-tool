@@ -142,6 +142,7 @@ func (pc *PublishController) CreateInterface(c *gin.Context) {
 		return
 	}
 
+	publish.InvalidateAll()
 	c.JSON(http.StatusCreated, iface)
 }
 
@@ -281,6 +282,7 @@ func (pc *PublishController) UpdateInterface(c *gin.Context) {
 	}
 
 	model.DB.First(&iface, uint(id))
+	publish.InvalidateAll()
 	c.JSON(http.StatusOK, iface)
 }
 
@@ -299,6 +301,7 @@ func (pc *PublishController) DeleteInterface(c *gin.Context) {
 		return
 	}
 
+	publish.InvalidateAll()
 	c.JSON(http.StatusOK, gin.H{"message": i18n.T(i18n.Lang(c), "message.publish_deleted")})
 }
 
@@ -358,13 +361,8 @@ func (pc *PublishController) PreviewInterface(c *gin.Context) {
 		return
 	}
 
-	requestHost := c.Request.Host
-	if fwd := c.GetHeader("X-Forwarded-Host"); fwd != "" {
-		requestHost = fwd
-	}
-
 	if req.Type == "live" {
-		channels, err := eng.AggregateLiveChannels(requestHost)
+		channels, err := eng.AggregateLiveChannels()
 		if err != nil {
 			slog.Error("Internal server error", "error", err, "path", c.Request.URL.Path)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

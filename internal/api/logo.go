@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"iptv-tool-v2/internal/model"
+	"iptv-tool-v2/internal/publish"
 	"iptv-tool-v2/pkg/i18n"
 )
 
@@ -88,6 +89,7 @@ func (lc *LogoController) Upload(c *gin.Context) {
 		return
 	}
 
+	publish.InvalidateAll()
 	c.JSON(http.StatusCreated, logo)
 }
 
@@ -150,6 +152,9 @@ func (lc *LogoController) BatchUpload(c *gin.Context) {
 		uploaded = append(uploaded, logo)
 	}
 
+	if len(uploaded) > 0 {
+		publish.InvalidateAll()
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"uploaded": uploaded,
 		"errors":   errors,
@@ -200,6 +205,7 @@ func (lc *LogoController) Update(c *gin.Context) {
 		return
 	}
 
+	publish.InvalidateAll()
 	c.JSON(http.StatusOK, logo)
 }
 
@@ -227,5 +233,6 @@ func (lc *LogoController) Delete(c *gin.Context) {
 		return
 	}
 
+	publish.InvalidateAll()
 	c.JSON(http.StatusOK, gin.H{"message": i18n.T(i18n.Lang(c), "message.logo_deleted")})
 }

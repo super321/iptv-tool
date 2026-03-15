@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"iptv-tool-v2/internal/model"
+	"iptv-tool-v2/internal/publish"
 	"iptv-tool-v2/pkg/i18n"
 )
 
@@ -85,6 +86,7 @@ func (rc *RuleController) Create(c *gin.Context) {
 		return
 	}
 
+	publish.InvalidateAll()
 	c.JSON(http.StatusCreated, rule)
 }
 
@@ -152,6 +154,7 @@ func (rc *RuleController) Update(c *gin.Context) {
 	}
 
 	model.DB.First(&rule, uint(id))
+	publish.InvalidateAll()
 	c.JSON(http.StatusOK, rule)
 }
 
@@ -186,5 +189,6 @@ func (rc *RuleController) Delete(c *gin.Context) {
 		return
 	}
 
+	publish.InvalidateAll()
 	c.JSON(http.StatusOK, gin.H{"message": i18n.T(i18n.Lang(c), "message.rule_deleted")})
 }

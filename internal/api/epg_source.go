@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"iptv-tool-v2/internal/model"
+	"iptv-tool-v2/internal/publish"
 	"iptv-tool-v2/internal/task"
 	"iptv-tool-v2/pkg/i18n"
 	"iptv-tool-v2/pkg/utils"
@@ -189,6 +190,7 @@ func (ec *EPGSourceController) Create(c *gin.Context) {
 	// Trigger initial fetch
 	ec.scheduler.TriggerEPGSourceNow(source.ID)
 
+	publish.InvalidateAll()
 	c.JSON(http.StatusCreated, source)
 }
 
@@ -291,6 +293,7 @@ func (ec *EPGSourceController) Update(c *gin.Context) {
 		ec.scheduler.RemoveEPGSourceTask(source.ID)
 	}
 
+	publish.InvalidateAll()
 	c.JSON(http.StatusOK, source)
 }
 
@@ -337,6 +340,7 @@ func (ec *EPGSourceController) Delete(c *gin.Context) {
 		return
 	}
 
+	publish.InvalidateAll()
 	c.JSON(http.StatusOK, gin.H{"message": i18n.T(i18n.Lang(c), "message.epg_source_deleted")})
 }
 

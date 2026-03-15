@@ -131,17 +131,15 @@ func NewEngine(iface model.PublishInterface) (*Engine, error) {
 	return e, nil
 }
 
-// buildLogoMap builds an ignore-case map of uploaded logos
-func (e *Engine) buildLogoMap(requestHost string) {
+// buildLogoMap builds an ignore-case map of uploaded logos.
+// Stores relative paths (e.g. /logo/cctv1.png) rather than full URLs,
+// so that the cached data is independent of the client's request host.
+func (e *Engine) buildLogoMap() {
 	e.logoMapCache = make(map[string]string)
 	var logos []model.ChannelLogo
 	if err := model.DB.Find(&logos).Error; err == nil {
 		for _, l := range logos {
-			url := l.URLPath
-			if strings.HasPrefix(url, "/") {
-				url = fmt.Sprintf("http://%s%s", requestHost, url)
-			}
-			e.logoMapCache[strings.ToLower(l.Name)] = url
+			e.logoMapCache[strings.ToLower(l.Name)] = l.URLPath
 		}
 	}
 }
@@ -235,8 +233,10 @@ func (e *Engine) applyLogo(name, alias string) string {
 
 // --- Live channel aggregation ---
 
-// AggregateLiveChannels loads channels from sources, applies rules sequentially, and returns result
-func (e *Engine) AggregateLiveChannels(requestHost string) ([]AggregatedChannel, error) {
+// AggregateLiveChannels loads channels from sources, applies rules sequentially, and returns result.
+// Logo fields contain relative paths (e.g. /logo/cctv1.png); full URL resolution
+// is deferred to format-time (FormatM3U) so the result is cacheable across hosts.
+func (e *Engine) AggregateLiveChannels() ([]AggregatedChannel, error) {
 	sourceIDs := parseSourceIDs(e.iface.SourceIDs)
 	if len(sourceIDs) == 0 {
 		return nil, nil
@@ -259,8 +259,8 @@ func (e *Engine) AggregateLiveChannels(requestHost string) ([]AggregatedChannel,
 		return nil, fmt.Errorf("failed to load channels: %w", err)
 	}
 
-	// For Auto-logo, load map once
-	e.buildLogoMap(requestHost)
+	// For Auto-logo, load map once (stores relative paths)
+	e.buildLogoMap()
 
 	// Build set of source IDs that should filter timeout channels
 	filterInvalidSet := make(map[uint]bool)
@@ -412,7 +412,7 @@ func (e *Engine) extractBestURL(rawURLs, catchupURL, fccIP, fccPort string) stri
 	return rawURLs
 }
 
-func (e *Engine) FormatM3U(channels []AggregatedChannel) string {
+func (e *Engine) FormatM3U(channels []AggregatedChannel, requestHost string) string {
 	var sb strings.Builder
 	sb.WriteString("#EXTM3U\n")
 	// 去除用户输入的回看模板前面的多余符号
@@ -437,7 +437,12 @@ func (e *Engine) FormatM3U(channels []AggregatedChannel) string {
 		}
 
 		if ch.Logo != "" {
-			sb.WriteString(fmt.Sprintf(` tvg-logo="%s"`, ch.Logo))
+			// Resolve relative logo path to full URL using client's request host
+			logoURL := ch.Logo
+			if strings.HasPrefix(logoURL, "/") {
+				logoURL = fmt.Sprintf("http://%s%s", requestHost, logoURL)
+			}
+			sb.WriteString(fmt.Sprintf(` tvg-logo="%s"`, logoURL))
 		}
 		// ====== 核心功能：处理 Catchup 时移参数 ======
 		if templateParams != "" {

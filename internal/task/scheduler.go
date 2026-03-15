@@ -9,6 +9,7 @@ import (
 	"github.com/robfig/cron/v3"
 
 	"iptv-tool-v2/internal/model"
+	"iptv-tool-v2/internal/publish"
 	"iptv-tool-v2/internal/service"
 )
 
@@ -168,6 +169,8 @@ func (s *Scheduler) AddLiveSourceTask(sourceID uint, cronTime string) error {
 		slog.Info("Cron: fetching live source", "id", id)
 		if err := s.liveService.FetchAndUpdate(id); err != nil {
 			slog.Error("Cron: failed to fetch live source", "id", id, "error", err)
+		} else {
+			publish.InvalidateAll()
 		}
 	})
 	if err != nil {
@@ -212,6 +215,8 @@ func (s *Scheduler) AddEPGSourceTask(sourceID uint, cronTime string) error {
 		slog.Info("Cron: fetching EPG source", "id", id)
 		if err := s.epgService.FetchAndUpdate(id); err != nil {
 			slog.Error("Cron: failed to fetch EPG source", "id", id, "error", err)
+		} else {
+			publish.InvalidateAll()
 		}
 	})
 	if err != nil {
@@ -241,6 +246,8 @@ func (s *Scheduler) TriggerLiveSourceNow(sourceID uint) {
 		slog.Info("Manual trigger: fetching live source", "id", sourceID)
 		if err := s.liveService.FetchAndUpdate(sourceID); err != nil {
 			slog.Error("Manual trigger: failed to fetch live source", "id", sourceID, "error", err)
+		} else {
+			publish.InvalidateAll()
 		}
 	}()
 }
@@ -251,6 +258,8 @@ func (s *Scheduler) TriggerEPGSourceNow(sourceID uint) {
 		slog.Info("Manual trigger: fetching EPG source", "id", sourceID)
 		if err := s.epgService.FetchAndUpdate(sourceID); err != nil {
 			slog.Error("Manual trigger: failed to fetch EPG source", "id", sourceID, "error", err)
+		} else {
+			publish.InvalidateAll()
 		}
 	}()
 }
@@ -277,6 +286,8 @@ func (s *Scheduler) AddDetectTask(sourceID uint, cronTime string, strategy strin
 		slog.Info("Cron: detecting channels for live source", "id", id, "strategy", st)
 		if err := s.detectService.DetectChannels(id, false, st); err != nil {
 			slog.Error("Cron: failed to detect channels", "id", id, "error", err)
+		} else {
+			publish.InvalidateAll()
 		}
 	})
 	if err != nil {
@@ -312,6 +323,8 @@ func (s *Scheduler) TriggerDetectNow(sourceID uint, strategy string) {
 		slog.Info("Manual trigger: detecting channels for live source", "id", sourceID, "strategy", strategy)
 		if err := s.detectService.DetectChannels(sourceID, true, strategy); err != nil {
 			slog.Error("Manual trigger: failed to detect channels", "id", sourceID, "error", err)
+		} else {
+			publish.InvalidateAll()
 		}
 	}()
 }

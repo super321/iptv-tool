@@ -69,17 +69,17 @@ func EPGHandler(c *gin.Context) {
 }
 
 func serveLive(c *gin.Context, engine *Engine, iface model.PublishInterface, requestHost string) {
-	// [修改点1]：在这里传入 requestHost
-	channels, err := engine.AggregateLiveChannels(requestHost)
+	channels, err := LoadOrStoreLiveChannels(iface.ID, engine.AggregateLiveChannels)
 	if err != nil {
 		c.String(http.StatusInternalServerError, "%s: %s", i18n.T(i18n.Lang(c), "publish_handler.channel_agg_failed"), err.Error())
 		return
 	}
+
 	switch iface.Format {
 	case model.PublishFormatM3U:
 		c.Header("Content-Type", "text/plain; charset=utf-8")
-		// [修改点2]：在这里去掉 requestHost
-		c.String(http.StatusOK, engine.FormatM3U(channels))
+		// Pass requestHost for logo URL resolution in M3U format
+		c.String(http.StatusOK, engine.FormatM3U(channels, requestHost))
 	case model.PublishFormatTXT:
 		c.Header("Content-Type", "text/plain; charset=utf-8")
 		c.String(http.StatusOK, engine.FormatTXT(channels))
@@ -89,7 +89,7 @@ func serveLive(c *gin.Context, engine *Engine, iface model.PublishInterface, req
 }
 
 func serveEPG(c *gin.Context, engine *Engine, iface model.PublishInterface, requestHost string) {
-	programs, err := engine.AggregateEPGPrograms()
+	programs, err := LoadOrStoreEPGPrograms(iface.ID, engine.AggregateEPGPrograms)
 	if err != nil {
 		c.String(http.StatusInternalServerError, "%s: %s", i18n.T(i18n.Lang(c), "publish_handler.epg_agg_failed"), err.Error())
 		return

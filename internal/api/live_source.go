@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"iptv-tool-v2/internal/model"
+	"iptv-tool-v2/internal/publish"
 	"iptv-tool-v2/internal/service"
 	"iptv-tool-v2/internal/task"
 	"iptv-tool-v2/pkg/i18n"
@@ -256,6 +257,8 @@ func (lc *LiveSourceController) Create(c *gin.Context) {
 		}(createdEPGSource.ID)
 	}
 
+	publish.InvalidateAll()
+
 	if epgSkippedWarning != "" {
 		c.JSON(http.StatusCreated, gin.H{"data": source, "warning": epgSkippedWarning})
 	} else {
@@ -461,6 +464,8 @@ func (lc *LiveSourceController) Update(c *gin.Context) {
 		lc.scheduler.RemoveDetectTask(source.ID)
 	}
 
+	publish.InvalidateAll()
+
 	if updateEpgWarning != "" {
 		c.JSON(http.StatusOK, gin.H{"data": source, "warning": updateEpgWarning})
 	} else {
@@ -549,6 +554,7 @@ func (lc *LiveSourceController) Delete(c *gin.Context) {
 		return
 	}
 
+	publish.InvalidateAll()
 	c.JSON(http.StatusOK, gin.H{"message": i18n.T(i18n.Lang(c), "message.live_source_deleted")})
 }
 
