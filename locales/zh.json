@@ -597,6 +597,7 @@
       "live_format_unsupported": "直播类型不支持该格式",
       "epg_agg_failed": "EPG聚合失败",
       "gzip_failed": "gzip 压缩失败",
+      "xmltv_write_failed": "XMLTV 写入失败",
       "epg_format_unsupported": "EPG类型不支持该格式"
     }
   }

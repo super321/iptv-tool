@@ -104,7 +104,9 @@ func serveEPG(c *gin.Context, engine *Engine, iface model.PublishInterface, _ st
 			}
 		} else {
 			c.Header("Content-Type", "application/xml; charset=utf-8")
-			c.String(http.StatusOK, engine.FormatXMLTV(epg))
+			if err := engine.FormatXMLTVToWriter(epg, c.Writer); err != nil {
+				c.String(http.StatusInternalServerError, i18n.T(i18n.Lang(c), "publish_handler.xmltv_write_failed"))
+			}
 		}
 	case model.PublishFormatDIYP:
 		// DIYP JSON format supports query params: ?ch=频道名&date=2024-01-15

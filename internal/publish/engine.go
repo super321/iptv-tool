@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"regexp"
@@ -519,11 +520,10 @@ type EPGProgram struct {
 
 // EPGChannelPrograms holds all programs for one channel, grouped by date
 type EPGChannelPrograms struct {
-	ChannelID      string                  // XMLTV channel id (ParsedEPG.Channel)
-	ChannelName    string                  // Original channel name
-	Alias          string                  // Applied alias (may be empty)
-	DatePrograms   map[string][]EPGProgram // key: "2006-01-02", value: programs sorted by StartTime
-	seenStartTimes map[string]bool         // used during aggregation to dedup by start time
+	ChannelID    string                  // XMLTV channel id (ParsedEPG.Channel)
+	ChannelName  string                  // Original channel name
+	Alias        string                  // Applied alias (may be empty)
+	DatePrograms map[string][]EPGProgram // key: "2006-01-02", value: programs sorted by StartTime
 }
 
 // AggregatedEPG is the top-level cached structure
@@ -572,6 +572,11 @@ func (e *Engine) AggregateEPG() (*AggregatedEPG, error) {
 		Channels: make(map[string]*EPGChannelPrograms),
 	}
 
+	// Track last start time per channel for dedup.
+	// Since the query results are ordered by (channel, start_time),
+	// duplicate start times are adjacent, so we only need to remember the last one.
+	prevStartKey := make(map[string]string) // lowerKey -> last start time key
+
 	for _, p := range programs {
 		cache, exists := channelStateCache[p.ChannelName]
 		if !exists {
@@ -601,22 +606,22 @@ func (e *Engine) AggregateEPG() (*AggregatedEPG, error) {
 		chEntry, ok := result.Channels[lowerKey]
 		if !ok {
 			chEntry = &EPGChannelPrograms{
-				ChannelID:      p.Channel,
-				ChannelName:    p.ChannelName,
-				Alias:          cache.Alias,
-				DatePrograms:   make(map[string][]EPGProgram),
-				seenStartTimes: make(map[string]bool),
+				ChannelID:    p.Channel,
+				ChannelName:  p.ChannelName,
+				Alias:        cache.Alias,
+				DatePrograms: make(map[string][]EPGProgram),
 			}
 			result.Channels[lowerKey] = chEntry
 			result.ChannelOrder = append(result.ChannelOrder, lowerKey)
 		}
 
-		// Dedup: skip programs with duplicate start times within the same channel
+		// Dedup: since results are ordered by (channel, start_time), duplicates
+		// for the same channel will be adjacent. Compare with the previous record.
 		startKey := p.StartTime.Format("20060102150405")
-		if chEntry.seenStartTimes[startKey] {
+		if prevStartKey[lowerKey] == startKey {
 			continue
 		}
-		chEntry.seenStartTimes[startKey] = true
+		prevStartKey[lowerKey] = startKey
 
 		dateKey := p.StartTime.Format("2006-01-02")
 		chEntry.DatePrograms[dateKey] = append(chEntry.DatePrograms[dateKey], EPGProgram{
@@ -726,6 +731,103 @@ func (e *Engine) FormatXMLTV(epg *AggregatedEPG) string {
 	return sb.String()
 }
 
+// FormatXMLTVToWriter writes XMLTV content directly to the given writer,
+// avoiding building the entire XML string in memory first.
+func (e *Engine) FormatXMLTVToWriter(epg *AggregatedEPG, w io.Writer) error {
+	if epg == nil {
+		_, err := io.WriteString(w, `<?xml version="1.0" encoding="UTF-8"?>`+"\n<tv generator-info-name=\"iptv-tool\">\n</tv>\n")
+		return err
+	}
+
+	channelMap := make(map[string]string) // XMLTV channel id -> DisplayName
+	var xmltvChIDOrder []string
+
+	type xmltvProg struct {
+		start string
+		end   string
+		title string
+		desc  string
+	}
+	channelProgs := make(map[string][]xmltvProg)
+
+	for _, key := range epg.ChannelOrder {
+		chEntry := epg.Channels[key]
+
+		displayName := chEntry.ChannelName
+		if chEntry.Alias != "" {
+			displayName = chEntry.Alias
+		}
+
+		xmltvChID := chEntry.ChannelID
+		if e.iface.TvgIDMode == "name" {
+			xmltvChID = displayName
+		}
+		if xmltvChID == "" {
+			xmltvChID = displayName
+		}
+
+		if _, exists := channelMap[xmltvChID]; !exists {
+			xmltvChIDOrder = append(xmltvChIDOrder, xmltvChID)
+		}
+		channelMap[xmltvChID] = displayName
+
+		dates := make([]string, 0, len(chEntry.DatePrograms))
+		for d := range chEntry.DatePrograms {
+			dates = append(dates, d)
+		}
+		sort.Strings(dates)
+
+		for _, date := range dates {
+			for _, prog := range chEntry.DatePrograms[date] {
+				channelProgs[xmltvChID] = append(channelProgs[xmltvChID], xmltvProg{
+					start: prog.StartTime.Format("20060102150405 -0700"),
+					end:   prog.EndTime.Format("20060102150405 -0700"),
+					title: prog.Title,
+					desc:  prog.Desc,
+				})
+			}
+		}
+	}
+
+	// Write XML header
+	if _, err := io.WriteString(w, `<?xml version="1.0" encoding="UTF-8"?>`+"\n"); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, `<tv generator-info-name="iptv-tool">`+"\n"); err != nil {
+		return err
+	}
+
+	// Write <channel> elements
+	for _, chID := range xmltvChIDOrder {
+		dispName := channelMap[chID]
+		if _, err := fmt.Fprintf(w, "  <channel id=\"%s\">\n    <display-name lang=\"zh\">%s</display-name>\n  </channel>\n",
+			xmlEscape(chID), xmlEscape(dispName)); err != nil {
+			return err
+		}
+	}
+
+	// Write <programme> elements
+	for _, chID := range xmltvChIDOrder {
+		for _, prog := range channelProgs[chID] {
+			if _, err := fmt.Fprintf(w, "  <programme start=\"%s\" stop=\"%s\" channel=\"%s\">\n    <title lang=\"zh\">%s</title>\n",
+				prog.start, prog.end, xmlEscape(chID), xmlEscape(prog.title)); err != nil {
+				return err
+			}
+			if prog.desc != "" {
+				if _, err := fmt.Fprintf(w, "    <desc lang=\"zh\">%s</desc>\n", xmlEscape(prog.desc)); err != nil {
+					return err
+				}
+			}
+			if _, err := io.WriteString(w, "  </programme>\n"); err != nil {
+				return err
+			}
+		}
+	}
+
+	_, err := io.WriteString(w, "</tv>\n")
+	return err
+}
+
 func (e *Engine) FormatXMLTVGzip(epg *AggregatedEPG, w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/gzip")
 	w.Header().Set("Content-Disposition", "attachment; filename=epg.xml.gz")
@@ -733,9 +835,7 @@ func (e *Engine) FormatXMLTVGzip(epg *AggregatedEPG, w http.ResponseWriter) erro
 	gz := gzip.NewWriter(w)
 	defer gz.Close()
 
-	content := e.FormatXMLTV(epg)
-	_, err := gz.Write([]byte(content))
-	return err
+	return e.FormatXMLTVToWriter(epg, gz)
 }
 
 func (e *Engine) FormatDIYP(epg *AggregatedEPG, filterChannelName, dateStr string) string {

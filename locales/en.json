@@ -597,6 +597,7 @@
       "live_format_unsupported": "Live type does not support this format",
       "epg_agg_failed": "EPG aggregation failed",
       "gzip_failed": "Gzip compression failed",
+      "xmltv_write_failed": "XMLTV write failed",
       "epg_format_unsupported": "EPG type does not support this format"
     }
   }

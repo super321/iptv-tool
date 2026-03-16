@@ -179,11 +179,11 @@ type SystemSetting struct {
 // ParsedEPG represents a single EPG program
 type ParsedEPG struct {
 	ID          uint      `gorm:"primarykey" json:"id"`
-	SourceID    uint      `gorm:"index" json:"source_id"`
-	Channel     string    `gorm:"index" json:"channel"` // Channel ID (XMLTV channel id / IPTV ChannelID)
-	ChannelName string    `json:"channel_name"`         // Channel display name
+	SourceID    uint      `gorm:"index:idx_epg_source_channel_start,priority:1" json:"source_id"`
+	Channel     string    `gorm:"index:idx_epg_source_channel_start,priority:2" json:"channel"` // Channel ID (XMLTV channel id / IPTV ChannelID)
+	ChannelName string    `json:"channel_name"`                                                 // Channel display name
 	Title       string    `json:"title"`
 	Desc        string    `json:"desc"`
-	StartTime   time.Time `gorm:"index" json:"start_time"`
-	EndTime     time.Time `gorm:"index" json:"end_time"`
+	StartTime   time.Time `gorm:"index:idx_epg_source_channel_start,priority:3" json:"start_time"`
+	EndTime     time.Time `json:"end_time"`
 }

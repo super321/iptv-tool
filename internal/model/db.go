@@ -44,6 +44,12 @@ func InitDB(dsn string) error {
 		return err
 	}
 
+	// Drop legacy individual indexes on parsed_epgs that are now covered by the composite index.
+	// These existed before the composite index idx_epg_source_channel_start was introduced.
+	for _, idx := range []string{"idx_parsed_epgs_source_id", "idx_parsed_epgs_channel", "idx_parsed_epgs_start_time", "idx_parsed_epgs_end_time"} {
+		sqlDB.Exec("DROP INDEX IF EXISTS " + idx)
+	}
+
 	// Defensive reset: set is_syncing and is_detecting to false for all sources on startup
 	DB.Model(&LiveSource{}).Where("is_syncing = ?", true).Update("is_syncing", false)
 	DB.Model(&LiveSource{}).Where("is_detecting = ?", true).Update("is_detecting", false)
