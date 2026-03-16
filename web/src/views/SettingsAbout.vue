@@ -129,7 +129,7 @@
     </el-card>
 
     <!-- Ethereum Detail Dialog -->
-    <el-dialog v-model="showEthDialog" :title="$t('settings_about.eth_title')" width="400px" align-center>
+    <el-dialog v-model="showEthDialog" :title="$t('settings_about.eth_title')" width="560px" align-center>
       <div class="eth-dialog-content">
         <img :src="ethQrCode" alt="Ethereum QR Code" class="eth-qrcode" />
         <p class="eth-note">{{ $t('settings_about.eth_note') }}</p>
@@ -575,8 +575,8 @@ async function copyAddress() {
   gap: 12px;
 }
 .eth-qrcode {
-  width: 220px;
-  height: 220px;
+  width: 480px;
+  height: 480px;
   object-fit: contain;
   border-radius: 8px;
 }
