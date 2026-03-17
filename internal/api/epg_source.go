@@ -106,8 +106,8 @@ func (ec *EPGSourceController) Create(c *gin.Context) {
 	req.URL = strings.TrimSpace(req.URL)
 	req.CronTime = strings.TrimSpace(req.CronTime)
 
-	if req.CronTime != "" && !task.ValidateCronTime(req.CronTime) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": i18n.T(i18n.Lang(c), "error.invalid_cron")})
+	if req.CronTime != "" && !task.ValidateInterval(req.CronTime) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": i18n.T(i18n.Lang(c), "error.invalid_refresh_interval")})
 		return
 	}
 
@@ -182,7 +182,7 @@ func (ec *EPGSourceController) Create(c *gin.Context) {
 		return
 	}
 
-	// Schedule cron task if applicable
+	// Schedule refresh task if applicable
 	if source.CronTime != "" {
 		ec.scheduler.AddEPGSourceTask(source.ID, source.CronTime)
 	}
@@ -271,8 +271,8 @@ func (ec *EPGSourceController) Update(c *gin.Context) {
 		updates["iptv_config"] = string(merged)
 	}
 	if req.CronTime != nil {
-		if *req.CronTime != "" && !task.ValidateCronTime(*req.CronTime) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": i18n.T(i18n.Lang(c), "error.invalid_cron")})
+		if *req.CronTime != "" && !task.ValidateInterval(*req.CronTime) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": i18n.T(i18n.Lang(c), "error.invalid_refresh_interval")})
 			return
 		}
 		updates["cron_time"] = *req.CronTime

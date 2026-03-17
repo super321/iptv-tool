@@ -16,7 +16,7 @@ internal/
   model/                    # GORM models (models.go) and DB init (db.go); global model.DB
   publish/                  # Aggregation engine and /sub/ endpoint handlers
   service/                  # Business logic (user, live_source, epg_source, detect)
-  task/                     # Cron scheduler (robfig/cron)
+  task/                     # Interval-based task scheduler (native Go)
 pkg/
   auth/                     # JWT generation/parsing, RSA key management, Gin middleware
   epg/                      # XMLTV parsing and generation
@@ -149,7 +149,6 @@ User-facing error messages and UI strings are in Chinese (Simplified). Maintain 
 | `github.com/gin-gonic/gin` | HTTP framework |
 | `gorm.io/gorm` + `github.com/glebarez/sqlite` | ORM + pure-Go SQLite |
 | `github.com/golang-jwt/jwt/v5` | JWT auth |
-| `github.com/robfig/cron/v3` | Cron scheduler |
 | `github.com/mojocn/base64Captcha` | Login CAPTCHA generation |
 | `golang.org/x/crypto` | bcrypt password hashing |
 | `gopkg.in/natefinch/lumberjack.v2` | Log file rotation |

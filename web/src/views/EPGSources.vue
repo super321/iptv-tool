@@ -16,7 +16,7 @@
           <el-tag :type="row.type === 'iptv' ? 'danger' : ''" size="small">{{ row.type === 'iptv' ? 'IPTV' : 'XMLTV' }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="cron_time" :label="$t('epg_sources.cron_refresh')" width="140">
+      <el-table-column prop="cron_time" :label="$t('epg_sources.scheduled_refresh')" width="140">
         <template #default="{ row }">{{ row.cron_time || '-' }}</template>
       </el-table-column>
       <el-table-column :label="$t('epg_sources.channel_count')" width="120" align="center">
@@ -109,9 +109,9 @@
           </el-form-item>
         </template>
 
-        <el-form-item :label="$t('epg_sources.cron_refresh')">
-          <el-select v-model="form.cron_time" clearable :placeholder="$t('epg_sources.no_cron_refresh')" style="width: 100%">
-            <el-option v-for="opt in cronOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+        <el-form-item :label="$t('epg_sources.scheduled_refresh')">
+          <el-select v-model="form.cron_time" clearable :placeholder="$t('epg_sources.no_scheduled_refresh')" style="width: 100%">
+            <el-option v-for="opt in intervalOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
           </el-select>
         </el-form-item>
         <el-form-item :label="$t('common.status')" v-if="isEdit">
@@ -225,7 +225,7 @@ const isEdit = ref(false)
 const editId = ref(null)
 const submitting = ref(false)
 const formRef = ref()
-const cronOptions = ref([])
+const intervalOptions = ref([])
 const epgStrategies = ref([])
 const unlinkedSources = ref([])
 const unlinkedLoading = ref(false)
@@ -292,11 +292,11 @@ const linkedSourceName = computed(() => {
 onMounted(async () => {
   await loadSources()
   try {
-    const [cronRes, epgRes] = await Promise.all([
-      api.get('/settings/cron-options'),
+    const [intervalRes, epgRes] = await Promise.all([
+      api.get('/settings/interval-options'),
       api.get('/settings/epg-strategies'),
     ])
-    cronOptions.value = cronRes.data
+    intervalOptions.value = intervalRes.data
     epgStrategies.value = epgRes.data
   } catch {}
 })
@@ -378,7 +378,7 @@ async function handleSubmit() {
         name: form.name,
         description: form.description,
         url: form.url,
-        cron_time: form.cron_time,
+        cron_time: form.cron_time || '',
         status: form.status,
       }
       if (form.type === 'iptv') {
@@ -392,7 +392,7 @@ async function handleSubmit() {
         description: form.description,
         type: form.type,
         url: form.url,
-        cron_time: form.cron_time,
+        cron_time: form.cron_time || '',
       }
       if (form.type === 'iptv') {
         body.live_source_id = form.live_source_id

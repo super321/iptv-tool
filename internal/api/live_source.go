@@ -116,21 +116,21 @@ func (lc *LiveSourceController) Create(c *gin.Context) {
 		return
 	}
 
-	// Validate cron_time for non-manual sources
+	// Validate refresh interval for non-manual sources
 	if req.Type != model.LiveSourceTypeNetworkManual && req.CronTime != "" {
-		if !task.ValidateCronTime(req.CronTime) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": i18n.T(i18n.Lang(c), "error.invalid_cron_refresh")})
+		if !task.ValidateInterval(req.CronTime) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": i18n.T(i18n.Lang(c), "error.invalid_refresh_interval")})
 			return
 		}
 	}
-	// Validate cron_detect
+	// Validate detect interval
 	if req.CronDetect != "" {
-		if !task.ValidateCronTime(req.CronDetect) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": i18n.T(i18n.Lang(c), "error.invalid_cron_detect")})
+		if !task.ValidateInterval(req.CronDetect) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": i18n.T(i18n.Lang(c), "error.invalid_detect_interval")})
 			return
 		}
 	}
-	// network_manual sources must not have cron refresh (but can have cron detect)
+	// network_manual sources must not have scheduled refresh (but can have scheduled detect)
 	if req.Type == model.LiveSourceTypeNetworkManual {
 		req.CronTime = ""
 	}
@@ -200,7 +200,7 @@ func (lc *LiveSourceController) Create(c *gin.Context) {
 		}
 		if err := model.DB.Create(&epgSource).Error; err == nil {
 			createdEPGSource = &epgSource
-			// Schedule EPG source if cron is set
+			// Schedule EPG source if interval is set
 			if epgSource.CronTime != "" {
 				lc.scheduler.AddEPGSourceTask(epgSource.ID, epgSource.CronTime)
 			}
@@ -235,12 +235,12 @@ func (lc *LiveSourceController) Create(c *gin.Context) {
 		}
 	}
 
-	// Schedule cron task if applicable
+	// Schedule refresh task if applicable
 	if source.CronTime != "" && source.Type != model.LiveSourceTypeNetworkManual {
 		lc.scheduler.AddLiveSourceTask(source.ID, source.CronTime)
 	}
 
-	// Schedule detect cron task if applicable
+	// Schedule detect task if applicable
 	if source.CronDetect != "" {
 		lc.scheduler.AddDetectTask(source.ID, source.CronDetect, source.DetectStrategy)
 	}
@@ -350,18 +350,18 @@ func (lc *LiveSourceController) Update(c *gin.Context) {
 	}
 	if req.CronTime != nil {
 		if source.Type == model.LiveSourceTypeNetworkManual {
-			updates["cron_time"] = "" // Force no cron for manual sources
+			updates["cron_time"] = "" // Force no refresh interval for manual sources
 		} else {
-			if *req.CronTime != "" && !task.ValidateCronTime(*req.CronTime) {
-				c.JSON(http.StatusBadRequest, gin.H{"error": i18n.T(i18n.Lang(c), "error.invalid_cron_refresh")})
+			if *req.CronTime != "" && !task.ValidateInterval(*req.CronTime) {
+				c.JSON(http.StatusBadRequest, gin.H{"error": i18n.T(i18n.Lang(c), "error.invalid_refresh_interval")})
 				return
 			}
 			updates["cron_time"] = *req.CronTime
 		}
 	}
 	if req.CronDetect != nil {
-		if *req.CronDetect != "" && !task.ValidateCronTime(*req.CronDetect) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": i18n.T(i18n.Lang(c), "error.invalid_cron_detect")})
+		if *req.CronDetect != "" && !task.ValidateInterval(*req.CronDetect) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": i18n.T(i18n.Lang(c), "error.invalid_detect_interval")})
 			return
 		}
 		updates["cron_detect"] = *req.CronDetect

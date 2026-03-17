@@ -51,7 +51,7 @@ func SetupRouter(scheduler *task.Scheduler, logoDir string, dataDir string, fron
 	r.GET("/sub/epg/:path", publish.EPGHandler)
 
 	// --- Settings (public, no auth) ---
-	r.GET("/api/settings/cron-options", GetCronOptions)
+	r.GET("/api/settings/interval-options", GetIntervalOptions)
 	r.GET("/api/settings/epg-strategies", GetEPGStrategies)
 
 	// --- Protected routes (JWT auth required) ---

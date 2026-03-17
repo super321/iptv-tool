@@ -16,7 +16,7 @@
           <el-tag :type="typeTagMap[row.type]" size="small">{{ typeNameMap[row.type] }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="cron_time" :label="$t('live_sources.cron_refresh')" width="140">
+      <el-table-column prop="cron_time" :label="$t('live_sources.scheduled_refresh')" width="140">
         <template #default="{ row }">{{ row.cron_time || '-' }}</template>
       </el-table-column>
       <el-table-column prop="status" :label="$t('common.status')" width="100">
@@ -162,20 +162,20 @@
           </el-form-item>
         </template>
 
-        <!-- Cron -->
-        <el-form-item :label="$t('live_sources.cron_refresh')" v-if="form.type !== 'network_manual'">
-          <el-select v-model="form.cron_time" clearable :placeholder="$t('live_sources.no_cron_refresh')" style="width: 100%">
-            <el-option v-for="opt in cronOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+        <!-- Scheduled Refresh -->
+        <el-form-item :label="$t('live_sources.scheduled_refresh')" v-if="form.type !== 'network_manual'">
+          <el-select v-model="form.cron_time" clearable :placeholder="$t('live_sources.no_scheduled_refresh')" style="width: 100%">
+            <el-option v-for="opt in intervalOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
           </el-select>
         </el-form-item>
 
-        <!-- Cron Detect -->
-        <el-form-item :label="$t('live_sources.cron_detect')">
-          <el-select v-model="form.cron_detect" clearable :placeholder="$t('live_sources.no_cron_detect')" style="width: 100%">
-            <el-option v-for="opt in cronOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+        <!-- Scheduled Detect -->
+        <el-form-item :label="$t('live_sources.scheduled_detect')">
+          <el-select v-model="form.cron_detect" clearable :placeholder="$t('live_sources.no_scheduled_detect')" style="width: 100%">
+            <el-option v-for="opt in intervalOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
           </el-select>
           <div style="color: #909399; font-size: 12px; line-height: 1.4; margin-top: 4px">
-            {{ $t('live_sources.cron_detect_help') }}
+            {{ $t('live_sources.scheduled_detect_help') }}
           </div>
         </el-form-item>
 
@@ -408,7 +408,7 @@ const isEdit = ref(false)
 const editId = ref(null)
 const submitting = ref(false)
 const formRef = ref()
-const cronOptions = ref([])
+const intervalOptions = ref([])
 const epgStrategies = ref([])
 
 // Crack dialog state
@@ -492,11 +492,11 @@ const formRules = computed(() => ({
 onMounted(async () => {
   await loadSources()
   try {
-    const [cronRes, epgRes] = await Promise.all([
-      api.get('/settings/cron-options'),
+    const [intervalRes, epgRes] = await Promise.all([
+      api.get('/settings/interval-options'),
       api.get('/settings/epg-strategies'),
     ])
-    cronOptions.value = cronRes.data
+    intervalOptions.value = intervalRes.data
     epgStrategies.value = epgRes.data
   } catch {}
 })
@@ -661,7 +661,7 @@ async function handleSubmit() {
   
   try {
     if (isEdit.value) {
-      const body = { name: form.name, description: form.description, url: form.url, content: form.content, headers: headersJson, cron_time: form.cron_time, cron_detect: form.cron_detect, detect_strategy: form.detect_strategy, status: form.status }
+      const body = { name: form.name, description: form.description, url: form.url, content: form.content, headers: headersJson, cron_time: form.cron_time || '', cron_detect: form.cron_detect || '', detect_strategy: form.detect_strategy, status: form.status }
       if (form.type === 'iptv') {
         body.iptv_config = buildIptvConfig()
       }
@@ -674,7 +674,7 @@ async function handleSubmit() {
         ElMessage.warning(data.warning)
       }
     } else {
-      const body = { name: form.name, description: form.description, type: form.type, url: form.url, content: form.content, headers: headersJson, cron_time: form.cron_time, cron_detect: form.cron_detect, detect_strategy: form.detect_strategy, epg_enabled: form.epg_enabled }
+      const body = { name: form.name, description: form.description, type: form.type, url: form.url, content: form.content, headers: headersJson, cron_time: form.cron_time || '', cron_detect: form.cron_detect || '', detect_strategy: form.detect_strategy, epg_enabled: form.epg_enabled }
       if (form.type === 'iptv') {
         body.iptv_config = buildIptvConfig()
       }
