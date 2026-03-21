@@ -1,7 +1,6 @@
 package model
 
 import (
-	"fmt"
 	"log/slog"
 
 	"github.com/glebarez/sqlite"
@@ -11,22 +10,23 @@ import (
 var DB *gorm.DB
 
 func InitDB(dsn string) error {
+	// Append SQLite performance tuning pragmas to the DSN:
+	//   journal_mode=WAL   - allows concurrent reads during writes
+	//   synchronous=NORMAL - reduces fsync calls (safe with WAL)
+	//   busy_timeout=5000  - wait up to 5s when DB is locked instead of failing immediately
+	dsn += "?_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)&_pragma=busy_timeout(5000)"
+
 	var err error
 	DB, err = gorm.Open(sqlite.Open(dsn), &gorm.Config{})
 	if err != nil {
 		return err
 	}
 
-	// Enable WAL mode: allows concurrent reads during writes,
-	// preventing scheduled task bulk inserts from blocking web queries.
 	sqlDB, err := DB.DB()
 	if err != nil {
-		return fmt.Errorf("failed to get underlying sql.DB: %w", err)
+		return err
 	}
-	if _, err := sqlDB.Exec("PRAGMA journal_mode=WAL"); err != nil {
-		return fmt.Errorf("failed to enable WAL mode: %w", err)
-	}
-	slog.Info("SQLite WAL mode enabled")
+	slog.Info("Database opened with WAL mode, synchronous=NORMAL, busy_timeout=5000")
 
 	// Auto-migrate the schema
 	err = DB.AutoMigrate(
