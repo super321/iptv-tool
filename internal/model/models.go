@@ -192,3 +192,13 @@ type ParsedEPG struct {
 	StartTime   time.Time `gorm:"index:idx_epg_source_channel_start,priority:3" json:"start_time"`
 	EndTime     time.Time `json:"end_time"`
 }
+
+// AccessControlEntry represents a whitelist or blacklist entry for access control
+type AccessControlEntry struct {
+	ID        uint      `gorm:"primarykey" json:"id"`
+	ListType  string    `gorm:"not null;index" json:"list_type"` // "whitelist" or "blacklist"
+	EntryType string    `gorm:"not null" json:"entry_type"`      // "single", "cidr", "range"
+	Value     string    `gorm:"not null" json:"value"`           // IP, CIDR, or "start~end"
+	BlockDays *int      `json:"block_days"`                      // nil = permanent (blacklist only)
+	CreatedAt time.Time `json:"created_at"`
+}

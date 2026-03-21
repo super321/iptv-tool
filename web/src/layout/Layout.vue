@@ -45,8 +45,12 @@
             <el-icon><Stopwatch /></el-icon>
             <template #title>{{ $t('nav.detect') }}</template>
           </el-menu-item>
-          <el-menu-item index="/settings/password">
+          <el-menu-item index="/settings/access-control">
             <el-icon><Lock /></el-icon>
+            <template #title>{{ $t('settings_access_control.nav_label') }}</template>
+          </el-menu-item>
+          <el-menu-item index="/settings/password">
+            <el-icon><Key /></el-icon>
             <template #title>{{ $t('nav.password') }}</template>
           </el-menu-item>
           <el-menu-item index="/settings/about">
@@ -112,7 +116,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../stores/auth'
 import { loadLocale } from '../i18n'
-import { UserFilled, SwitchButton, VideoCamera, Monitor, Calendar, Picture, Guide, Share, Setting, Fold, Expand, ArrowDown, Lock, InfoFilled, Stopwatch } from '@element-plus/icons-vue'
+import { UserFilled, SwitchButton, VideoCamera, Monitor, Calendar, Picture, Guide, Share, Setting, Fold, Expand, ArrowDown, Lock, InfoFilled, Stopwatch, Key } from '@element-plus/icons-vue'
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()

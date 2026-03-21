@@ -17,6 +17,7 @@ import (
 func SetupRouter(scheduler *task.Scheduler, logoDir string, dataDir string, frontendFS fs.FS) *gin.Engine {
 	r := gin.Default()
 	r.Use(i18n.Middleware())
+	r.Use(AccessControlMiddleware())
 
 	// --- Public routes (no auth required) ---
 
@@ -107,6 +108,12 @@ func SetupRouter(scheduler *task.Scheduler, logoDir string, dataDir string, fron
 		settingsCtrl := NewSettingsController(dataDir)
 		authorized.GET("/settings/detect", settingsCtrl.GetDetectSettings)
 		authorized.PUT("/settings/detect", settingsCtrl.UpdateDetectSettings)
+
+		// Access Control Settings
+		aclCtrl := NewAccessControlController()
+		authorized.GET("/settings/access-control", aclCtrl.GetAccessControl)
+		authorized.PUT("/settings/access-control", aclCtrl.UpdateAccessControl)
+		authorized.DELETE("/settings/access-control/entries/:id", aclCtrl.DeleteEntry)
 		authorized.POST("/settings/detect/ffprobe", settingsCtrl.UploadFFprobe)
 
 		// Publish Interfaces

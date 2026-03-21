@@ -49,6 +49,11 @@ const routes = [
         component: () => import('../views/SettingsDetect.vue'),
       },
       {
+        path: 'settings/access-control',
+        name: 'SettingsAccessControl',
+        component: () => import('../views/SettingsAccessControl.vue'),
+      },
+      {
         path: 'settings/password',
         name: 'SettingsPassword',
         component: () => import('../views/SettingsPassword.vue'),
