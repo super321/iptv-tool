@@ -6,8 +6,10 @@
       <!-- Mode Selection -->
       <template #header>
         <div class="card-header">
-          <el-icon :size="18"><Warning /></el-icon>
-          <span>{{ $t('settings_access_control.mode_label') }}</span>
+          <div style="display: flex; align-items: center; gap: 8px">
+            <el-icon :size="18"><Warning /></el-icon>
+            <span>{{ $t('settings_access_control.mode_label') }}</span>
+          </div>
         </div>
       </template>
 
