@@ -55,6 +55,10 @@ type Scheduler struct {
 	liveEntries   map[uint]*taskHandle // sourceID -> task handle
 	epgEntries    map[uint]*taskHandle // sourceID -> task handle
 	detectEntries map[uint]*taskHandle // sourceID -> detect task handle
+	geoipHandle   *taskHandle          // GeoIP auto-update task handle
+	cleanupHandle *taskHandle          // Access stats cleanup task handle
+	accessStatSvc *service.AccessStatService
+	geoipSvc      *service.GeoIPService
 }
 
 // NewScheduler creates a new task scheduler
@@ -67,6 +71,16 @@ func NewScheduler(dataDir string) *Scheduler {
 		epgEntries:    make(map[uint]*taskHandle),
 		detectEntries: make(map[uint]*taskHandle),
 	}
+}
+
+// SetAccessStatService sets the access stat service for cleanup tasks
+func (s *Scheduler) SetAccessStatService(svc *service.AccessStatService) {
+	s.accessStatSvc = svc
+}
+
+// SetGeoIPService sets the GeoIP service for auto-update tasks
+func (s *Scheduler) SetGeoIPService(svc *service.GeoIPService) {
+	s.geoipSvc = svc
 }
 
 // stopAndWait signals a task to stop and waits for its goroutine to fully exit.
@@ -126,6 +140,17 @@ func (s *Scheduler) Start() error {
 		}
 	}
 
+	// Start GeoIP auto-update task if enabled
+	if s.geoipSvc != nil {
+		enabled, days := s.geoipSvc.GetAutoUpdateConfig()
+		if enabled {
+			s.AddGeoIPUpdateTask(days)
+		}
+	}
+
+	// Start access stats cleanup task (daily)
+	s.startCleanupTask()
+
 	s.mu.Lock()
 	liveCount := len(s.liveEntries)
 	epgCount := len(s.epgEntries)
@@ -152,6 +177,14 @@ func (s *Scheduler) Stop() {
 	for id, h := range s.detectEntries {
 		handles = append(handles, h)
 		delete(s.detectEntries, id)
+	}
+	if s.geoipHandle != nil {
+		handles = append(handles, s.geoipHandle)
+		s.geoipHandle = nil
+	}
+	if s.cleanupHandle != nil {
+		handles = append(handles, s.cleanupHandle)
+		s.cleanupHandle = nil
 	}
 	s.mu.Unlock()
 
@@ -405,4 +438,97 @@ func (s *Scheduler) TriggerDetectNow(sourceID uint, strategy string) {
 // ValidateInterval checks if an interval value is valid
 func ValidateInterval(interval string) bool {
 	return validIntervals[interval]
+}
+
+// --- GeoIP auto-update task ---
+
+// AddGeoIPUpdateTask starts a periodic GeoIP database update task
+func (s *Scheduler) AddGeoIPUpdateTask(intervalDays int) {
+	s.mu.Lock()
+	oldHandle := s.geoipHandle
+	s.geoipHandle = nil
+	s.mu.Unlock()
+
+	if oldHandle != nil {
+		stopAndWait(oldHandle)
+	}
+
+	if s.geoipSvc == nil || intervalDays < 1 {
+		return
+	}
+
+	dur := time.Duration(intervalDays) * 24 * time.Hour
+	stopCh := make(chan struct{})
+	doneCh := make(chan struct{})
+	handle := &taskHandle{stopCh: stopCh, doneCh: doneCh}
+
+	s.mu.Lock()
+	s.geoipHandle = handle
+	s.mu.Unlock()
+
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		defer close(doneCh)
+		ticker := time.NewTicker(dur)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-stopCh:
+				return
+			case <-ticker.C:
+				slog.Info("Scheduler: auto-updating GeoIP database")
+				if err := s.geoipSvc.DownloadAndExtract(); err != nil {
+					slog.Error("Scheduler: failed to auto-update GeoIP database", "error", err)
+				}
+			}
+		}
+	}()
+
+	slog.Info("Scheduled GeoIP auto-update task", "interval_days", intervalDays)
+}
+
+// RemoveGeoIPUpdateTask stops the GeoIP auto-update task
+func (s *Scheduler) RemoveGeoIPUpdateTask() {
+	s.mu.Lock()
+	h := s.geoipHandle
+	s.geoipHandle = nil
+	s.mu.Unlock()
+
+	if h != nil {
+		stopAndWait(h)
+		slog.Info("Removed GeoIP auto-update task")
+	}
+}
+
+// --- Access stats cleanup task (daily) ---
+
+func (s *Scheduler) startCleanupTask() {
+	stopCh := make(chan struct{})
+	doneCh := make(chan struct{})
+	handle := &taskHandle{stopCh: stopCh, doneCh: doneCh}
+
+	s.mu.Lock()
+	s.cleanupHandle = handle
+	s.mu.Unlock()
+
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		defer close(doneCh)
+		ticker := time.NewTicker(24 * time.Hour)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-stopCh:
+				return
+			case <-ticker.C:
+				if s.accessStatSvc != nil {
+					s.accessStatSvc.Cleanup()
+				}
+			}
+		}
+	}()
+
+	slog.Info("Scheduled access stats cleanup task (daily)")
 }

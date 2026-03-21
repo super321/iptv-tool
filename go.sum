@@ -68,6 +68,10 @@ github.com/mojocn/base64Captcha v1.3.8 h1:rrN9BhCwXKS8ht1e21kvR3iTaMgf4qPC9sRoV5
 github.com/mojocn/base64Captcha v1.3.8/go.mod h1:QFZy927L8HVP3+VV5z2b1EAEiv1KxVJKZbAucVgLUy4=
 github.com/ncruces/go-strftime v1.0.0 h1:HMFp8mLCTPp341M/ZnA4qaf7ZlsbTc+miZjCLOFAw7w=
 github.com/ncruces/go-strftime v1.0.0/go.mod h1:Fwc5htZGVVkseilnfgOVb9mKy6w1naJmn9CehxcKcls=
+github.com/oschwald/geoip2-golang/v2 v2.1.0 h1:DjnLhNJu9WHwTrmoiQFvgmyJoczhdnm7LB23UBI2Amo=
+github.com/oschwald/geoip2-golang/v2 v2.1.0/go.mod h1:qdVmcPgrTJ4q2eP9tHq/yldMTdp2VMr33uVdFbHBiBc=
+github.com/oschwald/maxminddb-golang/v2 v2.1.1 h1:lA8FH0oOrM4u7mLvowq8IT6a3Q/qEnqRzLQn9eH5ojc=
+github.com/oschwald/maxminddb-golang/v2 v2.1.1/go.mod h1:PLdx6PR+siSIoXqqy7C7r3SB3KZnhxWr1Dp6g0Hacl8=
 github.com/pelletier/go-toml/v2 v2.2.4 h1:mye9XuhQ6gvn5h28+VilKrrPoQVanw5PMw/TB0t5Ec4=
 github.com/pelletier/go-toml/v2 v2.2.4/go.mod h1:2gIqNv+qfxSVS7cM2xJQKtLSTLUE9V8t9Stt+h56mCY=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=

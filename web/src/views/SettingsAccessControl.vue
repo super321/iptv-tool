@@ -2,7 +2,123 @@
   <div class="acl-page">
     <h3 style="margin: 0 0 20px">{{ $t('settings_access_control.title') }}</h3>
 
+    <!-- GeoIP Database Card -->
     <el-card shadow="hover" class="acl-card">
+      <template #header>
+        <div class="card-header">
+          <div style="display: flex; align-items: center; gap: 8px">
+            <el-icon :size="18"><Location /></el-icon>
+            <span>{{ $t('settings_access_control.geoip_title') }}</span>
+          </div>
+          <el-button
+            type="primary"
+            size="small"
+            :icon="Refresh"
+            :loading="geoipDownloading"
+            @click="checkGeoIPUpdate"
+          >
+            {{ geoipDownloading ? $t('settings_access_control.geoip_downloading') : $t('settings_access_control.geoip_check_update') }}
+          </el-button>
+        </div>
+      </template>
+
+      <el-descriptions :column="2" border size="small">
+        <el-descriptions-item :label="$t('settings_access_control.geoip_version')">
+          <!-- Show download progress during download -->
+          <template v-if="geoipDownloading">
+            <el-text type="primary" size="small">
+              <template v-if="downloadProgress.percent">{{ $t('settings_access_control.geoip_downloading_progress', { percent: downloadProgress.percent }) }}</template>
+              <template v-else-if="downloadProgress.downloaded_bytes > 0">{{ $t('settings_access_control.geoip_downloading_no_size', { downloaded: formatFileSize(downloadProgress.downloaded_bytes) }) }}</template>
+              <template v-else>{{ $t('settings_access_control.geoip_downloading') }}</template>
+            </el-text>
+            <el-text v-if="downloadProgress.attempt > 1" type="warning" size="small" style="margin-left: 8px">
+              {{ $t('settings_access_control.geoip_download_attempt', { attempt: downloadProgress.attempt, max: downloadProgress.max_retries }) }}
+            </el-text>
+          </template>
+          <!-- Show version or not-downloaded -->
+          <template v-else>
+            <el-tag v-if="geoipStatus.exists" type="success" size="small" effect="plain">{{ geoipStatus.version }}</el-tag>
+            <el-tag v-else type="info" size="small" effect="plain">{{ $t('settings_access_control.geoip_not_downloaded') }}</el-tag>
+          </template>
+        </el-descriptions-item>
+        <el-descriptions-item :label="$t('settings_access_control.geoip_auto_update')">
+          <div style="display: flex; align-items: center; gap: 12px">
+            <el-switch v-model="geoipAutoUpdate" @change="saveGeoIPAutoUpdate" />
+            <template v-if="geoipAutoUpdate">
+              <span style="color: #606266; font-size: 12px">{{ $t('settings_access_control.geoip_update_interval_label') }}</span>
+              <el-input-number
+                v-model="geoipIntervalDays"
+                :min="1"
+                :max="7"
+                size="small"
+                style="width: 100px"
+                @change="saveGeoIPAutoUpdate"
+              />
+              <span style="color: #909399; font-size: 12px">{{ $t('settings_access_control.geoip_interval_days') }}</span>
+            </template>
+          </div>
+        </el-descriptions-item>
+      </el-descriptions>
+    </el-card>
+
+    <!-- Access Statistics Card -->
+    <el-card shadow="hover" class="acl-card" style="margin-top: 16px">
+      <template #header>
+        <div class="card-header">
+          <div style="display: flex; align-items: center; gap: 8px">
+            <el-icon :size="18"><DataAnalysis /></el-icon>
+            <span>{{ $t('settings_access_control.access_stats_title') }}</span>
+            <el-text type="info" size="small">{{ $t('settings_access_control.access_stats_desc') }}</el-text>
+          </div>
+          <el-button size="small" :icon="Refresh" :loading="accessStatsLoading" @click="loadAccessStats">
+            {{ $t('settings_access_control.access_stats_refresh') }}
+          </el-button>
+        </div>
+      </template>
+
+      <el-table :data="accessStats" stripe style="width: 100%" size="small" v-loading="accessStatsLoading">
+        <el-table-column prop="ip" :label="$t('settings_access_control.col_access_ip')" min-width="180">
+          <template #default="{ row }">
+            <code class="ip-value">{{ row.ip }}</code>
+          </template>
+        </el-table-column>
+        <el-table-column min-width="160">
+          <template #header>
+            <div style="display: flex; align-items: center; gap: 4px">
+              <span>{{ $t('settings_access_control.col_access_location') }}</span>
+              <el-tooltip :content="$t('settings_access_control.access_location_tip')" placement="top" :show-after="300">
+                <el-icon :size="14" style="color: #909399; cursor: help"><QuestionFilled /></el-icon>
+              </el-tooltip>
+            </div>
+          </template>
+          <template #default="{ row }">
+            <span v-if="row.location">{{ row.location }}</span>
+            <span v-else style="color: #c0c4cc">—</span>
+          </template>
+        </el-table-column>
+        <el-table-column :label="$t('settings_access_control.col_access_last_time')" min-width="170">
+          <template #default="{ row }">
+            {{ formatTime(row.last_accessed_at) }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="total_requests" :label="$t('settings_access_control.col_access_total')" width="120" align="center" />
+        <el-table-column prop="sub_requests" :label="$t('settings_access_control.col_access_sub')" width="150" align="center" />
+      </el-table>
+      <div v-if="accessStatsTotal > 0" style="margin-top: 12px; display: flex; justify-content: flex-end">
+        <el-pagination
+          v-model:current-page="accessStatsPage"
+          :page-size="accessStatsPageSize"
+          :total="accessStatsTotal"
+          layout="total, prev, pager, next"
+          small
+          @current-change="loadAccessStats"
+        />
+      </div>
+      <el-empty v-if="!accessStatsLoading && accessStats.length === 0" :description="$t('settings_access_control.access_no_data')" :image-size="60" />
+    </el-card>
+
+    <!-- Access Control Mode Card -->
+    <el-card shadow="hover" class="acl-card" style="margin-top: 16px">
       <!-- Mode Selection -->
       <template #header>
         <div class="card-header">
@@ -72,7 +188,7 @@
         </div>
       </template>
 
-      <el-table :data="entries" stripe style="width: 100%" v-if="entries.length > 0" size="small">
+      <el-table :data="pagedWhitelistEntries" stripe style="width: 100%" v-if="entries.length > 0" size="small">
         <el-table-column prop="value" :label="$t('settings_access_control.col_ip')" min-width="220">
           <template #default="{ row }">
             <code class="ip-value">{{ row.value }}</code>
@@ -86,12 +202,21 @@
           </template>
         </el-table-column>
         <el-table-column :label="$t('common.operations')" width="80" align="center">
-          <template #default="{ $index }">
-            <el-button type="danger" link size="small" :icon="Delete" @click="removeEntry($index)" />
+          <template #default="{ row }">
+            <el-button type="danger" link size="small" :icon="Delete" @click="removeEntry(entries.indexOf(row))" />
           </template>
         </el-table-column>
       </el-table>
-      <el-empty v-else :description="$t('settings_access_control.no_entries')" :image-size="60" />
+      <div v-if="entries.length > aclPageSize" style="margin-top: 12px; display: flex; justify-content: flex-end">
+        <el-pagination
+          v-model:current-page="whitelistPage"
+          :page-size="aclPageSize"
+          :total="entries.length"
+          layout="total, prev, pager, next"
+          small
+        />
+      </div>
+      <el-empty v-if="entries.length === 0" :description="$t('settings_access_control.no_entries')" :image-size="60" />
     </el-card>
 
     <!-- Blacklist Management -->
@@ -109,7 +234,7 @@
         </div>
       </template>
 
-      <el-table :data="entries" stripe style="width: 100%" v-if="entries.length > 0" size="small">
+      <el-table :data="pagedBlacklistEntries" stripe style="width: 100%" v-if="entries.length > 0" size="small">
         <el-table-column :label="$t('settings_access_control.col_ip')" min-width="200">
           <template #default="{ row }">
             <code class="ip-value">{{ row.value }}</code>
@@ -136,12 +261,21 @@
           </template>
         </el-table-column>
         <el-table-column :label="$t('common.operations')" width="80" align="center">
-          <template #default="{ $index }">
-            <el-button type="danger" link size="small" :icon="Delete" @click="removeEntry($index)" />
+          <template #default="{ row }">
+            <el-button type="danger" link size="small" :icon="Delete" @click="removeEntry(entries.indexOf(row))" />
           </template>
         </el-table-column>
       </el-table>
-      <el-empty v-else :description="$t('settings_access_control.no_entries')" :image-size="60" />
+      <div v-if="entries.length > aclPageSize" style="margin-top: 12px; display: flex; justify-content: flex-end">
+        <el-pagination
+          v-model:current-page="blacklistPage"
+          :page-size="aclPageSize"
+          :total="entries.length"
+          layout="total, prev, pager, next"
+          small
+        />
+      </div>
+      <el-empty v-if="entries.length === 0" :description="$t('settings_access_control.no_entries')" :image-size="60" />
     </el-card>
 
     <!-- Save Button — always visible when anything has changed -->
@@ -201,19 +335,48 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
-import { Warning, CircleClose, CircleCheck, Remove, Plus, Delete } from '@element-plus/icons-vue'
+import { Warning, CircleClose, CircleCheck, Remove, Plus, Delete, Location, Refresh, DataAnalysis, QuestionFilled } from '@element-plus/icons-vue'
 import api from '../api'
 
 const { t } = useI18n()
 
+// --- GeoIP State ---
+const geoipStatus = reactive({ exists: false, version: '' })
+const geoipAutoUpdate = ref(false)
+const geoipIntervalDays = ref(1)
+const geoipDownloading = ref(false)
+const downloadProgress = reactive({ percent: '', downloaded_bytes: 0, total_bytes: 0, attempt: 0, max_retries: 3, error: '' })
+let progressTimer = null
+
+// --- Access Stats State ---
+const accessStats = ref([])
+const accessStatsTotal = ref(0)
+const accessStatsPage = ref(1)
+const accessStatsPageSize = 15
+const accessStatsLoading = ref(false)
+
+// --- Access Control State ---
 const mode = ref('disabled')
 const originalMode = ref('disabled')
 const entries = ref([])
 const originalEntries = ref([])
 const saving = ref(false)
+const whitelistPage = ref(1)
+const blacklistPage = ref(1)
+const aclPageSize = 10
+
+// Paginated entries for whitelist/blacklist
+const pagedWhitelistEntries = computed(() => {
+  const start = (whitelistPage.value - 1) * aclPageSize
+  return entries.value.slice(start, start + aclPageSize)
+})
+const pagedBlacklistEntries = computed(() => {
+  const start = (blacklistPage.value - 1) * aclPageSize
+  return entries.value.slice(start, start + aclPageSize)
+})
 
 // Track whether there are unsaved changes
 const hasChanges = computed(() => {
@@ -288,9 +451,134 @@ function computeRemaining(row) {
 }
 
 onMounted(async () => {
-  await loadSettings()
+  await Promise.all([loadGeoIPStatus(), checkInitialDownloadState(), loadAccessStats(), loadSettings()])
 })
 
+// Check if a download is already in progress when the page loads
+async function checkInitialDownloadState() {
+  try {
+    const { data } = await api.get('/settings/geoip/progress')
+    if (data.downloading) {
+      geoipDownloading.value = true
+      downloadProgress.percent = data.percent || ''
+      downloadProgress.downloaded_bytes = data.downloaded_bytes || 0
+      downloadProgress.total_bytes = data.total_bytes || 0
+      downloadProgress.attempt = data.attempt || 0
+      downloadProgress.max_retries = data.max_retries || 3
+      startProgressPolling()
+    }
+  } catch {}
+}
+
+// --- GeoIP Methods ---
+async function loadGeoIPStatus() {
+  try {
+    const { data } = await api.get('/settings/geoip/status')
+    geoipStatus.exists = data.exists
+    geoipStatus.version = data.version
+    geoipAutoUpdate.value = data.auto_update
+    geoipIntervalDays.value = data.update_interval_days || 1
+  } catch {}
+}
+
+async function checkGeoIPUpdate() {
+  // Prevent double-click
+  if (geoipDownloading.value) {
+    ElMessage.warning(t('settings_access_control.geoip_downloading_tip'))
+    return
+  }
+
+  geoipDownloading.value = true
+  try {
+    await api.post('/settings/geoip/check-update')
+    // Start polling for progress
+    startProgressPolling()
+  } catch {
+    geoipDownloading.value = false
+  }
+}
+
+function startProgressPolling() {
+  stopProgressPolling()
+  progressTimer = setInterval(async () => {
+    try {
+      const { data } = await api.get('/settings/geoip/progress')
+      downloadProgress.percent = data.percent || ''
+      downloadProgress.downloaded_bytes = data.downloaded_bytes || 0
+      downloadProgress.total_bytes = data.total_bytes || 0
+      downloadProgress.attempt = data.attempt || 0
+      downloadProgress.max_retries = data.max_retries || 3
+      downloadProgress.error = data.error || ''
+
+      if (!data.downloading) {
+        // Download finished
+        stopProgressPolling()
+        geoipDownloading.value = false
+
+        if (data.error) {
+          ElMessage.error(data.error)
+        } else if (data.exists) {
+          geoipStatus.exists = true
+          geoipStatus.version = data.version
+          ElMessage.success(t('settings_access_control.geoip_download_success'))
+          await loadAccessStats()
+        }
+      }
+    } catch {
+      // Ignore polling errors
+    }
+  }, 2000)
+}
+
+function stopProgressPolling() {
+  if (progressTimer) {
+    clearInterval(progressTimer)
+    progressTimer = null
+  }
+}
+
+function formatFileSize(bytes) {
+  if (bytes < 1024) return bytes + ' B'
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+}
+
+onBeforeUnmount(() => {
+  stopProgressPolling()
+})
+
+async function saveGeoIPAutoUpdate() {
+  try {
+    await api.put('/settings/geoip/auto-update', {
+      enabled: geoipAutoUpdate.value,
+      interval_days: geoipIntervalDays.value,
+    })
+    ElMessage.success(t('settings_access_control.geoip_auto_update_saved'))
+  } catch {}
+}
+
+// --- Access Stats Methods ---
+async function loadAccessStats() {
+  accessStatsLoading.value = true
+  try {
+    const { data } = await api.get('/settings/access-stats', {
+      params: { page: accessStatsPage.value, page_size: accessStatsPageSize },
+    })
+    accessStats.value = data.items || []
+    accessStatsTotal.value = data.total || 0
+  } catch {} finally {
+    accessStatsLoading.value = false
+  }
+}
+
+function formatTime(isoStr) {
+  if (!isoStr) return ''
+  const d = new Date(isoStr)
+  const pad = n => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+}
+
+// --- Access Control Methods ---
 async function loadSettings() {
   try {
     const { data } = await api.get('/settings/access-control')

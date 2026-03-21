@@ -8,17 +8,18 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"iptv-tool-v2/internal/publish"
+	"iptv-tool-v2/internal/service"
 	"iptv-tool-v2/internal/task"
 	"iptv-tool-v2/pkg/auth"
 	"iptv-tool-v2/pkg/i18n"
 )
 
 // SetupRouter creates and configures the Gin router with all routes
-func SetupRouter(scheduler *task.Scheduler, logoDir string, dataDir string, frontendFS fs.FS, runtimeLogBuf *RuntimeLogBuffer, accessLogBuf *AccessLogBuffer) *gin.Engine {
+func SetupRouter(scheduler *task.Scheduler, logoDir string, dataDir string, frontendFS fs.FS, runtimeLogBuf *RuntimeLogBuffer, accessLogBuf *AccessLogBuffer, geoipSvc *service.GeoIPService, accessStatSvc *service.AccessStatService) *gin.Engine {
 	r := gin.Default()
 	r.Use(i18n.Middleware())
 	r.Use(AccessControlMiddleware())
-	r.Use(AccessLogMiddleware(accessLogBuf))
+	r.Use(AccessLogMiddleware(accessLogBuf, accessStatSvc))
 
 	// --- Public routes (no auth required) ---
 
@@ -116,6 +117,17 @@ func SetupRouter(scheduler *task.Scheduler, logoDir string, dataDir string, fron
 		authorized.PUT("/settings/access-control", aclCtrl.UpdateAccessControl)
 		authorized.DELETE("/settings/access-control/entries/:id", aclCtrl.DeleteEntry)
 		authorized.POST("/settings/detect/ffprobe", settingsCtrl.UploadFFprobe)
+
+		// GeoIP Settings
+		geoipCtrl := NewGeoIPController(geoipSvc, scheduler)
+		authorized.GET("/settings/geoip/status", geoipCtrl.GetStatus)
+		authorized.POST("/settings/geoip/check-update", geoipCtrl.CheckUpdate)
+		authorized.GET("/settings/geoip/progress", geoipCtrl.GetDownloadProgress)
+		authorized.PUT("/settings/geoip/auto-update", geoipCtrl.UpdateAutoUpdate)
+
+		// Access Statistics
+		accessStatCtrl := NewAccessStatController(accessStatSvc)
+		authorized.GET("/settings/access-stats", accessStatCtrl.GetAccessStats)
 
 		// Publish Interfaces
 		publishCtrl := NewPublishController(scheduler)

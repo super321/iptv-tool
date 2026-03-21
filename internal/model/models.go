@@ -203,3 +203,12 @@ type AccessControlEntry struct {
 	BlockDays *int      `json:"block_days"`                      // nil = permanent (blacklist only)
 	CreatedAt time.Time `json:"created_at"`
 }
+
+// AccessStat tracks IP access statistics over the last 7 days
+type AccessStat struct {
+	ID             uint      `gorm:"primarykey" json:"id"`
+	IP             string    `gorm:"uniqueIndex;not null" json:"ip"`
+	LastAccessedAt time.Time `gorm:"not null;index" json:"last_accessed_at"`
+	TotalRequests  int64     `gorm:"not null;default:0" json:"total_requests"`
+	SubRequests    int64     `gorm:"not null;default:0" json:"sub_requests"` // /sub/ endpoint hits
+}

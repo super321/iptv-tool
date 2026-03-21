@@ -48,6 +48,7 @@ func InitDB(dsn string) error {
 		&ParsedEPG{},
 		&SystemSetting{},
 		&AccessControlEntry{},
+		&AccessStat{},
 	)
 	if err != nil {
 		return err

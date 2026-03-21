@@ -9,6 +9,7 @@ import (
 
 	"iptv-tool-v2/internal/api"
 	"iptv-tool-v2/internal/model"
+	"iptv-tool-v2/internal/service"
 	"iptv-tool-v2/internal/task"
 	"iptv-tool-v2/locales"
 	"iptv-tool-v2/pkg/auth"
@@ -79,8 +80,18 @@ func main() {
 	// Initialize i18n
 	i18n.Init(locales.FS)
 
+	// Initialize GeoIP service
+	geoipSvc := service.NewGeoIPService(dataDir)
+	defer geoipSvc.Close()
+
+	// Initialize AccessStat service (starts background worker)
+	accessStatSvc := service.NewAccessStatService(geoipSvc)
+	defer accessStatSvc.Stop()
+
 	// Initialize and start scheduler
 	scheduler := task.NewScheduler(dataDir)
+	scheduler.SetGeoIPService(geoipSvc)
+	scheduler.SetAccessStatService(accessStatSvc)
 	if err := scheduler.Start(); err != nil {
 		logger.Fatalf("Failed to start scheduler", "error", err)
 	}
@@ -93,7 +104,7 @@ func main() {
 	}
 
 	// Setup and start HTTP server
-	router := api.SetupRouter(scheduler, logoDir, dataDir, frontendFS, runtimeLogBuf, accessLogBuf)
+	router := api.SetupRouter(scheduler, logoDir, dataDir, frontendFS, runtimeLogBuf, accessLogBuf, geoipSvc, accessStatSvc)
 
 	slog.Info("IPTV Tool v2 starting", "address", *addr)
 	if err := router.Run(*addr); err != nil {

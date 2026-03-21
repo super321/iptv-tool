@@ -5,12 +5,15 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+
+	"iptv-tool-v2/internal/service"
 )
 
 // AccessLogMiddleware returns a Gin middleware that records access logs
 // into the given AccessLogBuffer. It only logs backend API (/api/) and
 // subscription (/sub/) requests, skipping static resources and log APIs.
-func AccessLogMiddleware(buf *AccessLogBuffer) gin.HandlerFunc {
+// It also records IP access statistics via the AccessStatService.
+func AccessLogMiddleware(buf *AccessLogBuffer, accessStatSvc *service.AccessStatService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		path := c.Request.URL.Path
 
@@ -36,6 +39,11 @@ func AccessLogMiddleware(buf *AccessLogBuffer) gin.HandlerFunc {
 			Latency:   formatLatency(latency),
 			UserAgent: c.Request.UserAgent(),
 		})
+
+		// Record IP access stat (non-blocking)
+		if accessStatSvc != nil {
+			accessStatSvc.Record(c.ClientIP(), isSub)
+		}
 	}
 }
 

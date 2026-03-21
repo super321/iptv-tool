@@ -413,7 +413,32 @@
       "save_success": "Access control settings saved",
       "no_entries": "No entries configured",
       "save": "Save Settings",
-      "nav_label": "Access Control"
+      "nav_label": "Access Control",
+      "geoip_title": "GeoIP Database",
+      "geoip_version": "Database Version",
+      "geoip_not_downloaded": "Not Downloaded",
+      "geoip_check_update": "Check Update",
+      "geoip_downloading": "Downloading...",
+      "geoip_auto_update": "Auto Update",
+      "geoip_update_interval": "Update Interval",
+      "geoip_interval_days": "day(s)",
+      "geoip_download_success": "GeoIP database updated successfully",
+      "geoip_auto_update_saved": "Auto-update settings saved",
+      "access_stats_title": "Access Statistics",
+      "access_stats_desc": "IP access information from the last 7 days",
+      "col_access_ip": "IP Address",
+      "col_access_location": "Location",
+      "col_access_last_time": "Last Access Time",
+      "col_access_total": "Total Requests",
+      "col_access_sub": "Publish API Requests",
+      "access_no_data": "No access records",
+      "access_location_tip": "Location is resolved via GeoIP database. Please download the GeoIP database first.",
+      "geoip_downloading_progress": "Downloading {percent}",
+      "geoip_downloading_no_size": "Downloading ({downloaded})",
+      "geoip_download_attempt": "Attempt {attempt}/{max}",
+      "geoip_downloading_tip": "File is being downloaded, please wait",
+      "geoip_update_interval_label": "Update every",
+      "access_stats_refresh": "Refresh"
     },
     "settings_password": {
       "title": "Change Password",
@@ -578,7 +603,9 @@
       "check_update_failed": "Failed to check for updates, please check your network connection",
       "acl_self_lockout": "Your current IP would be blocked by these settings. Operation rejected to prevent self-lockout.",
       "acl_invalid_entry": "Invalid access control entry",
-      "acl_blacklist_single_only": "Blacklist only supports single IP addresses"
+      "acl_blacklist_single_only": "Blacklist only supports single IP addresses",
+      "geoip_download_failed": "GeoIP database download failed",
+      "geoip_downloading": "GeoIP database is being downloaded, please wait"
     },
     "message": {
       "init_success": "System initialized successfully",
@@ -594,7 +621,10 @@
       "ffprobe_uploaded": "ffprobe uploaded successfully",
       "epg_url_exists": "EPG source URL already exists, skipped auto-creation",
       "acl_updated": "Access control settings updated",
-      "acl_entry_deleted": "Access control entry deleted"
+      "acl_entry_deleted": "Access control entry deleted",
+      "geoip_updated": "GeoIP database updated successfully",
+      "geoip_auto_update_saved": "Auto-update settings saved",
+      "geoip_download_started": "GeoIP database download started"
     },
     "label": {
       "auto_detect": "Auto Detect",
@@ -606,7 +636,8 @@
       "interval_4h": "Every 4 hours",
       "interval_6h": "Every 6 hours",
       "interval_12h": "Every 12 hours",
-      "interval_24h": "Daily"
+      "interval_24h": "Daily",
+      "local_network": "LAN"
     },
     "publish_handler": {
       "not_found": "Not found",

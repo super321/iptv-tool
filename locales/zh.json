@@ -413,7 +413,32 @@
       "save_success": "访问控制设置已保存",
       "no_entries": "暂无配置条目",
       "save": "保存设置",
-      "nav_label": "访问控制"
+      "nav_label": "访问控制",
+      "geoip_title": "GeoIP 数据库",
+      "geoip_version": "数据库版本",
+      "geoip_not_downloaded": "未下载",
+      "geoip_check_update": "检查更新",
+      "geoip_downloading": "下载中...",
+      "geoip_auto_update": "自动更新",
+      "geoip_update_interval": "更新周期",
+      "geoip_interval_days": "天",
+      "geoip_download_success": "GeoIP 数据库更新成功",
+      "geoip_auto_update_saved": "自动更新设置已保存",
+      "access_stats_title": "访问统计",
+      "access_stats_desc": "最近 7 天访问的 IP 地址信息",
+      "col_access_ip": "IP 地址",
+      "col_access_location": "归属地",
+      "col_access_last_time": "最新访问时间",
+      "col_access_total": "总请求数",
+      "col_access_sub": "请求发布接口数",
+      "access_no_data": "暂无访问记录",
+      "access_location_tip": "归属地通过 GeoIP 数据库解析，请先下载 GeoIP 数据库",
+      "geoip_downloading_progress": "下载中 {percent}",
+      "geoip_downloading_no_size": "下载中 ({downloaded})",
+      "geoip_download_attempt": "第 {attempt}/{max} 次尝试",
+      "geoip_downloading_tip": "文件正在下载中，请耐心等待",
+      "geoip_update_interval_label": "更新频率：每",
+      "access_stats_refresh": "刷新"
     },
     "settings_password": {
       "title": "修改密码",
@@ -578,7 +603,9 @@
       "check_update_failed": "检查更新失败，请检查网络连接",
       "acl_self_lockout": "您当前的 IP 将被此设置所阻止，操作已拒绝以防止自锁。",
       "acl_invalid_entry": "访问控制条目无效",
-      "acl_blacklist_single_only": "黑名单仅支持单个 IP 地址"
+      "acl_blacklist_single_only": "黑名单仅支持单个 IP 地址",
+      "geoip_download_failed": "GeoIP 数据库下载失败",
+      "geoip_downloading": "GeoIP 数据库正在下载中，请耐心等待"
     },
     "message": {
       "init_success": "系统初始化成功",
@@ -594,7 +621,10 @@
       "ffprobe_uploaded": "ffprobe 上传成功",
       "epg_url_exists": "该EPG源URL已存在，跳过自动创建",
       "acl_updated": "访问控制设置已更新",
-      "acl_entry_deleted": "访问控制条目已删除"
+      "acl_entry_deleted": "访问控制条目已删除",
+      "geoip_updated": "GeoIP 数据库更新成功",
+      "geoip_auto_update_saved": "自动更新设置已保存",
+      "geoip_download_started": "GeoIP 数据库开始下载"
     },
     "label": {
       "auto_detect": "自动检测",
@@ -606,7 +636,8 @@
       "interval_4h": "每4小时",
       "interval_6h": "每6小时",
       "interval_12h": "每12小时",
-      "interval_24h": "每天"
+      "interval_24h": "每天",
+      "local_network": "局域网"
     },
     "publish_handler": {
       "not_found": "未找到",
