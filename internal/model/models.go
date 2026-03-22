@@ -111,6 +111,7 @@ type PublishInterface struct {
 	UDPxyURL               string `gorm:"column:udpxy_url" json:"udpxy_url"`                       // e.g., http://192.168.1.1:4022
 	FCCEnabled             bool   `json:"fcc_enabled"`                                             // Enable FCC (Fast Channel Change) for rtp2httpd
 	FCCType                string `json:"fcc_type"`                                                // telecom (default) or huawei
+	CustomParams           string `json:"custom_params"`                                           // JSON array of {key, value} for custom proxy URL params
 	M3UCatchupTemplate     string `gorm:"column:m3u_catchup_template" json:"m3u_catchup_template"` // e.g., playseek=${(b)yyyyMMddHHmmss}-${(e)yyyyMMddHHmmss}
 	FilterInvalidSourceIDs string `json:"filter_invalid_source_ids"`                               // Comma-separated source IDs that should filter timeout channels
 

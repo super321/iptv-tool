@@ -14,6 +14,7 @@ func TestExtractBestURL(t *testing.T) {
 		udpxyURL      string
 		fccEnabled    bool
 		fccType       string
+		customParams  string
 		rawURLs       string
 		catchupURL    string
 		fccIP         string
@@ -244,6 +245,51 @@ func TestExtractBestURL(t *testing.T) {
 			fccPort:       "8027",
 			want:          "http://192.168.1.1:5140/rtp/239.253.64.120:5140?fcc=10.7.10.172:8027",
 		},
+
+		// ===== Custom Params 相关测试 =====
+		{
+			name:          "custom_params_only_no_fcc",
+			addressType:   "multicast",
+			multicastType: "udpxy",
+			udpxyURL:      "http://192.168.1.1:5140",
+			fccEnabled:    false,
+			customParams:  `[{"key":"r2h-token","value":"abc123"}]`,
+			rawURLs:       "igmp://239.253.64.120:5140",
+			want:          "http://192.168.1.1:5140/rtp/239.253.64.120:5140?r2h-token=abc123",
+		},
+		{
+			name:          "fcc_and_custom_params_combined",
+			addressType:   "multicast",
+			multicastType: "udpxy",
+			udpxyURL:      "http://192.168.1.1:5140",
+			fccEnabled:    true,
+			fccType:       "telecom",
+			customParams:  `[{"key":"r2h-token","value":"abc123"}]`,
+			rawURLs:       "igmp://239.253.64.120:5140",
+			fccIP:         "10.255.14.152",
+			fccPort:       "15970",
+			want:          "http://192.168.1.1:5140/rtp/239.253.64.120:5140?fcc=10.255.14.152:15970&r2h-token=abc123",
+		},
+		{
+			name:          "multiple_custom_params",
+			addressType:   "multicast",
+			multicastType: "udpxy",
+			udpxyURL:      "http://192.168.1.1:5140",
+			fccEnabled:    false,
+			customParams:  `[{"key":"r2h-token","value":"abc123"},{"key":"r2h-ifname","value":"eth0"}]`,
+			rawURLs:       "igmp://239.253.64.120:5140",
+			want:          "http://192.168.1.1:5140/rtp/239.253.64.120:5140?r2h-token=abc123&r2h-ifname=eth0",
+		},
+		{
+			name:          "empty_custom_params_no_effect",
+			addressType:   "multicast",
+			multicastType: "udpxy",
+			udpxyURL:      "http://192.168.1.1:5140",
+			fccEnabled:    false,
+			customParams:  "",
+			rawURLs:       "igmp://239.253.64.120:5140",
+			want:          "http://192.168.1.1:5140/rtp/239.253.64.120:5140",
+		},
 	}
 
 	for _, tt := range tests {
@@ -255,6 +301,7 @@ func TestExtractBestURL(t *testing.T) {
 					UDPxyURL:      tt.udpxyURL,
 					FCCEnabled:    tt.fccEnabled,
 					FCCType:       tt.fccType,
+					CustomParams:  tt.customParams,
 				},
 			}
 			got := e.extractBestURL(tt.rawURLs, tt.catchupURL, tt.fccIP, tt.fccPort)

@@ -69,6 +69,7 @@ type CreateInterfaceRequest struct {
 	UDPxyURL               string              `json:"udpxy_url"`
 	FCCEnabled             bool                `json:"fcc_enabled"`
 	FCCType                string              `json:"fcc_type"`
+	CustomParams           string              `json:"custom_params"`
 	M3UCatchupTemplate     string              `json:"m3u_catchup_template"`
 	FilterInvalidSourceIDs string              `json:"filter_invalid_source_ids"`
 	UACheckEnabled         bool                `json:"ua_check_enabled"`
@@ -134,6 +135,7 @@ func (pc *PublishController) CreateInterface(c *gin.Context) {
 		UDPxyURL:               req.UDPxyURL,
 		FCCEnabled:             req.FCCEnabled,
 		FCCType:                req.FCCType,
+		CustomParams:           req.CustomParams,
 		M3UCatchupTemplate:     req.M3UCatchupTemplate,
 		FilterInvalidSourceIDs: req.FilterInvalidSourceIDs,
 		UACheckEnabled:         req.UACheckEnabled,
@@ -167,6 +169,7 @@ type UpdateInterfaceRequest struct {
 	UDPxyURL               *string              `json:"udpxy_url"`
 	FCCEnabled             *bool                `json:"fcc_enabled"`
 	FCCType                *string              `json:"fcc_type"`
+	CustomParams           *string              `json:"custom_params"`
 	M3UCatchupTemplate     *string              `json:"m3u_catchup_template"`
 	FilterInvalidSourceIDs *string              `json:"filter_invalid_source_ids"`
 	UACheckEnabled         *bool                `json:"ua_check_enabled"`
@@ -272,6 +275,9 @@ func (pc *PublishController) UpdateInterface(c *gin.Context) {
 	if req.FCCType != nil {
 		updates["fcc_type"] = *req.FCCType
 	}
+	if req.CustomParams != nil {
+		updates["custom_params"] = *req.CustomParams
+	}
 	if req.M3UCatchupTemplate != nil {
 		updates["m3u_catchup_template"] = *req.M3UCatchupTemplate
 	}
@@ -341,6 +347,7 @@ type PreviewRequest struct {
 	UDPxyURL               string `json:"udpxy_url"`
 	FCCEnabled             bool   `json:"fcc_enabled"`
 	FCCType                string `json:"fcc_type"`
+	CustomParams           string `json:"custom_params"`
 	FilterInvalidSourceIDs string `json:"filter_invalid_source_ids"`
 }
 
@@ -363,6 +370,7 @@ func (pc *PublishController) PreviewInterface(c *gin.Context) {
 		UDPxyURL:               req.UDPxyURL,
 		FCCEnabled:             req.FCCEnabled,
 		FCCType:                req.FCCType,
+		CustomParams:           req.CustomParams,
 		FilterInvalidSourceIDs: req.FilterInvalidSourceIDs,
 	}
 

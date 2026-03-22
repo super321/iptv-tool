@@ -189,6 +189,23 @@
                 </el-select>
               </el-form-item>
 
+              <el-form-item :label="$t('publish.custom_params')" v-if="form.multicast_type === 'udpxy'">
+                <div style="width: 100%">
+                  <div style="color: #909399; font-size: 12px; line-height: 1.4; margin-bottom: 8px">
+                    {{ $t('publish.custom_params_help') }}
+                  </div>
+                  <div v-for="(param, idx) in form.custom_params_arr" :key="idx"
+                    style="display: flex; gap: 8px; margin-bottom: 6px; align-items: center;">
+                    <el-input v-model.trim="param.key" :placeholder="$t('publish.custom_param_key')" style="flex: 1" />
+                    <el-input v-model.trim="param.value" :placeholder="$t('publish.custom_param_value')" style="flex: 1" />
+                    <el-button :icon="Delete" size="small" circle type="danger" @click="form.custom_params_arr.splice(idx, 1)" />
+                  </div>
+                  <el-button type="primary" plain size="small" @click="form.custom_params_arr.push({ key: '', value: '' })">
+                    {{ $t('publish.add_custom_param') }}
+                  </el-button>
+                </div>
+              </el-form-item>
+
               <el-form-item :label="$t('publish.catchup_template')" v-if="form.format === 'm3u'">
                 <div style="width: 100%;">
                   <el-input v-model.trim="form.m3u_catchup_template" :placeholder="$t('publish.catchup_placeholder')" clearable>
@@ -334,7 +351,8 @@ const defaultForm = () => ({
   address_type: 'multicast', multicast_type: 'udpxy', udpxy_url: '', fcc_enabled: false, fcc_type: 'telecom',
   m3u_catchup_template: '',
   epg_days: 7, gzip_enabled: false, tvg_id_mode: 'channel_id', filter_invalid_source_ids_arr: [],
-  ua_check_enabled: false, ua_allowed_values_text: ''
+  ua_check_enabled: false, ua_allowed_values_text: '',
+  custom_params_arr: []
 })
 const form = reactive(defaultForm())
 const formRules = computed(() => ({
@@ -433,6 +451,7 @@ function showEdit(row) {
     epg_days: row.epg_days || null, gzip_enabled: row.gzip_enabled || false,
     ua_check_enabled: row.ua_check_enabled || false,
     ua_allowed_values_text: (row.ua_allowed_values || '').split(',').filter(v => v.trim()).join('\n'),
+    custom_params_arr: row.custom_params ? (() => { try { return JSON.parse(row.custom_params) } catch { return [] } })() : [],
   })
   activeTab.value = 'basic'
   fetchSources(form.type)
@@ -458,6 +477,7 @@ async function handlePreview() {
       udpxy_url: form.udpxy_url,
       fcc_enabled: form.fcc_enabled,
       fcc_type: form.fcc_type,
+      custom_params: JSON.stringify(form.custom_params_arr.filter(p => p.key.trim())),
       filter_invalid_source_ids: form.filter_invalid_source_ids_arr.join(',')
     })
     previewData.value = data || []
@@ -497,6 +517,7 @@ async function handleSubmit() {
       address_type: form.address_type,
       multicast_type: form.multicast_type,
       udpxy_url: form.udpxy_url, fcc_enabled: form.fcc_enabled, fcc_type: form.fcc_type,
+      custom_params: JSON.stringify(form.custom_params_arr.filter(p => p.key.trim())),
       m3u_catchup_template: form.m3u_catchup_template,
       epg_days: form.epg_days || 0, gzip_enabled: form.gzip_enabled,
       ua_check_enabled: form.ua_check_enabled,

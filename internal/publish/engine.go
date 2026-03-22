@@ -335,6 +335,35 @@ func (e *Engine) isMulticastURL(url string) bool {
 	return false
 }
 
+// customParam represents a single custom URL parameter
+type customParam struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
+// parseCustomParams parses the JSON custom params string into a slice
+func (e *Engine) parseCustomParams() []customParam {
+	if e.iface.CustomParams == "" {
+		return nil
+	}
+	var params []customParam
+	if err := json.Unmarshal([]byte(e.iface.CustomParams), &params); err != nil {
+		slog.Error("Publish Engine: Failed to parse custom params", "error", err, "iface_id", e.iface.ID)
+		return nil
+	}
+	// Filter out entries with empty key
+	var result []customParam
+	for _, p := range params {
+		if strings.TrimSpace(p.Key) != "" {
+			result = append(result, customParam{
+				Key:   strings.TrimSpace(p.Key),
+				Value: strings.TrimSpace(p.Value),
+			})
+		}
+	}
+	return result
+}
+
 // transformMulticastURL 根据配置的组播协议和 UDPxy 地址转换组播 URL
 // fccIP 和 fccPort 为频道级别的 FCC 服务器信息
 func (e *Engine) transformMulticastURL(multicastURL, fccIP, fccPort string) string {
@@ -348,6 +377,14 @@ func (e *Engine) transformMulticastURL(multicastURL, fccIP, fccPort string) stri
 				result += "?fcc=" + fccIP + ":" + fccPort
 				if e.iface.FCCType == "huawei" {
 					result += "&fcc-type=huawei"
+				}
+			}
+			// Append custom parameters
+			for _, p := range e.parseCustomParams() {
+				if strings.Contains(result, "?") {
+					result += "&" + p.Key + "=" + p.Value
+				} else {
+					result += "?" + p.Key + "=" + p.Value
 				}
 			}
 			return result
