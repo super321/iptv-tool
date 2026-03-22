@@ -128,7 +128,7 @@ func (s *GeoIPService) GetVersion() string {
 }
 
 // LookupIP returns country, province, city for the given IP.
-// lang should be "zh" or "en". Returns empty strings if no database or IP not found.
+// lang should be "zh", "zh-Hant", or "en". Returns empty strings if no database or IP not found.
 func (s *GeoIPService) LookupIP(ipStr string, lang string) (country, province, city string) {
 	s.mu.RLock()
 	reader := s.reader
@@ -148,7 +148,9 @@ func (s *GeoIPService) LookupIP(ipStr string, lang string) (country, province, c
 		return "", "", ""
 	}
 
-	if lang == "zh" {
+	switch lang {
+	case "zh", "zh-Hant":
+		// GeoLite2 only has zh-CN (SimplifiedChinese), no Traditional Chinese
 		country = record.Country.Names.SimplifiedChinese
 		if country == "" {
 			country = record.Country.Names.English
@@ -163,7 +165,7 @@ func (s *GeoIPService) LookupIP(ipStr string, lang string) (country, province, c
 		if city == "" {
 			city = record.City.Names.English
 		}
-	} else {
+	default:
 		country = record.Country.Names.English
 		if len(record.Subdivisions) > 0 {
 			province = record.Subdivisions[0].Names.English
