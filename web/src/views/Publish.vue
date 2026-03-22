@@ -1,10 +1,19 @@
 <template>
   <div>
-    <div style="display: flex; justify-content: space-between; margin-bottom: 16px">
-      <h3 style="margin: 0">{{ $t('publish.title') }}</h3>
-      <el-button type="primary" @click="showCreate">{{ $t('publish.add') }}</el-button>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px">
+      <div style="display: flex; align-items: center; gap: 12px">
+        <h3 style="margin: 0">{{ $t('publish.title') }}</h3>
+        <span style="font-size: 13px; color: var(--el-text-color-secondary)">
+          {{ $t('publish.total_count', { count: filteredInterfaces.length }) }}
+          {{ searchQuery ? $t('publish.filtered') : '' }}
+        </span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px">
+        <el-input v-model="searchQuery" :placeholder="$t('publish.search_placeholder')" style="width: 220px" clearable :prefix-icon="Search" />
+        <el-button type="primary" @click="showCreate">{{ $t('publish.add') }}</el-button>
+      </div>
     </div>
-    <el-table :data="interfaces" v-loading="loading" border stripe>
+    <el-table :data="filteredInterfaces" v-loading="loading" border stripe>
       <el-table-column prop="id" label="ID" width="60" />
       <el-table-column prop="name" :label="$t('common.name')" min-width="140" show-overflow-tooltip />
       <el-table-column prop="description" :label="$t('common.description')" min-width="150" show-overflow-tooltip>
@@ -293,7 +302,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Edit, Delete, View, ArrowDown } from '@element-plus/icons-vue'
+import { Edit, Delete, View, ArrowDown, Search } from '@element-plus/icons-vue'
 import api from '../api'
 
 const { t } = useI18n()
@@ -303,6 +312,13 @@ const interfaces = ref([])
 const availableSources = ref([])
 const availableRules = ref([])
 const loading = ref(false)
+const searchQuery = ref('')
+
+const filteredInterfaces = computed(() => {
+  if (!searchQuery.value) return interfaces.value
+  const q = searchQuery.value.toLowerCase()
+  return interfaces.value.filter(i => i.name && i.name.toLowerCase().includes(q))
+})
 const dialogVisible = ref(false)
 const activeTab = ref('basic')
 const isEdit = ref(false)

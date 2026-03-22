@@ -164,7 +164,10 @@
       "has_catchup": "含回看",
       "live_addresses": "直播地址",
       "catchup_address": "回看地址",
-      "catchup_days_label": "{days} 天"
+      "catchup_days_label": "{days} 天",
+      "search_placeholder": "搜索直播源名称",
+      "total_count": "共 {count} 个直播源",
+      "filtered": "(已过滤)"
     },
     "epg_sources": {
       "title": "EPG源管理",
@@ -204,7 +207,10 @@
       "custom_headers": "自定义HTTP请求头",
       "header_name": "Header名称",
       "header_value": "Header值",
-      "add_header": "添加请求头"
+      "add_header": "添加请求头",
+      "search_placeholder": "搜索EPG源名称",
+      "total_count": "共 {count} 个EPG源",
+      "filtered": "(已过滤)"
     },
     "logos": {
       "title": "台标管理",
@@ -219,7 +225,10 @@
       "delete_confirm": "确定删除台标 \"{name}\"？",
       "batch_upload_success": "共 {total} 个文件，全部上传成功",
       "batch_upload_partial": "共 {total} 个文件，成功 {success} 个，失败 {fail} 个",
-      "batch_upload_all_failed": "{total} 个文件全部上传失败"
+      "batch_upload_all_failed": "{total} 个文件全部上传失败",
+      "search_placeholder": "搜索台标名称",
+      "total_count": "共 {count} 个台标",
+      "filtered": "(已过滤)"
     },
     "rules": {
       "title": "聚合规则",
@@ -274,7 +283,10 @@
       "ai_next": "下一步",
       "ai_prev": "上一步",
       "ai_copy_prompt": "复制 Prompt",
-      "ai_channel_count": "共 {count} 个频道名称将用于 AI 分析"
+      "ai_channel_count": "共 {count} 个频道名称将用于 AI 分析",
+      "search_placeholder": "搜索规则名称",
+      "total_count": "共 {count} 条规则",
+      "filtered": "(已过滤)"
     },
     "publish": {
       "title": "聚合发布",
@@ -346,7 +358,10 @@
       "tab_basic": "基础信息",
       "tab_data": "数据源与规则",
       "tab_output": "输出设置",
-      "tab_access": "访问控制"
+      "tab_access": "访问控制",
+      "search_placeholder": "搜索发布接口名称",
+      "total_count": "共 {count} 个发布接口",
+      "filtered": "(已过滤)"
     },
     "settings_detect": {
       "title": "直播检测设置",

@@ -164,7 +164,10 @@
       "has_catchup": "含回看",
       "live_addresses": "直播地址",
       "catchup_address": "回看地址",
-      "catchup_days_label": "{days} 天"
+      "catchup_days_label": "{days} 天",
+      "search_placeholder": "搜尋直播源名稱",
+      "total_count": "共 {count} 個直播源",
+      "filtered": "(已篩選)"
     },
     "epg_sources": {
       "title": "EPG源管理",
@@ -204,7 +207,10 @@
       "custom_headers": "自訂HTTP請求標頭",
       "header_name": "Header名稱",
       "header_value": "Header值",
-      "add_header": "新增請求標頭"
+      "add_header": "新增請求標頭",
+      "search_placeholder": "搜尋EPG源名稱",
+      "total_count": "共 {count} 個EPG源",
+      "filtered": "(已篩選)"
     },
     "logos": {
       "title": "台標管理",
@@ -219,7 +225,10 @@
       "delete_confirm": "確定刪除台標 \"{name}\"？",
       "batch_upload_success": "共 {total} 個檔案，全部上傳成功",
       "batch_upload_partial": "共 {total} 個檔案，成功 {success} 個，失敗 {fail} 個",
-      "batch_upload_all_failed": "{total} 個檔案全部上傳失敗"
+      "batch_upload_all_failed": "{total} 個檔案全部上傳失敗",
+      "search_placeholder": "搜尋台標名稱",
+      "total_count": "共 {count} 個台標",
+      "filtered": "(已篩選)"
     },
     "rules": {
       "title": "聚合規則",
@@ -274,7 +283,10 @@
       "ai_next": "下一步",
       "ai_prev": "上一步",
       "ai_copy_prompt": "複製 Prompt",
-      "ai_channel_count": "共 {count} 個頻道名稱將用於 AI 分析"
+      "ai_channel_count": "共 {count} 個頻道名稱將用於 AI 分析",
+      "search_placeholder": "搜尋規則名稱",
+      "total_count": "共 {count} 條規則",
+      "filtered": "(已篩選)"
     },
     "publish": {
       "title": "聚合發布",
@@ -346,7 +358,10 @@
       "tab_basic": "基礎資訊",
       "tab_data": "資料來源與規則",
       "tab_output": "輸出設定",
-      "tab_access": "存取控制"
+      "tab_access": "存取控制",
+      "search_placeholder": "搜尋發布介面名稱",
+      "total_count": "共 {count} 個發布介面",
+      "filtered": "(已篩選)"
     },
     "settings_detect": {
       "title": "直播檢測設定",

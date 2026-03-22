@@ -1,11 +1,20 @@
 <template>
   <div>
-    <div style="display: flex; justify-content: space-between; margin-bottom: 16px">
-      <h3 style="margin: 0">{{ $t('live_sources.title') }}</h3>
-      <el-button type="primary" @click="showCreate">{{ $t('live_sources.add') }}</el-button>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px">
+      <div style="display: flex; align-items: center; gap: 12px">
+        <h3 style="margin: 0">{{ $t('live_sources.title') }}</h3>
+        <span style="font-size: 13px; color: var(--el-text-color-secondary)">
+          {{ $t('live_sources.total_count', { count: filteredSources.length }) }}
+          {{ searchQuery ? $t('live_sources.filtered') : '' }}
+        </span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px">
+        <el-input v-model="searchQuery" :placeholder="$t('live_sources.search_placeholder')" style="width: 220px" clearable :prefix-icon="Search" />
+        <el-button type="primary" @click="showCreate">{{ $t('live_sources.add') }}</el-button>
+      </div>
     </div>
 
-    <el-table :data="sources" v-loading="loading" border stripe>
+    <el-table :data="filteredSources" v-loading="loading" border stripe>
       <el-table-column prop="id" label="ID" width="60" />
       <el-table-column prop="name" :label="$t('common.name')" min-width="140" show-overflow-tooltip />
       <el-table-column prop="description" :label="$t('common.description')" min-width="140" show-overflow-tooltip>
@@ -353,13 +362,20 @@
 import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { List, Refresh, Edit, Delete, Plus, SuccessFilled, CircleCloseFilled, Loading } from '@element-plus/icons-vue'
+import { List, Refresh, Edit, Delete, Plus, SuccessFilled, CircleCloseFilled, Loading, Search } from '@element-plus/icons-vue'
 import api from '../api'
 
 const { t } = useI18n()
 
 const sources = ref([])
 const loading = ref(false)
+const searchQuery = ref('')
+
+const filteredSources = computed(() => {
+  if (!searchQuery.value) return sources.value
+  const q = searchQuery.value.toLowerCase()
+  return sources.value.filter(s => s.name && s.name.toLowerCase().includes(q))
+})
 let pollingTimer = null
 
 onUnmounted(() => {

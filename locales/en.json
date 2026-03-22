@@ -164,7 +164,10 @@
       "has_catchup": "Catchup",
       "live_addresses": "Live Addresses",
       "catchup_address": "Catchup Address",
-      "catchup_days_label": "{days} days"
+      "catchup_days_label": "{days} days",
+      "search_placeholder": "Search live source name",
+      "total_count": "{count} live sources",
+      "filtered": "(filtered)"
     },
     "epg_sources": {
       "title": "EPG Sources",
@@ -204,7 +207,10 @@
       "custom_headers": "Custom HTTP Headers",
       "header_name": "Header Name",
       "header_value": "Header Value",
-      "add_header": "Add Header"
+      "add_header": "Add Header",
+      "search_placeholder": "Search EPG source name",
+      "total_count": "{count} EPG sources",
+      "filtered": "(filtered)"
     },
     "logos": {
       "title": "Logo Management",
@@ -219,7 +225,10 @@
       "delete_confirm": "Delete logo \"{name}\"?",
       "batch_upload_success": "All {total} files uploaded successfully",
       "batch_upload_partial": "{total} files total, {success} succeeded, {fail} failed",
-      "batch_upload_all_failed": "All {total} files failed to upload"
+      "batch_upload_all_failed": "All {total} files failed to upload",
+      "search_placeholder": "Search logo name",
+      "total_count": "{count} logos",
+      "filtered": "(filtered)"
     },
     "rules": {
       "title": "Aggregation Rules",
@@ -274,7 +283,10 @@
       "ai_next": "Next",
       "ai_prev": "Previous",
       "ai_copy_prompt": "Copy Prompt",
-      "ai_channel_count": "{count} channel names will be used for AI analysis"
+      "ai_channel_count": "{count} channel names will be used for AI analysis",
+      "search_placeholder": "Search rule name",
+      "total_count": "{count} rules",
+      "filtered": "(filtered)"
     },
     "publish": {
       "title": "Publish",
@@ -346,7 +358,10 @@
       "tab_basic": "Basic Info",
       "tab_data": "Sources & Rules",
       "tab_output": "Output Settings",
-      "tab_access": "Access Control"
+      "tab_access": "Access Control",
+      "search_placeholder": "Search publish name",
+      "total_count": "{count} interfaces",
+      "filtered": "(filtered)"
     },
     "settings_detect": {
       "title": "Detection Settings",

@@ -1,14 +1,23 @@
 <template>
   <div>
-    <div style="display: flex; justify-content: space-between; margin-bottom: 16px">
-      <h3 style="margin: 0">{{ $t('logos.title') }}</h3>
-      <el-upload :auto-upload="false" :show-file-list="false" accept="image/*" multiple
-                 :on-change="onFileChange">
-        <el-button type="primary" :loading="uploading">{{ $t('logos.upload') }}</el-button>
-      </el-upload>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px">
+      <div style="display: flex; align-items: center; gap: 12px">
+        <h3 style="margin: 0">{{ $t('logos.title') }}</h3>
+        <span style="font-size: 13px; color: var(--el-text-color-secondary)">
+          {{ $t('logos.total_count', { count: filteredLogos.length }) }}
+          {{ searchQuery ? $t('logos.filtered') : '' }}
+        </span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px">
+        <el-input v-model="searchQuery" :placeholder="$t('logos.search_placeholder')" style="width: 220px" clearable :prefix-icon="Search" />
+        <el-upload :auto-upload="false" :show-file-list="false" accept="image/*" multiple
+                   :on-change="onFileChange">
+          <el-button type="primary" :loading="uploading">{{ $t('logos.upload') }}</el-button>
+        </el-upload>
+      </div>
     </div>
 
-    <el-table :data="logos" v-loading="loading" border stripe>
+    <el-table :data="filteredLogos" v-loading="loading" border stripe>
       <el-table-column prop="id" label="ID" width="60" />
       <el-table-column :label="$t('common.name')" min-width="180">
         <template #default="{ row }">
@@ -52,10 +61,10 @@
 </template>
 
 <script setup>
-import { ref, nextTick, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Delete, Edit, Check, Close } from '@element-plus/icons-vue'
+import { Delete, Edit, Check, Close, Search } from '@element-plus/icons-vue'
 import api from '../api'
 
 const { t } = useI18n()
@@ -63,6 +72,13 @@ const { t } = useI18n()
 const logos = ref([])
 const loading = ref(false)
 const uploading = ref(false)
+const searchQuery = ref('')
+
+const filteredLogos = computed(() => {
+  if (!searchQuery.value) return logos.value
+  const q = searchQuery.value.toLowerCase()
+  return logos.value.filter(item => item.name && item.name.toLowerCase().includes(q))
+})
 
 // 收集批量选择的文件
 let pendingFiles = []
