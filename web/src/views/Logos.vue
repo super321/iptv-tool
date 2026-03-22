@@ -2,9 +2,9 @@
   <div>
     <div style="display: flex; justify-content: space-between; margin-bottom: 16px">
       <h3 style="margin: 0">{{ $t('logos.title') }}</h3>
-      <el-upload :action="uploadUrl" :headers="uploadHeaders" :on-success="onUploadSuccess" :on-error="onUploadError"
-                 :show-file-list="false" accept="image/*" multiple>
-        <el-button type="primary">{{ $t('logos.upload') }}</el-button>
+      <el-upload :auto-upload="false" :show-file-list="false" accept="image/*" multiple
+                 :on-change="onFileChange">
+        <el-button type="primary" :loading="uploading">{{ $t('logos.upload') }}</el-button>
       </el-upload>
     </div>
 
@@ -52,7 +52,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, nextTick, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Edit, Check, Close } from '@element-plus/icons-vue'
@@ -62,11 +62,11 @@ const { t } = useI18n()
 
 const logos = ref([])
 const loading = ref(false)
+const uploading = ref(false)
 
-const uploadUrl = '/api/logos/upload'
-const uploadHeaders = computed(() => ({
-  Authorization: `Bearer ${localStorage.getItem('token')}`,
-}))
+// 收集批量选择的文件
+let pendingFiles = []
+let batchTimer = null
 
 onMounted(() => loadLogos())
 
@@ -83,27 +83,48 @@ async function loadLogos() {
   } finally { loading.value = false }
 }
 
-function onUploadSuccess(response) {
-  // Check if it's actually an error wrapped in a 200/success response
-  if (response && response.error) {
-    ElMessage.error(response.error)
-  } else {
-    ElMessage.success(t('logos.upload_success'))
-  }
-  loadLogos()
+// el-upload on-change: 多选时每个文件触发一次，用 nextTick 合并为一次批量上传
+function onFileChange(uploadFile) {
+  pendingFiles.push(uploadFile.raw)
+  if (batchTimer) clearTimeout(batchTimer)
+  batchTimer = setTimeout(() => {
+    const files = pendingFiles.slice()
+    pendingFiles = []
+    batchTimer = null
+    doBatchUpload(files)
+  }, 0)
 }
 
-function onUploadError(err) {
-  let msg = t('logos.upload_failed')
-  if (err && err.message) {
-    try {
-      const parsed = JSON.parse(err.message)
-      if (parsed.error) msg = parsed.error
-    } catch {
-      msg = err.message
+async function doBatchUpload(files) {
+  if (!files.length) return
+  uploading.value = true
+  try {
+    const formData = new FormData()
+    files.forEach(f => formData.append('files', f))
+    const { data } = await api.post('/logos/batch-upload', formData)
+
+    const successCount = (data.uploaded || []).length
+    const failCount = (data.errors || []).length
+    const total = successCount + failCount
+
+    if (failCount === 0) {
+      ElMessage.success(t('logos.batch_upload_success', { total }))
+    } else if (successCount > 0) {
+      // 部分失败：展示汇总 + 详细错误
+      let msg = t('logos.batch_upload_partial', { total, success: successCount, fail: failCount })
+      msg += '\n' + data.errors.join('\n')
+      ElMessage.warning({ message: msg, duration: 5000 })
+    } else {
+      let msg = t('logos.batch_upload_all_failed', { total })
+      msg += '\n' + data.errors.join('\n')
+      ElMessage.error({ message: msg, duration: 5000 })
     }
+    await loadLogos()
+  } catch {
+    ElMessage.error(t('logos.upload_failed'))
+  } finally {
+    uploading.value = false
   }
-  ElMessage.error(msg)
 }
 
 // 编辑台标名称逻辑

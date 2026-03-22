@@ -216,7 +216,10 @@
       "upload_failed": "Upload failed",
       "name_empty": "Name cannot be empty",
       "rename_success": "Renamed successfully",
-      "delete_confirm": "Delete logo \"{name}\"?"
+      "delete_confirm": "Delete logo \"{name}\"?",
+      "batch_upload_success": "All {total} files uploaded successfully",
+      "batch_upload_partial": "{total} files total, {success} succeeded, {fail} failed",
+      "batch_upload_all_failed": "All {total} files failed to upload"
     },
     "rules": {
       "title": "Aggregation Rules",

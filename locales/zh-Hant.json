@@ -216,7 +216,10 @@
       "upload_failed": "上傳失敗",
       "name_empty": "名稱不能為空",
       "rename_success": "修改成功",
-      "delete_confirm": "確定刪除台標 \"{name}\"？"
+      "delete_confirm": "確定刪除台標 \"{name}\"？",
+      "batch_upload_success": "共 {total} 個檔案，全部上傳成功",
+      "batch_upload_partial": "共 {total} 個檔案，成功 {success} 個，失敗 {fail} 個",
+      "batch_upload_all_failed": "{total} 個檔案全部上傳失敗"
     },
     "rules": {
       "title": "聚合規則",
