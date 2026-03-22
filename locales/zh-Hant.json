@@ -488,7 +488,10 @@
       "release_notes": "更新內容",
       "go_download": "前往下載",
       "check_failed": "檢查更新失敗，請檢查網路連線",
-      "checking_update": "正在檢查更新..."
+      "checking_update": "正在檢查更新...",
+      "star_title": "支持開源",
+      "star_desc": "IPTV Tool 是一個開源專案，如果你覺得它對你有幫助，請到 GitHub 為我們點一個 Star ⭐，這是對我們最大的鼓勵！",
+      "star_btn": "前往 Star"
     },
     "api_interceptor": {
       "rate_limited": "請求過於頻繁，請稍後再試",

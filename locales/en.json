@@ -488,7 +488,10 @@
       "release_notes": "Release Notes",
       "go_download": "Go to Download",
       "check_failed": "Failed to check for updates, please check your network",
-      "checking_update": "Checking for updates..."
+      "checking_update": "Checking for updates...",
+      "star_title": "Support Open Source",
+      "star_desc": "IPTV Tool is an open-source project. If you find it helpful, please give us a Star ⭐ on GitHub — it's the best encouragement for us!",
+      "star_btn": "Star on GitHub"
     },
     "api_interceptor": {
       "rate_limited": "Too many requests, please try again later",

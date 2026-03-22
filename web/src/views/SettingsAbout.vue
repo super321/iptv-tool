@@ -48,17 +48,29 @@
         </el-descriptions-item>
         <el-descriptions-item :label="$t('settings_about.tech_stack')">Vue 3 + Element Plus / Go + Gin + SQLite</el-descriptions-item>
         <el-descriptions-item :label="$t('settings_about.runtime_mode')">{{ $t('settings_about.runtime_value') }}</el-descriptions-item>
-        <el-descriptions-item :label="$t('settings_about.repo')">
-          <div style="display: flex; align-items: center; gap: 16px">
-            <el-link href="https://github.com/super321/iptv-tool" target="_blank" :underline="false" style="display: flex; align-items: center; gap: 4px; color: #303133">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                <path d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.009-.866-.013-1.699-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.161 22 16.416 22 12c0-5.523-4.477-10-10-10z"/>
-              </svg>
-              <span>GitHub</span>
-            </el-link>
-          </div>
-        </el-descriptions-item>
       </el-descriptions>
+    </el-card>
+
+    <el-card shadow="hover" class="settings-card star-card">
+      <template #header>
+        <div style="display: flex; align-items: center; gap: 8px">
+          <el-icon :size="18"><Star /></el-icon>
+          <span>{{ $t('settings_about.star_title') }}</span>
+        </div>
+      </template>
+
+      <div class="star-content">
+        <div class="star-info">
+          <img src="/iptv-tool.svg" alt="IPTV Tool" class="star-logo" />
+          <p class="star-desc">{{ $t('settings_about.star_desc') }}</p>
+        </div>
+        <el-button type="warning" class="star-btn" @click="openLink('https://github.com/super321/iptv-tool')">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="margin-right: 6px">
+            <path d="M12 .587l3.668 7.568L24 9.306l-6 5.924 1.416 8.356L12 19.446l-7.416 4.14L6 15.23 0 9.306l8.332-1.151z"/>
+          </svg>
+          {{ $t('settings_about.star_btn') }}
+        </el-button>
+      </div>
     </el-card>
 
     <el-card shadow="hover" class="settings-card sponsor-card">
@@ -193,7 +205,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
-import { InfoFilled, Link, CopyDocument, Wallet, Refresh, Loading, CircleCheckFilled, TopRight, View } from '@element-plus/icons-vue'
+import { InfoFilled, Link, CopyDocument, Wallet, Refresh, Loading, CircleCheckFilled, TopRight, View, Star } from '@element-plus/icons-vue'
 import { Coffee } from '@element-plus/icons-vue'
 import { marked } from 'marked'
 import ethQrCode from '../assets/eth_qrcode.jpg'
@@ -363,6 +375,44 @@ async function copyAddress() {
 }
 .settings-card {
   max-width: 600px;
+}
+.star-card {
+  margin-top: 20px;
+}
+.star-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+}
+.star-info {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: 1;
+}
+.star-logo {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+}
+.star-desc {
+  margin: 0;
+  color: #606266;
+  font-size: 14px;
+  line-height: 1.6;
+  flex: 1;
+}
+.star-btn {
+  background: linear-gradient(135deg, #f5af19, #f09819) !important;
+  border: none !important;
+  color: #fff !important;
+  font-weight: 600;
+  flex-shrink: 0;
+  margin-left: 16px;
+}
+.star-btn:hover {
+  opacity: 0.9;
 }
 .sponsor-card {
   margin-top: 20px;
