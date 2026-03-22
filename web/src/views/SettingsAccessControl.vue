@@ -45,7 +45,7 @@
           <div style="display: flex; align-items: center; gap: 12px">
             <el-switch v-model="geoipAutoUpdate" @change="saveGeoIPAutoUpdate" />
             <template v-if="geoipAutoUpdate">
-              <span style="color: #606266; font-size: 12px">{{ $t('settings_access_control.geoip_update_interval_label') }}</span>
+              <span style="color: var(--el-text-color-regular); font-size: 12px">{{ $t('settings_access_control.geoip_update_interval_label') }}</span>
               <el-input-number
                 v-model="geoipIntervalDays"
                 :min="1"
@@ -93,7 +93,7 @@
           </template>
           <template #default="{ row }">
             <span v-if="row.location">{{ row.location }}</span>
-            <span v-else style="color: #c0c4cc">—</span>
+            <span v-else style="color: var(--el-text-color-placeholder)">—</span>
           </template>
         </el-table-column>
         <el-table-column :label="$t('settings_access_control.col_access_last_time')" min-width="170">
@@ -252,10 +252,10 @@
         </el-table-column>
         <el-table-column :label="$t('settings_access_control.col_remaining')" width="140">
           <template #default="{ row }">
-            <span v-if="row.block_days == null || row.block_days === 0" style="color: #f56c6c; font-size: 12px">
+            <span v-if="row.block_days == null || row.block_days === 0" style="color: var(--el-color-danger); font-size: 12px">
               {{ $t('settings_access_control.block_permanent') }}
             </span>
-            <span v-else :style="{ color: isExpired(row) ? '#67c23a' : '#e6a23c', fontSize: '12px' }">
+            <span v-else :style="{ color: isExpired(row) ? 'var(--el-color-success)' : 'var(--el-color-warning)', fontSize: '12px' }">
               {{ computeRemaining(row) }}
             </span>
           </template>
@@ -759,8 +759,8 @@ async function saveSettings() {
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
-  background: #fff;
-  border: 1px solid #dcdfe6;
+  background: var(--mode-card-bg);
+  border: 1px solid var(--mode-card-border);
   box-sizing: border-box;
   overflow: hidden;
 }
@@ -774,24 +774,24 @@ async function saveSettings() {
   display: flex;
   align-items: center;
   padding: 12px 16px;
-  background: #fafafa;
+  background: var(--mode-card-header-bg);
 }
 .mode-card.active .mode-card-header {
-  background: #f0f7ff;
+  background: var(--mode-card-active-header-bg);
 }
 .mode-name {
   font-size: 14px;
   font-weight: 600;
-  color: #303133;
+  color: var(--el-text-color-primary);
   margin-left: 8px;
 }
 .mode-card-divider {
   height: 1px;
-  background: #dcdfe6;
+  background: var(--mode-card-border);
   width: 100%;
 }
 .mode-card.active .mode-card-divider {
-  background: #a0cfff;
+  background: var(--mode-card-active-divider);
 }
 .mode-card-body {
   display: flex;
@@ -820,7 +820,7 @@ async function saveSettings() {
 }
 .mode-hint {
   font-size: 13px;
-  color: #606266;
+  color: var(--el-text-color-regular);
   line-height: 1.5;
   text-align: center;
   height: 40px;
@@ -831,12 +831,12 @@ async function saveSettings() {
 
 /* IP value styling */
 .ip-value {
-  background: #f5f7fa;
+  background: var(--el-fill-color-light);
   padding: 2px 8px;
   border-radius: 4px;
   font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
   font-size: 13px;
-  color: #303133;
+  color: var(--el-text-color-primary);
 }
 
 /* Save bar */

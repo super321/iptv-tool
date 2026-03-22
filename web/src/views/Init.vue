@@ -4,8 +4,11 @@
       <div class="lang-switch">
         <el-dropdown @command="switchLanguage">
           <span class="lang-dropdown">
-            {{ $t('language.' + currentLocale) }}
-            <el-icon style="margin-left: 4px"><ArrowDown /></el-icon>
+            <svg class="lang-icon-login" viewBox="0 0 24 24" width="18" height="18">
+              <text x="2" y="15" font-size="14" font-weight="600" font-family="sans-serif" fill="currentColor">文</text>
+              <text x="14" y="20" font-size="10" font-weight="700" font-family="sans-serif" fill="currentColor">A</text>
+            </svg>
+            <el-icon style="margin-left: 2px" :size="12"><ArrowDown /></el-icon>
           </span>
           <template #dropdown>
             <el-dropdown-menu>
@@ -15,6 +18,15 @@
             </el-dropdown-menu>
           </template>
         </el-dropdown>
+        <div class="theme-toggle-login">
+          <el-switch
+            v-model="isDarkTheme"
+            inline-prompt
+            :active-icon="Moon"
+            :inactive-icon="Sunny"
+            class="login-theme-switch"
+          />
+        </div>
       </div>
       <div class="login-card">
         <div class="login-header">
@@ -49,15 +61,22 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { loadLocale } from '../i18n'
 import { useAuthStore } from '../stores/auth'
+import { useThemeStore } from '../stores/theme'
 import { ElMessage } from 'element-plus'
-import { User, Lock, Setting, ArrowDown } from '@element-plus/icons-vue'
+import { User, Lock, Setting, ArrowDown, Sunny, Moon } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const auth = useAuthStore()
+const themeStore = useThemeStore()
 const { t, locale } = useI18n()
 const currentLocale = computed(() => locale.value)
 const formRef = ref()
 const loading = ref(false)
+
+const isDarkTheme = computed({
+  get: () => themeStore.isDark,
+  set: (val) => themeStore.setMode(val ? 'dark' : 'light')
+})
 
 async function switchLanguage(lang) {
   await loadLocale(lang)
@@ -103,8 +122,9 @@ async function handleInit() {
   display: flex;
   justify-content: center;
   align-items: center;
-  background: linear-gradient(135deg, #1d2b3a 0%, #2c3e50 40%, #34495e 70%, #1a252f 100%);
+  background: var(--login-bg-gradient);
   position: relative;
+  transition: background 0.3s;
 }
 .login-bg::before {
   content: '';
@@ -119,6 +139,9 @@ async function handleInit() {
   top: 24px;
   right: 24px;
   z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 .lang-dropdown {
   cursor: pointer;
@@ -128,14 +151,53 @@ async function handleInit() {
   font-size: 14px;
   font-weight: 500;
   transition: color 0.3s;
+  outline: none;
+}
+.lang-dropdown:focus {
+  outline: none;
 }
 .lang-dropdown:hover {
   color: #fff;
 }
+.lang-icon-login {
+  color: rgba(255, 255, 255, 0.8);
+  transition: color 0.3s;
+}
+.lang-dropdown:hover .lang-icon-login {
+  color: #fff;
+}
+.theme-toggle-login {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+.login-theme-switch {
+  --el-switch-on-color: rgba(255,255,255,0.15);
+  --el-switch-off-color: rgba(255,255,255,0.15);
+  --el-switch-border-color: rgba(255,255,255,0.3);
+}
+:deep(.login-theme-switch .el-switch__core) {
+  border: 1px solid rgba(255,255,255,0.3);
+  background-color: rgba(255,255,255,0.15) !important;
+  transition: box-shadow 0.3s;
+}
+:deep(.login-theme-switch .el-switch__action) {
+  background-color: rgba(255,255,255,0.9);
+  color: var(--el-text-color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+:deep(.login-theme-switch .el-switch__inner .el-icon) {
+  color: rgba(255,255,255,0.5);
+}
+.theme-toggle-login:hover :deep(.login-theme-switch .el-switch__core) {
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
+}
 .login-card {
   width: 400px;
   padding: 40px 36px 28px;
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--login-card-bg);
   border-radius: 12px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   position: relative;
@@ -161,13 +223,13 @@ async function handleInit() {
 .login-title {
   font-size: 24px;
   font-weight: 700;
-  color: #1d2b3a;
+  color: var(--login-title-color);
   margin: 0 0 6px;
   letter-spacing: 1px;
 }
 .login-subtitle {
   font-size: 14px;
-  color: #909399;
+  color: var(--el-text-color-secondary);
   margin: 0;
 }
 </style>

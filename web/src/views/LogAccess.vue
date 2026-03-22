@@ -179,7 +179,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   height: calc(100vh - 108px);
-  background: #fff;
+  background: var(--log-access-bg);
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
@@ -189,12 +189,12 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 12px 20px;
-  background: #fafafa;
-  border-bottom: 1px solid #ebeef5;
+  background: var(--log-access-header-bg);
+  border-bottom: 1px solid var(--log-access-header-border);
   flex-shrink: 0;
 }
 .log-header h2 {
-  color: #303133;
+  color: var(--el-text-color-primary);
   font-size: 16px;
   font-weight: 600;
   margin: 0;
@@ -218,15 +218,15 @@ onUnmounted(() => {
   min-width: 50px;
   text-align: center;
 }
-.method-get { background: #e1f5fe; color: #0277bd; }
-.method-post { background: #e8f5e9; color: #2e7d32; }
-.method-put { background: #fff3e0; color: #ef6c00; }
-.method-delete { background: #fce4ec; color: #c62828; }
-.method-patch { background: #f3e5f5; color: #7b1fa2; }
+.method-get { background: var(--method-get-bg); color: var(--method-get-color); }
+.method-post { background: var(--method-post-bg); color: var(--method-post-color); }
+.method-put { background: var(--method-put-bg); color: var(--method-put-color); }
+.method-delete { background: var(--method-delete-bg); color: var(--method-delete-color); }
+.method-patch { background: var(--method-patch-bg); color: var(--method-patch-color); }
 .path-text {
   font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
   font-size: 12px;
-  color: #606266;
+  color: var(--el-text-color-regular);
 }
 .log-status-bar {
   display: flex;

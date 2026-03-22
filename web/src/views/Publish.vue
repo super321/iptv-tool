@@ -254,7 +254,7 @@
           <el-table-column prop="TVGId" :label="$t('publish.col_channel_id')" width="140" show-overflow-tooltip />
           <el-table-column prop="Name" :label="$t('publish.col_original_name')" min-width="150" show-overflow-tooltip />
           <el-table-column prop="Alias" :label="$t('publish.col_alias')" min-width="140">
-            <template #default="{ row }"><span style="color: #409eff; font-weight: bold">{{ row.Alias || '-' }}</span></template>
+            <template #default="{ row }"><span style="color: var(--el-color-primary); font-weight: bold">{{ row.Alias || '-' }}</span></template>
           </el-table-column>
           <el-table-column prop="Group" :label="$t('publish.col_group')" min-width="120" />
           <el-table-column prop="Logo" :label="$t('publish.col_logo')" width="80" align="center">
@@ -279,7 +279,7 @@
           <el-table-column prop="channel_id" :label="$t('publish.col_channel_id')" min-width="180" show-overflow-tooltip />
           <el-table-column prop="original_name" :label="$t('publish.col_original_name')" min-width="150" show-overflow-tooltip />
           <el-table-column prop="alias" :label="$t('publish.col_alias')" min-width="150">
-            <template #default="{ row }"><span style="color: #409eff; font-weight: bold">{{ row.alias || '-' }}</span></template>
+            <template #default="{ row }"><span style="color: var(--el-color-primary); font-weight: bold">{{ row.alias || '-' }}</span></template>
           </el-table-column>
           <el-table-column prop="program_count" :label="$t('publish.col_program_count')" width="130" align="center">
             <template #default="{ row }"><el-tag size="small">{{ row.program_count }}</el-tag></template>

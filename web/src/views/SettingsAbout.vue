@@ -398,7 +398,7 @@ async function copyAddress() {
 }
 .star-desc {
   margin: 0;
-  color: #606266;
+  color: var(--el-text-color-regular);
   font-size: 14px;
   line-height: 1.6;
   flex: 1;
@@ -419,7 +419,7 @@ async function copyAddress() {
 }
 .sponsor-desc {
   margin: 0 0 20px;
-  color: #606266;
+  color: var(--el-text-color-regular);
   font-size: 14px;
   line-height: 1.6;
 }
@@ -443,7 +443,7 @@ async function copyAddress() {
   align-items: center;
   gap: 4px;
   font-size: 12px;
-  color: #909399;
+  color: var(--el-text-color-secondary);
 }
 .update-available-link {
   font-size: 12px !important;
@@ -461,7 +461,7 @@ async function copyAddress() {
   flex-direction: column;
   gap: 10px;
   padding: 12px 16px;
-  background: #f5f7fa;
+  background: var(--el-fill-color-light);
   border-radius: 8px;
 }
 .version-row {
@@ -471,7 +471,7 @@ async function copyAddress() {
 }
 .version-label {
   font-size: 13px;
-  color: #606266;
+  color: var(--el-text-color-regular);
   min-width: 70px;
 }
 .release-notes-section {
@@ -482,15 +482,15 @@ async function copyAddress() {
 .release-notes-label {
   font-size: 13px;
   font-weight: 600;
-  color: #303133;
+  color: var(--el-text-color-primary);
 }
 .release-notes-content {
-  background: #f5f7fa;
+  background: var(--el-fill-color-light);
   border-radius: 8px;
   padding: 12px 16px;
   font-size: 13px;
   line-height: 1.7;
-  color: #606266;
+  color: var(--el-text-color-regular);
   word-break: break-word;
   max-height: 300px;
   overflow-y: auto;
@@ -503,7 +503,7 @@ async function copyAddress() {
   margin: 12px 0 6px;
   font-size: 14px;
   font-weight: 600;
-  color: #303133;
+  color: var(--el-text-color-primary);
 }
 .markdown-body :deep(h1) { font-size: 16px; }
 .markdown-body :deep(h2) { font-size: 15px; }
@@ -519,13 +519,13 @@ async function copyAddress() {
   margin: 2px 0;
 }
 .markdown-body :deep(code) {
-  background: #e8eaed;
+  background: var(--code-bg);
   padding: 1px 4px;
   border-radius: 3px;
   font-size: 12px;
 }
 .markdown-body :deep(pre) {
-  background: #e8eaed;
+  background: var(--code-bg);
   padding: 8px 12px;
   border-radius: 6px;
   overflow-x: auto;
@@ -544,8 +544,8 @@ async function copyAddress() {
 .markdown-body :deep(blockquote) {
   margin: 4px 0;
   padding: 4px 12px;
-  border-left: 3px solid #dcdfe6;
-  color: #909399;
+  border-left: 3px solid var(--blockquote-border);
+  color: var(--el-text-color-secondary);
 }
 .markdown-body :deep(> :first-child) {
   margin-top: 0;
@@ -566,11 +566,11 @@ async function copyAddress() {
   justify-content: space-between;
   padding: 14px 16px;
   border-radius: 8px;
-  background: #f9fafb;
+  background: var(--sponsor-item-bg);
   transition: background 0.2s;
 }
 .sponsor-item:hover {
-  background: #f0f2f5;
+  background: var(--sponsor-item-hover-bg);
 }
 .sponsor-info {
   display: flex;
@@ -604,11 +604,11 @@ async function copyAddress() {
 .sponsor-name {
   font-size: 15px;
   font-weight: 600;
-  color: #303133;
+  color: var(--el-text-color-primary);
 }
 .sponsor-sub {
   font-size: 12px;
-  color: #909399;
+  color: var(--el-text-color-secondary);
 }
 
 /* Buttons */
@@ -658,7 +658,7 @@ async function copyAddress() {
 .eth-note {
   margin: 0;
   font-size: 13px;
-  color: #909399;
+  color: var(--el-text-color-secondary);
 }
 .eth-address-box {
   width: 100%;
@@ -668,6 +668,6 @@ async function copyAddress() {
   display: block;
   margin-bottom: 8px;
   font-size: 13px;
-  color: #606266;
+  color: var(--el-text-color-regular);
 }
 </style>

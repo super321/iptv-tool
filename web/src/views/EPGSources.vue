@@ -141,18 +141,18 @@
     <!-- Programs Drill-down Dialog -->
     <el-dialog v-model="programsVisible" :title="$t('epg_sources.programs_title')" width="750px" destroy-on-close :close-on-click-modal="false">
       <!-- Breadcrumb navigation -->
-      <div style="margin-bottom: 16px; display: flex; align-items: center; gap: 4px; color: #606266; font-size: 14px">
+      <div style="margin-bottom: 16px; display: flex; align-items: center; gap: 4px; color: var(--el-text-color-regular); font-size: 14px">
         <el-link :underline="false" @click="drillLevel = 1" :type="drillLevel === 1 ? 'primary' : 'default'">
           {{ $t('epg_sources.channel_list') }}
         </el-link>
         <template v-if="drillLevel >= 2">
-          <span style="color: #c0c4cc">/</span>
+          <span style="color: var(--el-text-color-placeholder)">/</span>
           <el-link :underline="false" @click="drillLevel = 2" :type="drillLevel === 2 ? 'primary' : 'default'">
             {{ drillChannel }}
           </el-link>
         </template>
         <template v-if="drillLevel === 3">
-          <span style="color: #c0c4cc">/</span>
+          <span style="color: var(--el-text-color-placeholder)">/</span>
           <el-link :underline="false" type="primary">{{ drillDate }}</el-link>
         </template>
       </div>

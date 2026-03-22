@@ -9,7 +9,7 @@
 
       <el-descriptions :column="1" border>
         <el-descriptions-item :label="$t('settings_detect.current_version')">
-          <span v-if="ffprobeVersion" style="color: #67c23a">
+          <span v-if="ffprobeVersion" style="color: var(--el-color-success)">
             {{ ffprobeVersion }}
             <el-tag v-if="ffprobeSource === 'uploaded'" size="small" type="success" style="margin-left: 8px">{{ $t('settings_detect.user_uploaded') }}</el-tag>
             <el-tag v-else-if="ffprobeSource === 'system'" size="small" type="info" style="margin-left: 8px">{{ $t('settings_detect.system_builtin') }}</el-tag>

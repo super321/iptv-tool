@@ -1,9 +1,96 @@
+/* ===== Theme CSS Custom Properties ===== */
+/* Element Plus provides these automatically via dark/css-vars.css:
+   --el-text-color-primary, --el-text-color-regular, --el-text-color-secondary,
+   --el-fill-color-light, --el-border-color-lighter, --el-bg-color-overlay,
+   --el-bg-color-page, --el-bg-color, etc.
+   Only define custom vars for values NOT covered by Element Plus. */
+:root {
+  --main-bg: #f0f2f5;
+  --header-bg: rgba(255, 255, 255, 0.95);
+  --header-shadow: rgba(0, 21, 41, 0.08);
+  --code-bg: #f5f7fa;
+  --log-access-bg: #ffffff;
+  --log-access-header-bg: #fafafa;
+  --log-access-header-border: #ebeef5;
+  --method-get-bg: #e1f5fe;
+  --method-get-color: #0277bd;
+  --method-post-bg: #e8f5e9;
+  --method-post-color: #2e7d32;
+  --method-put-bg: #fff3e0;
+  --method-put-color: #ef6c00;
+  --method-delete-bg: #fce4ec;
+  --method-delete-color: #c62828;
+  --method-patch-bg: #f3e5f5;
+  --method-patch-color: #7b1fa2;
+  --login-card-bg: rgba(255, 255, 255, 0.95);
+  --login-title-color: #1d2b3a;
+  --login-bg-gradient: linear-gradient(135deg, #1d2b3a 0%, #2c3e50 40%, #34495e 70%, #1a252f 100%);
+  --rule-box-border: #ebeef5;
+  --rule-box-group-bg: #fafafa;
+  --mode-card-bg: #ffffff;
+  --mode-card-border: #dcdfe6;
+  --mode-card-header-bg: #fafafa;
+  --mode-card-active-header-bg: #f0f7ff;
+  --mode-card-active-divider: #a0cfff;
+  --sponsor-item-bg: #f9fafb;
+  --sponsor-item-hover-bg: #f0f2f5;
+  --blockquote-border: #dcdfe6;
+  /* Sidebar */
+  --sidebar-bg: linear-gradient(180deg, #1d2b3a 0%, #2c3e50 100%);
+  --sidebar-shadow: rgba(0, 0, 0, 0.15);
+  --sidebar-logo-bg: rgba(0, 0, 0, 0.1);
+  --sidebar-collapse-bg: rgba(0, 0, 0, 0.15);
+  --sidebar-collapse-hover-bg: rgba(0, 0, 0, 0.25);
+}
+
+html.dark {
+  --main-bg: #141414;
+  --header-bg: rgba(30, 30, 30, 0.95);
+  --header-shadow: rgba(0, 0, 0, 0.3);
+  --code-bg: #1e1e1e;
+  --log-access-bg: #1d1d1d;
+  --log-access-header-bg: #262727;
+  --log-access-header-border: #363637;
+  --method-get-bg: rgba(2, 119, 189, 0.15);
+  --method-get-color: #4fc3f7;
+  --method-post-bg: rgba(46, 125, 50, 0.15);
+  --method-post-color: #81c784;
+  --method-put-bg: rgba(239, 108, 0, 0.15);
+  --method-put-color: #ffb74d;
+  --method-delete-bg: rgba(198, 40, 40, 0.15);
+  --method-delete-color: #ef9a9a;
+  --method-patch-bg: rgba(123, 31, 162, 0.15);
+  --method-patch-color: #ce93d8;
+  --login-card-bg: rgba(30, 30, 30, 0.95);
+  --login-title-color: #e5eaf3;
+  --login-bg-gradient: linear-gradient(135deg, #0a0a0a 0%, #141414 40%, #1a1a1a 70%, #0d0d0d 100%);
+  --rule-box-border: #363637;
+  --rule-box-group-bg: #262727;
+  --mode-card-bg: #1d1d1d;
+  --mode-card-border: #363637;
+  --mode-card-header-bg: #262727;
+  --mode-card-active-header-bg: rgba(64, 158, 255, 0.1);
+  --mode-card-active-divider: rgba(64, 158, 255, 0.3);
+  --sponsor-item-bg: #262727;
+  --sponsor-item-hover-bg: #303030;
+  --blockquote-border: #4c4d4f;
+  /* Sidebar */
+  --sidebar-bg: linear-gradient(180deg, #111111 0%, #1a1a1a 100%);
+  --sidebar-shadow: rgba(0, 0, 0, 0.4);
+  --sidebar-logo-bg: rgba(0, 0, 0, 0.2);
+  --sidebar-collapse-bg: rgba(0, 0, 0, 0.25);
+  --sidebar-collapse-hover-bg: rgba(0, 0, 0, 0.4);
+}
+
+/* ===== Base Styles ===== */
 html, body, #app {
   margin: 0;
   padding: 0;
   height: 100%;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  background-color: #f5f7fa;
+  background-color: var(--el-bg-color-page);
+  color: var(--el-text-color-primary);
+  transition: background-color 0.3s, color 0.3s;
 }
 
 /* Fix Element Plus table column header text wrapping for English */
@@ -12,4 +99,38 @@ html, body, #app {
   word-break: normal;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Dark mode scrollbar styling */
+html.dark ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+html.dark ::-webkit-scrollbar-track {
+  background: var(--el-bg-color-page);
+}
+html.dark ::-webkit-scrollbar-thumb {
+  background: #4c4d4f;
+  border-radius: 4px;
+}
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: #636466;
+}
+
+/* Dark mode: fix inline styles that use hardcoded light-mode colors */
+html.dark [style*="color: #909399"],
+html.dark [style*="color:#909399"] {
+  color: var(--el-text-color-secondary) !important;
+}
+html.dark [style*="color: #303133"],
+html.dark [style*="color:#303133"] {
+  color: var(--el-text-color-primary) !important;
+}
+html.dark [style*="color: #606266"],
+html.dark [style*="color:#606266"] {
+  color: var(--el-text-color-regular) !important;
+}
+html.dark [style*="color: #8492a6"],
+html.dark [style*="color:#8492a6"] {
+  color: var(--el-text-color-secondary) !important;
 }

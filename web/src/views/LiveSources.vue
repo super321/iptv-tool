@@ -31,7 +31,7 @@
       </el-table-column>
       <el-table-column :label="$t('common.update_time')" width="200">
         <template #default="{ row }">
-          <div v-if="row.is_syncing" style="display: flex; align-items: center; gap: 6px; color: #409eff">
+          <div v-if="row.is_syncing" style="display: flex; align-items: center; gap: 6px; color: var(--el-color-primary)">
             <el-icon class="is-loading" :size="16"><Loading /></el-icon>
             <span>{{ $t('common.syncing') }}</span>
           </div>
@@ -251,7 +251,7 @@
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px">
         <span style="color: #909399; font-size: 13px">
           {{ $t('live_sources.channels_total', { count: filteredChannels.length }) }} {{ channelsSearch ? $t('live_sources.channels_filtered') : '' }}
-          <span v-if="channelsDetecting" style="margin-left: 12px; color: #e6a23c">
+          <span v-if="channelsDetecting" style="margin-left: 12px; color: var(--el-color-warning)">
             {{ $t('live_sources.detect_progress', { detected: detectedCount, total: channels.length }) }}
           </span>
         </span>
@@ -276,10 +276,10 @@
               <el-icon class="is-loading" :size="14"><Loading /></el-icon>
             </span>
             <span v-else-if="row.latency === null || row.latency === undefined">-</span>
-            <span v-else-if="row.latency === -1" style="color: #f56c6c; font-weight: 600">Timeout</span>
-            <span v-else-if="row.latency < 500" style="color: #67c23a; font-weight: 600">{{ row.latency }}ms</span>
-            <span v-else-if="row.latency < 1000" style="color: #409eff; font-weight: 600">{{ row.latency }}ms</span>
-            <span v-else style="color: #e6a23c; font-weight: 600">{{ row.latency }}ms</span>
+            <span v-else-if="row.latency === -1" style="color: var(--el-color-danger); font-weight: 600">Timeout</span>
+            <span v-else-if="row.latency < 500" style="color: var(--el-color-success); font-weight: 600">{{ row.latency }}ms</span>
+            <span v-else-if="row.latency < 1000" style="color: var(--el-color-primary); font-weight: 600">{{ row.latency }}ms</span>
+            <span v-else style="color: var(--el-color-warning); font-weight: 600">{{ row.latency }}ms</span>
           </template>
         </el-table-column>
         <el-table-column :label="$t('live_sources.col_video_codec')" width="120" align="center">
@@ -314,22 +314,22 @@
                 </div>
               </template>
               <div style="user-select: text">
-                <div style="font-weight: 600; margin-bottom: 8px; font-size: 13px; color: #303133">{{ $t('live_sources.live_addresses') }}</div>
+                <div style="font-weight: 600; margin-bottom: 8px; font-size: 13px; color: var(--el-text-color-primary)">{{ $t('live_sources.live_addresses') }}</div>
                 <div v-for="(u, i) in getUrls(row)" :key="i" style="margin-bottom: 6px; display: flex; align-items: flex-start; gap: 6px">
                   <el-tag size="small" :type="u.startsWith('igmp://') || u.startsWith('rtp://') ? 'warning' : 'success'" style="flex-shrink: 0; margin-top: 1px">
                     {{ u.startsWith('igmp://') || u.startsWith('rtp://') ? $t('live_sources.multicast') : $t('live_sources.unicast') }}
                   </el-tag>
-                  <span style="font-size: 12px; word-break: break-all; color: #606266; line-height: 1.5">{{ u }}</span>
+                  <span style="font-size: 12px; word-break: break-all; color: var(--el-text-color-regular); line-height: 1.5">{{ u }}</span>
                 </div>
                 <template v-if="row.catchup_url">
                   <el-divider style="margin: 10px 0" />
-                  <div style="font-weight: 600; margin-bottom: 8px; font-size: 13px; color: #303133">
+                  <div style="font-weight: 600; margin-bottom: 8px; font-size: 13px; color: var(--el-text-color-primary)">
                     {{ $t('live_sources.catchup_address') }}
                     <el-tag v-if="row.catchup_days" size="small" type="info" style="margin-left: 8px">
                       {{ $t('live_sources.catchup_days_label', { days: row.catchup_days }) }}
                     </el-tag>
                   </div>
-                  <span style="font-size: 12px; word-break: break-all; color: #606266; line-height: 1.5">{{ row.catchup_url }}</span>
+                  <span style="font-size: 12px; word-break: break-all; color: var(--el-text-color-regular); line-height: 1.5">{{ row.catchup_url }}</span>
                 </template>
               </div>
             </el-popover>

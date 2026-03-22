@@ -69,7 +69,7 @@
           </div>
           <div v-for="(rule, idx) in aliasConfig" :key="idx" class="rule-box">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
-              <span style="font-weight: bold; color: #606266; font-size: 14px;">{{ $t('rules.alias_rule_n', { n: idx + 1 }) }}</span>
+              <span style="font-weight: bold; color: var(--el-text-color-regular); font-size: 14px;">{{ $t('rules.alias_rule_n', { n: idx + 1 }) }}</span>
               <el-button size="small" type="danger" link @click="aliasConfig.splice(idx, 1)">{{ $t('common.delete') }}</el-button>
             </div>
             <el-row :gutter="10">
@@ -99,7 +99,7 @@
           </div>
           <div v-for="(rule, idx) in filterConfig" :key="idx" class="rule-box">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
-              <span style="font-weight: bold; color: #606266; font-size: 14px;">{{ $t('rules.filter_rule_n', { n: idx + 1 }) }}</span>
+              <span style="font-weight: bold; color: var(--el-text-color-regular); font-size: 14px;">{{ $t('rules.filter_rule_n', { n: idx + 1 }) }}</span>
               <el-button size="small" type="danger" link @click="filterConfig.splice(idx, 1)">{{ $t('common.delete') }}</el-button>
             </div>
             <el-row :gutter="10">
@@ -133,7 +133,7 @@
               {{ $t('rules.ai_generate') }}
             </el-button>
           </div>
-          <div v-for="(group, gIdx) in groupConfig" :key="gIdx" class="rule-box" style="background: #fafafa">
+          <div v-for="(group, gIdx) in groupConfig" :key="gIdx" class="rule-box" style="background: var(--rule-box-group-bg)">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px">
               <el-input v-model="group.group_name" size="small" :placeholder="$t('rules.group_name_placeholder')" style="width: 200px" />
               <el-button size="small" type="danger" link @click="groupConfig.splice(gIdx, 1)">{{ $t('rules.delete_group') }}</el-button>
@@ -481,7 +481,7 @@ async function aiParseResponse() {
 
 <style scoped>
 .rule-box {
-  border: 1px solid #ebeef5;
+  border: 1px solid var(--rule-box-border);
   padding: 16px;
   border-radius: 4px;
   margin-bottom: 12px;

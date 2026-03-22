@@ -85,37 +85,54 @@
         <el-breadcrumb separator="/" style="margin-right: auto">
           <el-breadcrumb-item>{{ $t('nav.admin_system') }}</el-breadcrumb-item>
         </el-breadcrumb>
-        <el-dropdown @command="switchLanguage" style="margin-right: 16px">
-          <span class="user-dropdown" style="font-size: 13px">
-            {{ $t('language.' + currentLocale) }}
-            <el-icon style="margin-left: 4px"><ArrowDown /></el-icon>
-          </span>
-          <template #dropdown>
-            <el-dropdown-menu>
-              <el-dropdown-item command="zh">{{ $t('language.zh') }}</el-dropdown-item>
-              <el-dropdown-item command="zh-Hant">{{ $t('language.zh-Hant') }}</el-dropdown-item>
-              <el-dropdown-item command="en">{{ $t('language.en') }}</el-dropdown-item>
-            </el-dropdown-menu>
-          </template>
-        </el-dropdown>
-        <el-dropdown @command="handleCommand">
-          <span class="user-dropdown">
-            <el-avatar :size="28" style="background: #409eff; margin-right: 8px">
-              <el-icon><UserFilled /></el-icon>
-            </el-avatar>
-            {{ $t('nav.admin') }}
-            <el-icon style="margin-left: 4px"><ArrowDown /></el-icon>
-          </span>
-          <template #dropdown>
-            <el-dropdown-menu>
-              <el-dropdown-item command="logout" divided>
-                <el-icon><SwitchButton /></el-icon>{{ $t('nav.logout') }}
-              </el-dropdown-item>
-            </el-dropdown-menu>
-          </template>
-        </el-dropdown>
+        
+        <div class="header-right">
+          <el-dropdown @command="switchLanguage" class="header-item">
+            <span class="user-dropdown icon-only">
+              <svg class="lang-icon" viewBox="0 0 24 24" width="20" height="20">
+                <text x="2" y="15" font-size="14" font-weight="600" font-family="sans-serif" fill="currentColor">文</text>
+                <text x="14" y="20" font-size="10" font-weight="700" font-family="sans-serif" fill="currentColor">A</text>
+              </svg>
+              <el-icon style="margin-left: 2px" :size="12"><ArrowDown /></el-icon>
+            </span>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="zh" :class="{ 'is-active': currentLocale === 'zh' }">{{ $t('language.zh') }}</el-dropdown-item>
+                <el-dropdown-item command="zh-Hant" :class="{ 'is-active': currentLocale === 'zh-Hant' }">{{ $t('language.zh-Hant') }}</el-dropdown-item>
+                <el-dropdown-item command="en" :class="{ 'is-active': currentLocale === 'en' }">{{ $t('language.en') }}</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+
+          <div class="header-item theme-switch-wrapper">
+             <el-switch
+              v-model="isDarkTheme"
+              inline-prompt
+              :active-icon="Moon"
+              :inactive-icon="Sunny"
+              class="custom-theme-switch"
+              style="--el-switch-on-color: var(--el-fill-color-light); --el-switch-off-color: var(--el-fill-color-light); --el-switch-border-color: var(--el-border-color-lighter)"
+            />
+          </div>
+
+          <el-dropdown @command="handleCommand" class="header-item">
+            <span class="user-dropdown icon-only">
+              <el-icon :size="20"><User /></el-icon>
+            </span>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item disabled>
+                  <el-icon><UserFilled /></el-icon>{{ currentUsername }}
+                </el-dropdown-item>
+                <el-dropdown-item command="logout" divided>
+                  <el-icon><SwitchButton /></el-icon>{{ $t('nav.logout') }}
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+        </div>
       </el-header>
-      <el-main style="padding: 24px; background: #f0f2f5">
+      <el-main style="padding: 24px; background: var(--main-bg)">
         <router-view v-slot="{ Component }">
           <transition name="fade-transform" mode="out-in">
             <component :is="Component" />
@@ -130,15 +147,35 @@ import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../stores/auth'
+import { useThemeStore } from '../stores/theme'
 import { loadLocale } from '../i18n'
-import { UserFilled, SwitchButton, VideoCamera, Monitor, Calendar, Picture, Guide, Share, Setting, Fold, Expand, ArrowDown, Lock, InfoFilled, Stopwatch, Key, Document, Connection } from '@element-plus/icons-vue'
+import { UserFilled, User, SwitchButton, VideoCamera, Monitor, Calendar, Picture, Guide, Share, Setting, Fold, Expand, ArrowDown, Lock, InfoFilled, Stopwatch, Key, Document, Connection, Sunny, Moon } from '@element-plus/icons-vue'
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
-const { locale } = useI18n()
+const themeStore = useThemeStore()
+const { t, locale } = useI18n()
 const currentLocale = computed(() => locale.value)
 const isCollapsed = ref(false)
 const activeMenu = computed(() => route.path)
+
+const isDarkTheme = computed({
+  get: () => themeStore.isDark,
+  set: (val) => themeStore.setMode(val ? 'dark' : 'light')
+})
+
+// Extract username from JWT token payload
+const currentUsername = computed(() => {
+  try {
+    const token = auth.token
+    if (!token) return ''
+    const payload = JSON.parse(atob(token.split('.')[1]))
+    return payload.username || ''
+  } catch {
+    return ''
+  }
+})
+
 function handleCommand(cmd) {
   if (cmd === 'logout') {
     auth.logout()
@@ -151,11 +188,11 @@ async function switchLanguage(lang) {
 </script>
 <style scoped>
 .aside-menu {
-  background: linear-gradient(180deg, #1d2b3a 0%, #2c3e50 100%);
-  transition: width 0.3s;
+  background: var(--sidebar-bg);
+  transition: width 0.3s, background 0.3s;
   display: flex;
   flex-direction: column;
-  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
+  box-shadow: 2px 0 8px var(--sidebar-shadow);
   z-index: 10;
 }
 .logo-area {
@@ -164,7 +201,7 @@ async function switchLanguage(lang) {
   align-items: center;
   justify-content: center;
   padding: 0 16px;
-  background: rgba(0, 0, 0, 0.1);
+  background: var(--sidebar-logo-bg);
   overflow: hidden;
   white-space: nowrap;
 }
@@ -206,35 +243,103 @@ async function switchLanguage(lang) {
   height: 50px;
   color: #909399;
   cursor: pointer;
-  background: rgba(0, 0, 0, 0.15);
+  background: var(--sidebar-collapse-bg);
   transition: all 0.3s;
   overflow: hidden;
   white-space: nowrap;
 }
 .collapse-btn:hover {
   color: #fff;
-  background: rgba(0, 0, 0, 0.25);
+  background: var(--sidebar-collapse-hover-bg);
 }
 .top-header {
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--header-bg);
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  box-shadow: 0 1px 4px rgba(0, 21, 41, 0.08);
+  justify-content: space-between;
+  box-shadow: 0 1px 4px var(--header-shadow);
   padding: 0 20px;
   height: 60px;
   backdrop-filter: blur(10px);
+  transition: background 0.3s, box-shadow 0.3s;
+}
+.header-right {
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+.header-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  outline: none;
+}
+/* Remove el-dropdown focus outline/border */
+:deep(.header-item .el-tooltip__trigger:focus-visible) {
+  outline: none;
+}
+.header-right :deep(.el-dropdown:focus-visible),
+.header-right :deep(.el-dropdown__caret-button:focus-visible) {
+  outline: none;
 }
 .user-dropdown {
   cursor: pointer;
   display: flex;
   align-items: center;
-  color: #606266;
+  color: var(--el-text-color-regular);
   font-weight: 500;
   transition: color 0.3s;
+  outline: none;
+}
+.user-dropdown.icon-only {
+  font-size: 18px;
 }
 .user-dropdown:hover {
   color: #409eff;
+}
+.user-dropdown:focus {
+  outline: none;
+}
+.lang-icon {
+  color: var(--el-text-color-regular);
+  transition: color 0.3s;
+}
+.user-dropdown:hover .lang-icon {
+  color: #409eff;
+}
+.theme-switch-wrapper {
+  padding: 0 16px;
+}
+.theme-switch-wrapper:hover :deep(.el-switch__core) {
+  box-shadow: 0 0 8px rgba(64, 158, 255, 0.4);
+}
+/* Custom Element Plus Switch styling to match the screenshot */
+.custom-theme-switch {
+  --el-switch-on-color: var(--el-fill-color-light);
+  --el-switch-off-color: var(--el-fill-color-light);
+  --el-switch-border-color: var(--el-border-color-lighter);
+}
+:deep(.custom-theme-switch .el-switch__core) {
+  border: 1px solid var(--el-border-color-lighter);
+  background-color: var(--el-fill-color-light) !important;
+  transition: box-shadow 0.3s;
+}
+:deep(.custom-theme-switch .el-switch__action) {
+  background-color: var(--el-bg-color-overlay);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  color: var(--el-text-color-regular);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+:deep(.custom-theme-switch.is-checked .el-switch__action) {
+  color: var(--el-text-color-primary);
+}
+:deep(.custom-theme-switch .el-switch__inner .el-icon) {
+  color: var(--el-text-color-secondary);
 }
 /* Animations */
 .fade-enter-active,
