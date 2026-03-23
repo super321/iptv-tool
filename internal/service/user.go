@@ -9,6 +9,7 @@ import (
 
 	"iptv-tool-v2/internal/model"
 	"iptv-tool-v2/pkg/auth"
+	"iptv-tool-v2/pkg/utils"
 )
 
 var (
@@ -108,4 +109,42 @@ func (s *UserService) ChangePassword(userID uint, oldPassword, newPassword strin
 	}
 
 	return model.DB.Model(&user).Update("password_hash", string(hash)).Error
+}
+
+// ResetCredentials resets the admin user's username and password.
+// Returns the generated plaintext password. Only allowed when the system is already initialized.
+func (s *UserService) ResetCredentials(newUsername string) (string, error) {
+	if !s.IsInitialized() {
+		return "", ErrSystemNotInit
+	}
+
+	// Trim whitespace from username
+	newUsername = strings.TrimSpace(newUsername)
+	if len(newUsername) < 3 {
+		return "", fmt.Errorf("error.username_min_length")
+	}
+
+	// Get the first (admin) user
+	var user model.User
+	if err := model.DB.First(&user).Error; err != nil {
+		return "", fmt.Errorf("failed to find user: %w", err)
+	}
+
+	// Generate a random 8-character password
+	newPassword := utils.GenerateRandomPassword(8)
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return "", fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	// Update username and password
+	if err := model.DB.Model(&user).Updates(map[string]interface{}{
+		"username":      newUsername,
+		"password_hash": string(hash),
+	}).Error; err != nil {
+		return "", fmt.Errorf("failed to update credentials: %w", err)
+	}
+
+	return newPassword, nil
 }

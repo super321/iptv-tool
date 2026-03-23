@@ -1,11 +1,14 @@
 package main
 
 import (
+	"bufio"
 	"flag"
+	"fmt"
 	"io/fs"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"iptv-tool-v2/internal/api"
 	"iptv-tool-v2/internal/model"
@@ -35,6 +38,7 @@ func main() {
 	dataDirFlag := flag.String("data", "data", "Directory for data storage including db and logos (relative to executable by default)")
 	logDirFlag := flag.String("log-dir", "logs", "Directory for log files (relative to executable by default)")
 	jwtSecret := flag.String("jwt-secret", "", "JWT secret (auto-generated if empty)")
+	resetUser := flag.String("reset-user", "", "Reset admin credentials with the specified username (generates a random password)")
 	flag.Parse()
 
 	// Convert relative paths to absolute paths based on executable location
@@ -74,6 +78,12 @@ func main() {
 		logger.Fatalf("Failed to initialize database", "error", err)
 	}
 
+	// Handle --reset-user command
+	if *resetUser != "" {
+		handleResetUser(*resetUser)
+		return
+	}
+
 	// Initialize JWT
 	auth.InitJWTSecret(*jwtSecret)
 
@@ -110,4 +120,43 @@ func main() {
 	if err := router.Run(*addr); err != nil {
 		logger.Fatalf("Failed to start server", "error", err)
 	}
+}
+
+// handleResetUser handles the --reset-user CLI command to reset admin credentials.
+func handleResetUser(newUsername string) {
+	userSvc := service.NewUserService()
+
+	// Check if system is initialized
+	if !userSvc.IsInitialized() {
+		fmt.Println("Error: System is not initialized. Please start the server and set up your account via the initialization page first.")
+		os.Exit(1)
+	}
+
+	// Confirmation prompt
+	fmt.Printf("WARNING: Username will be reset to \"%s\" and password will be replaced with a random one.\n", newUsername)
+	fmt.Print("Are you sure you want to continue? (y/N): ")
+
+	reader := bufio.NewReader(os.Stdin)
+	input, _ := reader.ReadString('\n')
+	input = strings.TrimSpace(input)
+
+	if !strings.EqualFold(input, "y") {
+		fmt.Println("Operation cancelled.")
+		return
+	}
+
+	// Perform reset
+	newPassword, err := userSvc.ResetCredentials(newUsername)
+	if err != nil {
+		fmt.Printf("Failed to reset credentials: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Println()
+	fmt.Println("Credentials reset successfully!")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Printf("  Username: %s\n", newUsername)
+	fmt.Printf("  Password: %s\n", newPassword)
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println("Please change your password after logging in.")
 }
