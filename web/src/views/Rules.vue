@@ -1,14 +1,14 @@
 <template>
   <div>
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px">
-      <div style="display: flex; align-items: center; gap: 12px">
-        <h3 style="margin: 0">{{ $t('rules.title') }}</h3>
-        <span style="font-size: 13px; color: var(--el-text-color-secondary)">
+    <div class="page-header">
+      <div class="page-header-left">
+        <h3>{{ $t('rules.title') }}</h3>
+        <span class="text-secondary">
           {{ $t('rules.total_count', { count: filteredRulesList.length }) }}
           {{ searchQuery ? $t('rules.filtered') : '' }}
         </span>
       </div>
-      <div style="display: flex; align-items: center; gap: 12px">
+      <div class="page-header-right">
         <el-input v-model="searchQuery" :placeholder="$t('rules.search_placeholder')" style="width: 220px" clearable :prefix-icon="Search" />
         <el-button type="primary" @click="showCreate">{{ $t('rules.add') }}</el-button>
       </div>
@@ -38,10 +38,10 @@
       <el-table-column :label="$t('common.operations')" width="140" fixed="right" align="center">
         <template #default="{ row }">
           <el-tooltip :content="$t('common.edit')" placement="top" :show-after="500">
-            <el-button icon="Edit" size="small" circle type="primary" @click="showEdit(row)" />
+            <el-button :icon="Edit" size="small" circle type="primary" @click="showEdit(row)" />
           </el-tooltip>
           <el-tooltip :content="$t('common.delete')" placement="top" :show-after="500">
-            <el-button icon="Delete" size="small" circle type="danger" @click="handleDelete(row)" />
+            <el-button :icon="Delete" size="small" circle type="danger" @click="handleDelete(row)" />
           </el-tooltip>
         </template>
       </el-table-column>
@@ -73,7 +73,7 @@
         
         <!-- Type: Alias -->
         <template v-if="form.type === 'alias'">
-          <div style="margin-bottom: 8px; color: #909399; font-size: 13px;">
+          <div class="text-secondary" style="margin-bottom: 8px">
             {{ $t('rules.alias_help') }}
           </div>
           <div v-for="(rule, idx) in aliasConfig" :key="idx" class="rule-box">
@@ -137,8 +137,8 @@
         <!-- Type: Group -->
         <template v-if="form.type === 'group'">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-            <span style="color: #909399; font-size: 13px;">{{ $t('rules.group_help') }}</span>
-            <el-button size="small" type="success" @click="startAIGenerate" icon="MagicStick">
+            <span class="text-secondary">{{ $t('rules.group_help') }}</span>
+            <el-button size="small" type="success" @click="startAIGenerate" :icon="MagicStick">
               {{ $t('rules.ai_generate') }}
             </el-button>
           </div>
@@ -158,7 +158,7 @@
                 <el-option :label="$t('rules.string')" value="string" />
               </el-select>
               <el-input v-model="rule.pattern" size="small" :placeholder="$t('rules.match_content_short')" style="flex: 1" />
-              <el-button size="small" icon="Delete" circle @click="group.rules.splice(rIdx, 1)" />
+              <el-button size="small" :icon="Delete" circle @click="group.rules.splice(rIdx, 1)" />
             </div>
             <el-button size="small" type="primary" plain @click="group.rules.push({ target: 'name', match_mode: 'regex', pattern: '' })">
               {{ $t('rules.add_match_condition') }}
@@ -178,7 +178,7 @@
 
     <!-- AI Step 1: Source Selection Dialog -->
     <el-dialog v-model="aiSourceDialogVisible" :title="$t('rules.ai_select_sources')" width="550px" destroy-on-close :close-on-click-modal="false">
-      <p style="color: #909399; font-size: 13px; margin-top: 0;">{{ $t('rules.ai_select_sources_desc') }}</p>
+      <p class="text-secondary" style="margin-top: 0">{{ $t('rules.ai_select_sources_desc') }}</p>
       <div v-if="aiSourcesLoading" v-loading="true" style="height: 120px"></div>
       <template v-else>
         <el-empty v-if="aiSources.length === 0" :description="$t('rules.ai_no_sources')" />
@@ -206,7 +206,7 @@
       <el-input v-model="aiPromptText" type="textarea" :rows="14" readonly style="font-family: monospace; font-size: 12px;" />
       <template #footer>
         <el-button @click="aiPromptDialogVisible = false; aiSourceDialogVisible = true">{{ $t('rules.ai_prev') }}</el-button>
-        <el-button type="primary" @click="aiCopyAndNext" icon="DocumentCopy">{{ $t('rules.ai_copy_prompt') }}</el-button>
+        <el-button type="primary" @click="aiCopyAndNext" :icon="DocumentCopy">{{ $t('rules.ai_copy_prompt') }}</el-button>
       </template>
     </el-dialog>
 
@@ -497,7 +497,7 @@ async function aiParseResponse() {
 
 <style scoped>
 .rule-box {
-  border: 1px solid var(--rule-box-border);
+  border: 1px solid var(--el-border-color-lighter);
   padding: 16px;
   border-radius: 4px;
   margin-bottom: 12px;

@@ -179,7 +179,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   height: calc(100vh - 108px);
-  background: var(--log-access-bg);
+  background: var(--el-bg-color-overlay);
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
@@ -190,7 +190,7 @@ onUnmounted(() => {
   justify-content: space-between;
   padding: 12px 20px;
   background: var(--log-access-header-bg);
-  border-bottom: 1px solid var(--log-access-header-border);
+  border-bottom: 1px solid var(--el-border-color-lighter);
   flex-shrink: 0;
 }
 .log-header h2 {

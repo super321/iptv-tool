@@ -15,7 +15,7 @@
           <div class="version-cell">
             <div class="version-cell-top">
               <el-tag v-if="appVersion" size="small" type="primary">{{ appVersion }}</el-tag>
-              <span v-else style="color: #909399; font-size: 12px">{{ $t('settings_about.fetching') }}</span>
+              <span v-else style="color: var(--el-text-color-secondary); font-size: 12px">{{ $t('settings_about.fetching') }}</span>
 
               <!-- Update status hints -->
               <span v-if="updateStatus === 'checking'" class="update-hint">
@@ -535,7 +535,7 @@ async function copyAddress() {
   padding: 0;
 }
 .markdown-body :deep(a) {
-  color: #409eff;
+  color: var(--el-color-primary);
   text-decoration: none;
 }
 .markdown-body :deep(a:hover) {
@@ -544,7 +544,7 @@ async function copyAddress() {
 .markdown-body :deep(blockquote) {
   margin: 4px 0;
   padding: 4px 12px;
-  border-left: 3px solid var(--blockquote-border);
+  border-left: 3px solid var(--el-border-color);
   color: var(--el-text-color-secondary);
 }
 .markdown-body :deep(> :first-child) {

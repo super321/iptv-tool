@@ -1,14 +1,14 @@
 <template>
   <div>
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px">
-      <div style="display: flex; align-items: center; gap: 12px">
-        <h3 style="margin: 0">{{ $t('live_sources.title') }}</h3>
-        <span style="font-size: 13px; color: var(--el-text-color-secondary)">
+    <div class="page-header">
+      <div class="page-header-left">
+        <h3>{{ $t('live_sources.title') }}</h3>
+        <span class="text-secondary">
           {{ $t('live_sources.total_count', { count: filteredSources.length }) }}
           {{ searchQuery ? $t('live_sources.filtered') : '' }}
         </span>
       </div>
-      <div style="display: flex; align-items: center; gap: 12px">
+      <div class="page-header-right">
         <el-input v-model="searchQuery" :placeholder="$t('live_sources.search_placeholder')" style="width: 220px" clearable :prefix-icon="Search" />
         <el-button type="primary" @click="showCreate">{{ $t('live_sources.add') }}</el-button>
       </div>
@@ -143,7 +143,7 @@
 
           <el-form-item :label="$t('live_sources.client_ip')" prop="iptv.ip">
             <el-input v-model.trim="form.iptv.ip" :placeholder="$t('live_sources.client_ip_placeholder')" />
-            <div style="color: #909399; font-size: 12px; line-height: 1.4; margin-top: 4px">
+            <div class="help-text">
               {{ $t('live_sources.client_ip_help') }}
             </div>
           </el-form-item>
@@ -164,7 +164,7 @@
           <el-form-item :label="$t('live_sources.auth_params')" prop="iptv.authParamsStr">
             <el-input v-model="form.iptv.authParamsStr" type="textarea" :rows="10"
               :placeholder="$t('live_sources.auth_params_placeholder')" />
-            <div style="color: #909399; font-size: 12px; line-height: 1.6; margin-top: 4px">
+            <div class="help-text">
               {{ $t('live_sources.auth_params_help') }}
               <el-link type="primary" :underline="false" @click="fillAuthExample" style="font-size: 12px">{{ $t('live_sources.fill_example') }}</el-link>
             </div>
@@ -183,7 +183,7 @@
           <el-select v-model="form.cron_detect" clearable :placeholder="$t('live_sources.no_scheduled_detect')" style="width: 100%">
             <el-option v-for="opt in intervalOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
           </el-select>
-          <div style="color: #909399; font-size: 12px; line-height: 1.4; margin-top: 4px">
+          <div class="help-text">
             {{ $t('live_sources.scheduled_detect_help') }}
           </div>
         </el-form-item>
@@ -194,7 +194,7 @@
             <el-option :label="$t('live_sources.detect_strategy_unicast')" value="unicast" />
             <el-option :label="$t('live_sources.detect_strategy_multicast')" value="multicast" />
           </el-select>
-          <div style="color: #909399; font-size: 12px; line-height: 1.4; margin-top: 4px">
+          <div class="help-text">
             {{ $t('live_sources.detect_strategy_help') }}
           </div>
         </el-form-item>
@@ -203,13 +203,13 @@
         <template v-if="form.type === 'iptv' && !isEdit">
           <el-form-item :label="$t('live_sources.sync_epg')">
             <el-switch v-model="form.epg_enabled" />
-            <span style="margin-left: 8px; color: #909399; font-size: 12px">{{ $t('live_sources.auto_create_epg') }}</span>
+            <span class="form-hint" style="margin-left: 8px">{{ $t('live_sources.auto_create_epg') }}</span>
           </el-form-item>
           <el-form-item :label="$t('live_sources.epg_strategy')" v-if="form.epg_enabled">
             <el-select v-model="form.iptv.epgStrategy" style="width: 100%">
               <el-option v-for="opt in epgStrategies" :key="opt.value" :label="opt.label" :value="opt.value" />
             </el-select>
-            <div style="color: #909399; font-size: 12px; margin-top: 4px">
+            <div class="help-text">
               {{ $t('live_sources.epg_strategy_help') }}
             </div>
           </el-form-item>
@@ -219,7 +219,7 @@
         <template v-if="(form.type === 'network_url' || form.type === 'network_manual')">
           <el-form-item :label="$t('live_sources.auto_create_epg_label')">
             <el-switch v-model="form.epg_enabled" />
-            <div style="color: #909399; font-size: 12px; line-height: 1.4; margin-top: 4px">
+            <div class="help-text">
               {{ $t('live_sources.auto_create_epg_help') }}
             </div>
           </el-form-item>
@@ -258,7 +258,7 @@
     <!-- Channels Dialog -->
     <el-dialog v-model="channelsVisible" :title="$t('live_sources.channels_title')" width="1100px" destroy-on-close :close-on-click-modal="false">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px">
-        <span style="color: #909399; font-size: 13px">
+        <span class="text-secondary">
           {{ $t('live_sources.channels_total', { count: filteredChannels.length }) }} {{ channelsSearch ? $t('live_sources.channels_filtered') : '' }}
           <span v-if="channelsDetecting" style="margin-left: 12px; color: var(--el-color-warning)">
             {{ $t('live_sources.detect_progress', { detected: detectedCount, total: channels.length }) }}
@@ -364,6 +364,7 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { List, Refresh, Edit, Delete, Plus, SuccessFilled, CircleCloseFilled, Loading, Search } from '@element-plus/icons-vue'
 import api from '../api'
+import { usePolling } from '../composables/usePolling'
 
 const { t } = useI18n()
 
@@ -376,10 +377,12 @@ const filteredSources = computed(() => {
   const q = searchQuery.value.toLowerCase()
   return sources.value.filter(s => s.name && s.name.toLowerCase().includes(q))
 })
-let pollingTimer = null
+const { startPolling: startSyncPolling, stopPolling: stopSyncPolling } = usePolling(
+  () => loadSources(false),
+  3000
+)
 
 onUnmounted(() => {
-  if (pollingTimer) clearInterval(pollingTimer)
   stopDetectPolling()
 })
 
@@ -525,11 +528,10 @@ async function loadSources(showLoading = true) {
     
     // Check polling
     const hasSyncing = sources.value.some(s => s.is_syncing)
-    if (hasSyncing && !pollingTimer) {
-      pollingTimer = setInterval(() => loadSources(false), 3000)
-    } else if (!hasSyncing && pollingTimer) {
-      clearInterval(pollingTimer)
-      pollingTimer = null
+    if (hasSyncing) {
+      startSyncPolling()
+    } else {
+      stopSyncPolling()
     }
   } finally { if (showLoading) loading.value = false }
 }

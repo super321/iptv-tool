@@ -14,7 +14,7 @@
             <el-tag v-if="ffprobeSource === 'uploaded'" size="small" type="success" style="margin-left: 8px">{{ $t('settings_detect.user_uploaded') }}</el-tag>
             <el-tag v-else-if="ffprobeSource === 'system'" size="small" type="info" style="margin-left: 8px">{{ $t('settings_detect.system_builtin') }}</el-tag>
           </span>
-          <span v-else style="color: #909399">{{ $t('settings_detect.not_configured') }}</span>
+          <span v-else style="color: var(--el-text-color-secondary)">{{ $t('settings_detect.not_configured') }}</span>
         </el-descriptions-item>
       </el-descriptions>
 
@@ -32,7 +32,7 @@
             {{ ffprobeVersion ? $t('settings_detect.update_ffprobe') : $t('settings_detect.upload_ffprobe') }}
           </el-button>
         </el-upload>
-        <div style="color: #909399; font-size: 12px; margin-top: 8px; line-height: 1.6">
+        <div class="help-text" style="margin-top: 8px; line-height: 1.6">
           {{ $t('settings_detect.upload_help') }}<br/>
           {{ $t('settings_detect.ffmpeg_download_prefix') }} <a href="https://ffmpeg.org/download.html" target="_blank" rel="noopener noreferrer" style="color: var(--el-color-primary); text-decoration: none;">{{ $t('settings_detect.ffmpeg_download_link') }}</a>
         </div>
@@ -47,11 +47,11 @@
       <el-form :model="configForm" label-width="120px">
         <el-form-item :label="$t('settings_detect.concurrency')">
           <el-input-number v-model="configForm.concurrency" :min="1" :max="30" />
-          <span style="margin-left: 12px; color: #909399; font-size: 12px">{{ $t('settings_detect.concurrency_help') }}</span>
+          <span class="form-hint" style="margin-left: 12px">{{ $t('settings_detect.concurrency_help') }}</span>
         </el-form-item>
         <el-form-item :label="$t('settings_detect.timeout')">
           <el-input-number v-model="configForm.timeout" :min="1" :max="30" />
-          <span style="margin-left: 12px; color: #909399; font-size: 12px">{{ $t('settings_detect.timeout_help') }}</span>
+          <span class="form-hint" style="margin-left: 12px">{{ $t('settings_detect.timeout_help') }}</span>
         </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="saveConfig" :loading="saving">{{ $t('settings_detect.save_config') }}</el-button>

@@ -54,7 +54,7 @@
                 style="width: 100px"
                 @change="saveGeoIPAutoUpdate"
               />
-              <span style="color: #909399; font-size: 12px">{{ $t('settings_access_control.geoip_interval_days') }}</span>
+              <span class="form-hint">{{ $t('settings_access_control.geoip_interval_days') }}</span>
             </template>
           </div>
         </el-descriptions-item>
@@ -87,7 +87,7 @@
             <div style="display: flex; align-items: center; gap: 4px">
               <span>{{ $t('settings_access_control.col_access_location') }}</span>
               <el-tooltip :content="$t('settings_access_control.access_location_tip')" placement="top" :show-after="300">
-                <el-icon :size="14" style="color: #909399; cursor: help"><QuestionFilled /></el-icon>
+                <el-icon :size="14" style="color: var(--el-text-color-secondary); cursor: help"><QuestionFilled /></el-icon>
               </el-tooltip>
             </div>
           </template>
@@ -322,7 +322,7 @@
 
         <el-form-item v-if="addListType === 'blacklist' && addForm.blockType === 'days'" :label="$t('settings_access_control.block_days_label')">
           <el-input-number v-model="addForm.blockDays" :min="1" :max="3650" style="width: 160px" />
-          <span style="margin-left: 8px; color: #909399; font-size: 12px">{{ $t('settings_access_control.block_days_unit') }}</span>
+          <span class="form-hint" style="margin-left: 8px">{{ $t('settings_access_control.block_days_unit') }}</span>
         </el-form-item>
       </el-form>
 
@@ -335,11 +335,12 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { Warning, CircleClose, CircleCheck, Remove, Plus, Delete, Location, Refresh, DataAnalysis, QuestionFilled } from '@element-plus/icons-vue'
 import api from '../api'
+import { usePolling } from '../composables/usePolling'
 
 const { t } = useI18n()
 
@@ -349,7 +350,6 @@ const geoipAutoUpdate = ref(false)
 const geoipIntervalDays = ref(1)
 const geoipDownloading = ref(false)
 const downloadProgress = reactive({ percent: '', downloaded_bytes: 0, total_bytes: 0, attempt: 0, max_retries: 3, error: '' })
-let progressTimer = null
 
 // --- Access Stats State ---
 const accessStats = ref([])
@@ -498,9 +498,8 @@ async function checkGeoIPUpdate() {
   }
 }
 
-function startProgressPolling() {
-  stopProgressPolling()
-  progressTimer = setInterval(async () => {
+const { startPolling: startProgressPolling, stopPolling: stopProgressPolling } = usePolling(
+  async () => {
     try {
       const { data } = await api.get('/settings/geoip/progress')
       downloadProgress.percent = data.percent || ''
@@ -527,15 +526,9 @@ function startProgressPolling() {
     } catch {
       // Ignore polling errors
     }
-  }, 2000)
-}
-
-function stopProgressPolling() {
-  if (progressTimer) {
-    clearInterval(progressTimer)
-    progressTimer = null
-  }
-}
+  },
+  2000
+)
 
 function formatFileSize(bytes) {
   if (bytes < 1024) return bytes + ' B'
@@ -543,9 +536,6 @@ function formatFileSize(bytes) {
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
 }
 
-onBeforeUnmount(() => {
-  stopProgressPolling()
-})
 
 async function saveGeoIPAutoUpdate() {
   try {
@@ -759,16 +749,16 @@ async function saveSettings() {
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
-  background: var(--mode-card-bg);
-  border: 1px solid var(--mode-card-border);
+  background: var(--el-bg-color-overlay);
+  border: 1px solid var(--el-border-color);
   box-sizing: border-box;
   overflow: hidden;
 }
 .mode-card:hover {
-  border-color: #c0c4cc;
+  border-color: var(--el-border-color-lighter);
 }
 .mode-card.active {
-  border-color: #409eff;
+  border-color: var(--el-color-primary);
 }
 .mode-card-header {
   display: flex;
@@ -787,7 +777,7 @@ async function saveSettings() {
 }
 .mode-card-divider {
   height: 1px;
-  background: var(--mode-card-border);
+  background: var(--el-border-color);
   width: 100%;
 }
 .mode-card.active .mode-card-divider {
@@ -810,7 +800,7 @@ async function saveSettings() {
   color: white;
 }
 .disabled-icon {
-  background: #909399;
+  background: var(--el-text-color-secondary);
 }
 .whitelist-icon {
   background: #67c23a;

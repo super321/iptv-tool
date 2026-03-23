@@ -1,14 +1,14 @@
 <template>
   <div>
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px">
-      <div style="display: flex; align-items: center; gap: 12px">
-        <h3 style="margin: 0">{{ $t('publish.title') }}</h3>
-        <span style="font-size: 13px; color: var(--el-text-color-secondary)">
+    <div class="page-header">
+      <div class="page-header-left">
+        <h3>{{ $t('publish.title') }}</h3>
+        <span class="text-secondary">
           {{ $t('publish.total_count', { count: filteredInterfaces.length }) }}
           {{ searchQuery ? $t('publish.filtered') : '' }}
         </span>
       </div>
-      <div style="display: flex; align-items: center; gap: 12px">
+      <div class="page-header-right">
         <el-input v-model="searchQuery" :placeholder="$t('publish.search_placeholder')" style="width: 220px" clearable :prefix-icon="Search" />
         <el-button type="primary" @click="showCreate">{{ $t('publish.add') }}</el-button>
       </div>
@@ -98,7 +98,7 @@
               <el-select v-model="form.source_ids_arr" multiple :placeholder="$t('publish.select_source_placeholder')" style="width: 100%" @change="onSourceChange">
                 <el-option v-for="src in availableSources" :key="src.id" :label="src.name" :value="src.id">
                   <span style="float: left">{{ src.name }}</span>
-                  <span style="float: right; color: #8492a6; font-size: 13px" v-if="src.description">{{ src.description }}</span>
+                  <span style="float: right; font-size: 13px; color: var(--el-text-color-secondary)" v-if="src.description">{{ src.description }}</span>
                 </el-option>
               </el-select>
             </el-form-item>
@@ -106,7 +106,7 @@
             <!-- 已选直播数据源的过滤无效数据开关 -->
             <el-form-item v-if="form.type === 'live' && form.source_ids_arr.length > 0" :label="$t('publish.filter_invalid')">
               <div style="width: 100%">
-                <div style="color: #909399; font-size: 12px; margin-bottom: 8px; line-height: 1.4">
+                <div class="help-text" style="margin-bottom: 8px; margin-top: 0">
                   {{ $t('publish.filter_invalid_help') }}
                 </div>
                 <div v-for="srcId in form.source_ids_arr" :key="srcId"
@@ -130,7 +130,7 @@
                   :value="rule.id"
                 >
                   <span style="float: left">{{ rule.name }}</span>
-                  <span style="float: right; color: #8492a6; font-size: 13px">{{ typeNameMap[rule.type] || rule.type }}</span>
+                  <span style="float: right; font-size: 13px; color: var(--el-text-color-secondary)">{{ typeNameMap[rule.type] || rule.type }}</span>
                 </el-option>
               </el-select>
             </el-form-item>
@@ -141,7 +141,7 @@
                 <el-radio value="channel_id">{{ $t('publish.tvg_id_channel_id') }}</el-radio>
                 <el-radio value="name">{{ $t('publish.tvg_id_name') }}</el-radio>
               </el-radio-group>
-              <div style="color: #909399; font-size: 12px; line-height: 1.4; margin-top: 4px; width: 100%;">
+              <div class="help-text" style="width: 100%">
                 {{ $t('publish.tvg_id_help') }}
               </div>
             </el-form-item>
@@ -155,7 +155,7 @@
                   <el-option :label="$t('publish.unicast_first')" value="unicast" />
                   <el-option :label="$t('publish.multicast_first')" value="multicast" />
                 </el-select>
-                <div style="color: #909399; font-size: 12px; margin-top: 4px; line-height: 1.4">
+                <div class="help-text">
                   {{ $t('publish.address_type_help') }}
                 </div>
               </el-form-item>
@@ -170,14 +170,14 @@
 
               <el-form-item :label="$t('publish.udpxy_address')" v-if="form.multicast_type === 'udpxy'" :rules="[{ required: true, message: $t('publish.udpxy_address_required'), trigger: 'blur' }]">
                 <el-input v-model.trim="form.udpxy_url" :placeholder="$t('publish.udpxy_placeholder')" />
-                <div style="color: #909399; font-size: 12px; line-height: 1.4; margin-top: 4px; width: 100%;">
+                <div class="help-text" style="width: 100%">
                   {{ $t('publish.udpxy_help') }}
                 </div>
               </el-form-item>
 
               <el-form-item :label="$t('publish.fcc_enable')" v-if="form.multicast_type === 'udpxy'">
                 <el-switch v-model="form.fcc_enabled" />
-                <div style="color: #909399; font-size: 12px; line-height: 1.4; margin-top: 4px; width: 100%;">
+                <div class="help-text" style="width: 100%">
                   {{ $t('publish.fcc_enable_help') }}
                 </div>
               </el-form-item>
@@ -191,7 +191,7 @@
 
               <el-form-item :label="$t('publish.custom_params')" v-if="form.multicast_type === 'udpxy'">
                 <div style="width: 100%">
-                  <div style="color: #909399; font-size: 12px; line-height: 1.4; margin-bottom: 8px">
+                  <div class="help-text" style="margin-bottom: 8px; margin-top: 0">
                     {{ $t('publish.custom_params_help') }}
                   </div>
                   <div v-for="(param, idx) in form.custom_params_arr" :key="idx"
@@ -229,7 +229,7 @@
             <template v-if="form.type === 'epg'">
               <el-form-item :label="$t('publish.epg_days')">
                 <el-input-number v-model="form.epg_days" :min="0" :max="7" placeholder="" controls-position="right" />
-                <span style="margin-left: 10px; color: #909399; font-size: 12px;">{{ $t('publish.epg_days_help') }}</span>
+                <span class="form-hint" style="margin-left: 10px">{{ $t('publish.epg_days_help') }}</span>
               </el-form-item>
               <el-form-item :label="$t('publish.gzip')" v-if="form.format === 'xmltv'">
                 <el-switch v-model="form.gzip_enabled" />
@@ -242,7 +242,7 @@
             <el-form-item :label="$t('publish.ua_check')">
               <div style="width: 100%">
                 <el-switch v-model="form.ua_check_enabled" />
-                <div style="color: #909399; font-size: 12px; line-height: 1.4; margin-top: 4px">
+                <div class="help-text">
                   {{ $t('publish.ua_check_help') }}
                 </div>
               </div>

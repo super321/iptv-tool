@@ -1,14 +1,14 @@
 <template>
   <div>
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px">
-      <div style="display: flex; align-items: center; gap: 12px">
-        <h3 style="margin: 0">{{ $t('epg_sources.title') }}</h3>
-        <span style="font-size: 13px; color: var(--el-text-color-secondary)">
+    <div class="page-header">
+      <div class="page-header-left">
+        <h3>{{ $t('epg_sources.title') }}</h3>
+        <span class="text-secondary">
           {{ $t('epg_sources.total_count', { count: filteredSources.length }) }}
           {{ searchQuery ? $t('epg_sources.filtered') : '' }}
         </span>
       </div>
-      <div style="display: flex; align-items: center; gap: 12px">
+      <div class="page-header-right">
         <el-input v-model="searchQuery" :placeholder="$t('epg_sources.search_placeholder')" style="width: 220px" clearable :prefix-icon="Search" />
         <el-button type="primary" @click="showCreate">{{ $t('epg_sources.add') }}</el-button>
       </div>
@@ -41,7 +41,7 @@
       </el-table-column>
       <el-table-column :label="$t('common.update_time')" width="200">
         <template #default="{ row }">
-          <div v-if="row.is_syncing" style="display: flex; align-items: center; gap: 6px; color: #409eff">
+          <div v-if="row.is_syncing" style="display: flex; align-items: center; gap: 6px; color: var(--el-color-primary)">
             <el-icon class="is-loading" :size="16"><Loading /></el-icon>
             <span>{{ $t('common.syncing') }}</span>
           </div>
@@ -115,7 +115,7 @@
               :loading="unlinkedLoading" :no-data-text="$t('epg_sources.no_unlinked')">
               <el-option v-for="s in unlinkedSources" :key="s.id" :label="`${s.name} (ID: ${s.id})`" :value="s.id" />
             </el-select>
-            <div style="color: #909399; font-size: 12px; margin-top: 4px">
+            <div class="help-text">
               {{ $t('epg_sources.only_unlinked') }}
             </div>
           </el-form-item>
@@ -126,7 +126,7 @@
             <el-select v-model="form.epg_strategy" style="width: 100%">
               <el-option v-for="opt in epgStrategies" :key="opt.value" :label="opt.label" :value="opt.value" />
             </el-select>
-            <div style="color: #909399; font-size: 12px; margin-top: 4px">
+            <div class="help-text">
               {{ $t('epg_sources.epg_strategy_help') }}
             </div>
           </el-form-item>
@@ -169,7 +169,7 @@
       <!-- Level 1: Channel list -->
       <div v-if="drillLevel === 1">
         <div style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center">
-          <p style="margin: 0; color: #909399; font-size: 13px">
+          <p class="text-secondary" style="margin: 0">
             {{ $t('epg_sources.channels_total', { count: filteredEpgChannels.length }) }} {{ drillSearch ? $t('epg_sources.channels_filtered') : '' }}
           </p>
           <el-input v-model="drillSearch" :placeholder="$t('epg_sources.search_channel')" style="width: 200px" size="small" clearable @input="handleSearchChange" />
@@ -227,11 +227,12 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Notebook, Refresh, Edit, Delete, SuccessFilled, CircleCloseFilled, Loading, Plus, Search } from '@element-plus/icons-vue'
 import api from '../api'
+import { usePolling } from '../composables/usePolling'
 
 const { t, locale } = useI18n()
 
@@ -244,11 +245,10 @@ const filteredSources = computed(() => {
   const q = searchQuery.value.toLowerCase()
   return sources.value.filter(s => s.name && s.name.toLowerCase().includes(q))
 })
-let pollingTimer = null
-
-onUnmounted(() => {
-  if (pollingTimer) clearInterval(pollingTimer)
-})
+const { startPolling: startSyncPolling, stopPolling: stopSyncPolling } = usePolling(
+  () => loadSources(false),
+  3000
+)
 
 const dialogVisible = ref(false)
 const isEdit = ref(false)
@@ -340,11 +340,10 @@ async function loadSources(showLoading = true) {
 
     // Check polling
     const hasSyncing = sources.value.some(s => s.is_syncing)
-    if (hasSyncing && !pollingTimer) {
-      pollingTimer = setInterval(() => loadSources(false), 3000)
-    } else if (!hasSyncing && pollingTimer) {
-      clearInterval(pollingTimer)
-      pollingTimer = null
+    if (hasSyncing) {
+      startSyncPolling()
+    } else {
+      stopSyncPolling()
     }
   } finally { if (showLoading) loading.value = false }
 }

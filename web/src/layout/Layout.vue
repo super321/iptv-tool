@@ -241,7 +241,7 @@ async function switchLanguage(lang) {
   align-items: center;
   justify-content: center;
   height: 50px;
-  color: #909399;
+  color: var(--el-text-color-secondary);
   cursor: pointer;
   background: var(--sidebar-collapse-bg);
   transition: all 0.3s;
