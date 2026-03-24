@@ -1,7 +1,6 @@
 # IPTV Tool 管理平台
 
 [![GitHub Release](https://img.shields.io/github/v/release/super321/iptv-tool)](https://github.com/super321/iptv-tool/releases/latest)
-[![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/super321/iptv-tool/total)](https://github.com/super321/iptv-tool/releases/latest)
 ![GitHub License](https://img.shields.io/github/license/super321/iptv-tool)
 
 **简体中文** | [English](README_EN.md)
