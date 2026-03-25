@@ -364,6 +364,12 @@
       "tab_data": "数据源与规则",
       "tab_output": "输出设置",
       "tab_access": "访问控制",
+      "output_config_mode": "配置模式",
+      "output_global": "全局配置",
+      "output_per_source": "单独配置",
+      "output_global_help": "以下输出设置将对所有已选直播源统一生效",
+      "output_per_source_help": "为每个直播源单独配置输出设置",
+      "output_source_section": "输出设置 - {name}",
       "search_placeholder": "搜索发布接口名称",
       "total_count": "共 {count} 个发布接口",
       "filtered": "(已过滤)"

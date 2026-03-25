@@ -17,20 +17,33 @@ import (
 	"iptv-tool-v2/internal/model"
 )
 
+// SourceOutputConfig holds per-source output settings that can override the global interface config
+type SourceOutputConfig struct {
+	AddressType        string `json:"address_type"`
+	MulticastType      string `json:"multicast_type"`
+	UDPxyURL           string `json:"udpxy_url"`
+	FCCEnabled         bool   `json:"fcc_enabled"`
+	FCCType            string `json:"fcc_type"`
+	CustomParams       string `json:"custom_params"`
+	M3UCatchupTemplate string `json:"m3u_catchup_template"`
+}
+
 // AggregatedChannel is the result of applying rules to a parsed channel
 type AggregatedChannel struct {
-	Name        string
-	Alias       string
-	URL         string
-	Group       string
-	Logo        string // 台标管理匹配到的相对路径 (e.g. /logo/cctv1.png)
-	SourceLogo  string // 数据源解析时自带的原始 logo URL
-	TVGId       string
-	TVGName     string
-	CatchupSrc  string
-	CatchupDays int    // 回看天数
-	FCCIP       string // FCC server IP
-	FCCPort     string // FCC server port
+	Name            string
+	Alias           string
+	URL             string
+	Group           string
+	Logo            string // 台标管理匹配到的相对路径 (e.g. /logo/cctv1.png)
+	SourceLogo      string // 数据源解析时自带的原始 logo URL
+	TVGId           string
+	TVGName         string
+	CatchupSrc      string
+	CatchupDays     int    // 回看天数
+	FCCIP           string // FCC server IP
+	FCCPort         string // FCC server port
+	SourceID        uint   // Source ID for per-source config lookup
+	CatchupTemplate string // Per-source catchup template (empty = use global)
 }
 
 // DIYPProgram is a single EPG entry in the DIYP JSON format
@@ -74,16 +87,30 @@ type GroupRuleConfig struct {
 
 // Engine handles the aggregation logic
 type Engine struct {
-	iface        model.PublishInterface
-	aliasRules   []AliasRule
-	filterRules  []FilterRule
-	groupRules   []GroupRuleConfig
-	logoMapCache map[string]string // Maps lowercased logo name to url_path
+	iface         model.PublishInterface
+	aliasRules    []AliasRule
+	filterRules   []FilterRule
+	groupRules    []GroupRuleConfig
+	logoMapCache  map[string]string           // Maps lowercased logo name to url_path
+	sourceConfigs map[uint]SourceOutputConfig // Per-source output configs (nil = all global)
 }
 
 // NewEngine creates a new publish engine for the given interface
 func NewEngine(iface model.PublishInterface) (*Engine, error) {
 	e := &Engine{iface: iface}
+
+	// Parse per-source output configs if present
+	if iface.SourceOutputConfigs != "" {
+		var rawMap map[string]SourceOutputConfig
+		if err := json.Unmarshal([]byte(iface.SourceOutputConfigs), &rawMap); err == nil {
+			e.sourceConfigs = make(map[uint]SourceOutputConfig, len(rawMap))
+			for k, v := range rawMap {
+				if id, err := strconv.ParseUint(k, 10, 32); err == nil {
+					e.sourceConfigs[uint(id)] = v
+				}
+			}
+		}
+	}
 
 	// Load and compile rules
 	ruleIDs := parseSourceIDs(iface.RuleIDs)
@@ -301,19 +328,31 @@ func (e *Engine) AggregateLiveChannels() ([]AggregatedChannel, error) {
 		}
 		seen[ch.URL] = true
 
+		// Determine URL and catchup template based on per-source or global config
+		var channelURL string
+		var catchupTemplate string
+		if srcCfg, ok := e.sourceConfigs[ch.SourceID]; ok {
+			channelURL = e.extractBestURLWithConfig(srcCfg, ch.URL, ch.CatchupURL, ch.FCCIP, ch.FCCPort)
+			catchupTemplate = srcCfg.M3UCatchupTemplate
+		} else {
+			channelURL = e.extractBestURL(ch.URL, ch.CatchupURL, ch.FCCIP, ch.FCCPort)
+		}
+
 		agg := AggregatedChannel{
-			Name:        ch.Name,
-			Alias:       alias,
-			URL:         e.extractBestURL(ch.URL, ch.CatchupURL, ch.FCCIP, ch.FCCPort),
-			Group:       group,
-			Logo:        logo,
-			SourceLogo:  ch.Logo,
-			TVGId:       ch.TVGId,
-			TVGName:     ch.TVGName,
-			CatchupSrc:  ch.CatchupURL,
-			CatchupDays: ch.CatchupDays,
-			FCCIP:       ch.FCCIP,
-			FCCPort:     ch.FCCPort,
+			Name:            ch.Name,
+			Alias:           alias,
+			URL:             channelURL,
+			Group:           group,
+			Logo:            logo,
+			SourceLogo:      ch.Logo,
+			TVGId:           ch.TVGId,
+			TVGName:         ch.TVGName,
+			CatchupSrc:      ch.CatchupURL,
+			CatchupDays:     ch.CatchupDays,
+			FCCIP:           ch.FCCIP,
+			FCCPort:         ch.FCCPort,
+			SourceID:        ch.SourceID,
+			CatchupTemplate: catchupTemplate,
 		}
 
 		result = append(result, agg)
@@ -452,11 +491,125 @@ func (e *Engine) extractBestURL(rawURLs, catchupURL, fccIP, fccPort string) stri
 	return rawURLs
 }
 
+// --- Per-source config overrides ---
+
+// parseCustomParamsStr parses custom params from a raw JSON string
+func parseCustomParamsStr(raw string) []customParam {
+	if raw == "" {
+		return nil
+	}
+	var params []customParam
+	if err := json.Unmarshal([]byte(raw), &params); err != nil {
+		return nil
+	}
+	var result []customParam
+	for _, p := range params {
+		if strings.TrimSpace(p.Key) != "" {
+			result = append(result, customParam{
+				Key:   strings.TrimSpace(p.Key),
+				Value: strings.TrimSpace(p.Value),
+			})
+		}
+	}
+	return result
+}
+
+// isMulticastURLStr checks if a URL is multicast using the given udpxyURL
+func isMulticastURLStr(url, udpxyURL string) bool {
+	if strings.HasPrefix(url, "igmp://") || strings.HasPrefix(url, "rtp://") {
+		return true
+	}
+	if udpxyURL != "" && strings.HasPrefix(url, strings.TrimRight(udpxyURL, "/")) {
+		return true
+	}
+	return false
+}
+
+// transformMulticastURLWithConfig transforms a multicast URL using a SourceOutputConfig
+func transformMulticastURLWithConfig(cfg SourceOutputConfig, multicastURL, fccIP, fccPort string) string {
+	switch cfg.MulticastType {
+	case "udpxy":
+		if cfg.UDPxyURL != "" && strings.HasPrefix(multicastURL, "igmp://") {
+			addr := strings.TrimPrefix(multicastURL, "igmp://")
+			result := strings.TrimRight(cfg.UDPxyURL, "/") + "/rtp/" + addr
+			if cfg.FCCEnabled && fccIP != "" && fccPort != "" {
+				result += "?fcc=" + fccIP + ":" + fccPort
+				if cfg.FCCType == "huawei" {
+					result += "&fcc-type=huawei"
+				}
+			}
+			for _, p := range parseCustomParamsStr(cfg.CustomParams) {
+				if strings.Contains(result, "?") {
+					result += "&" + p.Key + "=" + p.Value
+				} else {
+					result += "?" + p.Key + "=" + p.Value
+				}
+			}
+			return result
+		}
+	case "rtp":
+		if strings.HasPrefix(multicastURL, "igmp://") {
+			return "rtp://" + strings.TrimPrefix(multicastURL, "igmp://")
+		}
+	case "igmp":
+		return multicastURL
+	}
+	return multicastURL
+}
+
+// extractBestURLWithConfig uses a SourceOutputConfig instead of the global iface fields
+func (e *Engine) extractBestURLWithConfig(cfg SourceOutputConfig, rawURLs, catchupURL, fccIP, fccPort string) string {
+	urls := strings.Split(rawURLs, "|")
+
+	var multicastURL string
+	var unicastURL string
+
+	for _, u := range urls {
+		u = strings.TrimSpace(u)
+		if u == "" {
+			continue
+		}
+		if strings.HasPrefix(u, "igmp://") || strings.HasPrefix(u, "rtp://") {
+			if multicastURL == "" {
+				multicastURL = u
+			}
+		} else if strings.HasPrefix(u, "http://") || strings.HasPrefix(u, "https://") || strings.HasPrefix(u, "rtsp://") || strings.HasPrefix(u, "rtmp://") {
+			if unicastURL == "" {
+				unicastURL = u
+			}
+		}
+	}
+
+	if cfg.AddressType == "unicast" {
+		if unicastURL != "" {
+			return unicastURL
+		}
+		if multicastURL != "" && catchupURL != "" && !isMulticastURLStr(catchupURL, cfg.UDPxyURL) {
+			return catchupURL
+		}
+		if multicastURL != "" {
+			return transformMulticastURLWithConfig(cfg, multicastURL, fccIP, fccPort)
+		}
+		return rawURLs
+	}
+
+	// multicast priority (default)
+	if multicastURL != "" {
+		return transformMulticastURLWithConfig(cfg, multicastURL, fccIP, fccPort)
+	}
+
+	if unicastURL != "" {
+		return unicastURL
+	}
+
+	return rawURLs
+}
+
 func (e *Engine) FormatM3U(channels []AggregatedChannel, requestHost string) string {
 	var sb strings.Builder
 	sb.WriteString("#EXTM3U\n")
-	// 去除用户输入的回看模板前面的多余符号
-	templateParams := strings.TrimLeft(e.iface.M3UCatchupTemplate, "?&")
+	// Global catchup template (fallback)
+	globalTemplateParams := strings.TrimLeft(e.iface.M3UCatchupTemplate, "?&")
 	for _, ch := range channels {
 		displayName := ch.Name
 		if ch.Alias != "" {
@@ -487,8 +640,19 @@ func (e *Engine) FormatM3U(channels []AggregatedChannel, requestHost string) str
 			sb.WriteString(fmt.Sprintf(` tvg-logo="%s"`, ch.SourceLogo))
 		}
 		// ====== 核心功能：处理 Catchup 时移参数 ======
+		// Per-source catchup template overrides global
+		templateParams := globalTemplateParams
+		if ch.CatchupTemplate != "" {
+			templateParams = strings.TrimLeft(ch.CatchupTemplate, "?&")
+		}
 		if templateParams != "" {
-			isMulticast := e.isMulticastURL(ch.URL)
+			// Determine multicast detection using per-source config if available
+			isMulticast := false
+			if srcCfg, ok := e.sourceConfigs[ch.SourceID]; ok {
+				isMulticast = isMulticastURLStr(ch.URL, srcCfg.UDPxyURL)
+			} else {
+				isMulticast = e.isMulticastURL(ch.URL)
+			}
 			if ch.CatchupSrc != "" && ch.CatchupSrc != ch.URL {
 				// 有专属的 TimeShiftURL，且与直播地址不同，使用 default 模式
 				chCatchupSource := ch.CatchupSrc

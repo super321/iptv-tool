@@ -118,6 +118,10 @@ type PublishInterface struct {
 	TvgIDMode string `gorm:"default:'channel_id'" json:"tvg_id_mode"` // channel_id or name
 	RuleIDs   string `json:"rule_ids"`                                // Comma-separated IDs of AggregationRule
 
+	// Per-source output configs (live type only), JSON: {"sourceID": {address_type, multicast_type, ...}}
+	// When non-empty, each source uses its own output config instead of the global fields above.
+	SourceOutputConfigs string `json:"source_output_configs"`
+
 	// User-Agent validation
 	UACheckEnabled  bool   `json:"ua_check_enabled"`  // Enable User-Agent validation
 	UAAllowedValues string `json:"ua_allowed_values"` // Comma-separated allowed UA substrings

@@ -72,6 +72,7 @@ type CreateInterfaceRequest struct {
 	CustomParams           string              `json:"custom_params"`
 	M3UCatchupTemplate     string              `json:"m3u_catchup_template"`
 	FilterInvalidSourceIDs string              `json:"filter_invalid_source_ids"`
+	SourceOutputConfigs    string              `json:"source_output_configs"`
 	UACheckEnabled         bool                `json:"ua_check_enabled"`
 	UAAllowedValues        string              `json:"ua_allowed_values"`
 }
@@ -138,6 +139,7 @@ func (pc *PublishController) CreateInterface(c *gin.Context) {
 		CustomParams:           req.CustomParams,
 		M3UCatchupTemplate:     req.M3UCatchupTemplate,
 		FilterInvalidSourceIDs: req.FilterInvalidSourceIDs,
+		SourceOutputConfigs:    req.SourceOutputConfigs,
 		UACheckEnabled:         req.UACheckEnabled,
 		UAAllowedValues:        req.UAAllowedValues,
 	}
@@ -172,6 +174,7 @@ type UpdateInterfaceRequest struct {
 	CustomParams           *string              `json:"custom_params"`
 	M3UCatchupTemplate     *string              `json:"m3u_catchup_template"`
 	FilterInvalidSourceIDs *string              `json:"filter_invalid_source_ids"`
+	SourceOutputConfigs    *string              `json:"source_output_configs"`
 	UACheckEnabled         *bool                `json:"ua_check_enabled"`
 	UAAllowedValues        *string              `json:"ua_allowed_values"`
 }
@@ -284,6 +287,9 @@ func (pc *PublishController) UpdateInterface(c *gin.Context) {
 	if req.FilterInvalidSourceIDs != nil {
 		updates["filter_invalid_source_ids"] = *req.FilterInvalidSourceIDs
 	}
+	if req.SourceOutputConfigs != nil {
+		updates["source_output_configs"] = *req.SourceOutputConfigs
+	}
 	if req.UACheckEnabled != nil {
 		updates["ua_check_enabled"] = *req.UACheckEnabled
 	}
@@ -349,6 +355,7 @@ type PreviewRequest struct {
 	FCCType                string `json:"fcc_type"`
 	CustomParams           string `json:"custom_params"`
 	FilterInvalidSourceIDs string `json:"filter_invalid_source_ids"`
+	SourceOutputConfigs    string `json:"source_output_configs"`
 }
 
 // PreviewInterface generates a dry-run preview of the aggregated channels/epgs
@@ -372,6 +379,7 @@ func (pc *PublishController) PreviewInterface(c *gin.Context) {
 		FCCType:                req.FCCType,
 		CustomParams:           req.CustomParams,
 		FilterInvalidSourceIDs: req.FilterInvalidSourceIDs,
+		SourceOutputConfigs:    req.SourceOutputConfigs,
 	}
 
 	eng, err := publish.NewEngine(dummyIface)

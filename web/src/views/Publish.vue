@@ -150,81 +150,175 @@
           <!-- Tab 3: Output Settings -->
           <el-tab-pane :label="$t('publish.tab_output')" name="output">
             <template v-if="form.type === 'live'">
-              <el-form-item :label="$t('publish.live_address')" prop="address_type">
-                <el-select v-model="form.address_type" style="width: 100%">
-                  <el-option :label="$t('publish.unicast_first')" value="unicast" />
-                  <el-option :label="$t('publish.multicast_first')" value="multicast" />
-                </el-select>
-                <div class="help-text">
-                  {{ $t('publish.address_type_help') }}
-                </div>
-              </el-form-item>
-
-              <el-form-item :label="$t('publish.multicast_protocol')">
-                <el-select v-model="form.multicast_type" style="width: 100%">
-                  <el-option :label="$t('publish.udpxy_proxy')" value="udpxy" />
-                  <el-option :label="$t('publish.igmp_direct')" value="igmp" />
-                  <el-option :label="$t('publish.rtp_direct')" value="rtp" />
-                </el-select>
-              </el-form-item>
-
-              <el-form-item :label="$t('publish.udpxy_address')" v-if="form.multicast_type === 'udpxy'" :rules="[{ required: true, message: $t('publish.udpxy_address_required'), trigger: 'blur' }]">
-                <el-input v-model.trim="form.udpxy_url" :placeholder="$t('publish.udpxy_placeholder')" />
+              <!-- Config Mode Toggle -->
+              <el-form-item :label="$t('publish.output_config_mode')">
+                <el-radio-group v-model="form.output_config_mode">
+                  <el-radio value="global">{{ $t('publish.output_global') }}</el-radio>
+                  <el-radio value="per_source">{{ $t('publish.output_per_source') }}</el-radio>
+                </el-radio-group>
                 <div class="help-text" style="width: 100%">
-                  {{ $t('publish.udpxy_help') }}
+                  {{ form.output_config_mode === 'global' ? $t('publish.output_global_help') : $t('publish.output_per_source_help') }}
                 </div>
               </el-form-item>
 
-              <el-form-item :label="$t('publish.fcc_enable')" v-if="form.multicast_type === 'udpxy'">
-                <el-switch v-model="form.fcc_enabled" />
-                <div class="help-text" style="width: 100%">
-                  {{ $t('publish.fcc_enable_help') }}
-                </div>
-              </el-form-item>
-
-              <el-form-item :label="$t('publish.fcc_type')" v-if="form.multicast_type === 'udpxy' && form.fcc_enabled">
-                <el-select v-model="form.fcc_type" style="width: 100%">
-                  <el-option :label="$t('publish.fcc_type_telecom')" value="telecom" />
-                  <el-option :label="$t('publish.fcc_type_huawei')" value="huawei" />
-                </el-select>
-              </el-form-item>
-
-              <el-form-item :label="$t('publish.custom_params')" v-if="form.multicast_type === 'udpxy'">
-                <div style="width: 100%">
-                  <div class="help-text" style="margin-bottom: 8px; margin-top: 0">
-                    {{ $t('publish.custom_params_help') }}
+              <!-- Global Output Settings -->
+              <template v-if="form.output_config_mode === 'global'">
+                <el-form-item :label="$t('publish.live_address')" prop="address_type">
+                  <el-select v-model="form.address_type" style="width: 100%">
+                    <el-option :label="$t('publish.unicast_first')" value="unicast" />
+                    <el-option :label="$t('publish.multicast_first')" value="multicast" />
+                  </el-select>
+                  <div class="help-text">
+                    {{ $t('publish.address_type_help') }}
                   </div>
-                  <div v-for="(param, idx) in form.custom_params_arr" :key="idx"
-                    style="display: flex; gap: 8px; margin-bottom: 6px; align-items: center;">
-                    <el-input v-model.trim="param.key" :placeholder="$t('publish.custom_param_key')" style="flex: 1" />
-                    <el-input v-model.trim="param.value" :placeholder="$t('publish.custom_param_value')" style="flex: 1" />
-                    <el-button :icon="Delete" size="small" circle type="danger" @click="form.custom_params_arr.splice(idx, 1)" />
-                  </div>
-                  <el-button type="primary" plain size="small" @click="form.custom_params_arr.push({ key: '', value: '' })">
-                    {{ $t('publish.add_custom_param') }}
-                  </el-button>
-                </div>
-              </el-form-item>
+                </el-form-item>
 
-              <el-form-item :label="$t('publish.catchup_template')" v-if="form.format === 'm3u'">
-                <div style="width: 100%;">
-                  <el-input v-model.trim="form.m3u_catchup_template" :placeholder="$t('publish.catchup_placeholder')" clearable>
-                    <template #append>
-                      <el-dropdown trigger="click" @command="(cmd) => form.m3u_catchup_template = cmd">
-                        <span class="el-dropdown-link" style="cursor: pointer; display: flex; align-items: center; color: var(--el-color-primary)">
-                          {{ $t('publish.select_template') }}<el-icon class="el-icon--right"><ArrowDown /></el-icon>
-                        </span>
-                        <template #dropdown>
-                          <el-dropdown-menu>
-                            <el-dropdown-item command="playseek=${(b)yyyyMMddHHmmss}-${(e)yyyyMMddHHmmss}">{{ $t('publish.template_iptv') }}</el-dropdown-item>
-                            <el-dropdown-item command="playseek={utc:YmdHMS}-{utcend:YmdHMS}">{{ $t('publish.template_tivimate') }}</el-dropdown-item>
-                          </el-dropdown-menu>
-                        </template>
-                      </el-dropdown>
-                    </template>
-                  </el-input>
-                </div>
-              </el-form-item>
+                <el-form-item :label="$t('publish.multicast_protocol')">
+                  <el-select v-model="form.multicast_type" style="width: 100%">
+                    <el-option :label="$t('publish.udpxy_proxy')" value="udpxy" />
+                    <el-option :label="$t('publish.igmp_direct')" value="igmp" />
+                    <el-option :label="$t('publish.rtp_direct')" value="rtp" />
+                  </el-select>
+                </el-form-item>
+
+                <el-form-item :label="$t('publish.udpxy_address')" v-if="form.multicast_type === 'udpxy'" :rules="[{ required: true, message: $t('publish.udpxy_address_required'), trigger: 'blur' }]">
+                  <el-input v-model.trim="form.udpxy_url" :placeholder="$t('publish.udpxy_placeholder')" />
+                  <div class="help-text" style="width: 100%">
+                    {{ $t('publish.udpxy_help') }}
+                  </div>
+                </el-form-item>
+
+                <el-form-item :label="$t('publish.fcc_enable')" v-if="form.multicast_type === 'udpxy'">
+                  <el-switch v-model="form.fcc_enabled" />
+                  <div class="help-text" style="width: 100%">
+                    {{ $t('publish.fcc_enable_help') }}
+                  </div>
+                </el-form-item>
+
+                <el-form-item :label="$t('publish.fcc_type')" v-if="form.multicast_type === 'udpxy' && form.fcc_enabled">
+                  <el-select v-model="form.fcc_type" style="width: 100%">
+                    <el-option :label="$t('publish.fcc_type_telecom')" value="telecom" />
+                    <el-option :label="$t('publish.fcc_type_huawei')" value="huawei" />
+                  </el-select>
+                </el-form-item>
+
+                <el-form-item :label="$t('publish.custom_params')" v-if="form.multicast_type === 'udpxy'">
+                  <div style="width: 100%">
+                    <div class="help-text" style="margin-bottom: 8px; margin-top: 0">
+                      {{ $t('publish.custom_params_help') }}
+                    </div>
+                    <div v-for="(param, idx) in form.custom_params_arr" :key="idx"
+                      style="display: flex; gap: 8px; margin-bottom: 6px; align-items: center;">
+                      <el-input v-model.trim="param.key" :placeholder="$t('publish.custom_param_key')" style="flex: 1" />
+                      <el-input v-model.trim="param.value" :placeholder="$t('publish.custom_param_value')" style="flex: 1" />
+                      <el-button :icon="Delete" size="small" circle type="danger" @click="form.custom_params_arr.splice(idx, 1)" />
+                    </div>
+                    <el-button type="primary" plain size="small" @click="form.custom_params_arr.push({ key: '', value: '' })">
+                      {{ $t('publish.add_custom_param') }}
+                    </el-button>
+                  </div>
+                </el-form-item>
+
+                <el-form-item :label="$t('publish.catchup_template')" v-if="form.format === 'm3u'">
+                  <div style="width: 100%;">
+                    <el-input v-model.trim="form.m3u_catchup_template" :placeholder="$t('publish.catchup_placeholder')" clearable>
+                      <template #append>
+                        <el-dropdown trigger="click" @command="(cmd) => form.m3u_catchup_template = cmd">
+                          <span class="el-dropdown-link" style="cursor: pointer; display: flex; align-items: center; color: var(--el-color-primary)">
+                            {{ $t('publish.select_template') }}<el-icon class="el-icon--right"><ArrowDown /></el-icon>
+                          </span>
+                          <template #dropdown>
+                            <el-dropdown-menu>
+                              <el-dropdown-item command="playseek=${(b)yyyyMMddHHmmss}-${(e)yyyyMMddHHmmss}">{{ $t('publish.template_iptv') }}</el-dropdown-item>
+                              <el-dropdown-item command="playseek={utc:YmdHMS}-{utcend:YmdHMS}">{{ $t('publish.template_tivimate') }}</el-dropdown-item>
+                            </el-dropdown-menu>
+                          </template>
+                        </el-dropdown>
+                      </template>
+                    </el-input>
+                  </div>
+                </el-form-item>
+              </template>
+
+              <!-- Per-Source Output Settings -->
+              <template v-if="form.output_config_mode === 'per_source'">
+                <template v-if="form.source_ids_arr.length === 0">
+                  <el-empty :description="$t('publish.select_source_first')" :image-size="80" />
+                </template>
+                <el-collapse v-else v-model="activeSourcePanels">
+                  <el-collapse-item v-for="srcId in form.source_ids_arr" :key="srcId" :name="srcId"
+                    :title="$t('publish.output_source_section', { name: getSourceName(srcId) })">
+                    <div style="padding: 0 8px">
+                      <el-form-item :label="$t('publish.live_address')">
+                        <el-select v-model="getSourceConfig(srcId).address_type" style="width: 100%">
+                          <el-option :label="$t('publish.unicast_first')" value="unicast" />
+                          <el-option :label="$t('publish.multicast_first')" value="multicast" />
+                        </el-select>
+                      </el-form-item>
+
+                      <el-form-item :label="$t('publish.multicast_protocol')">
+                        <el-select v-model="getSourceConfig(srcId).multicast_type" style="width: 100%">
+                          <el-option :label="$t('publish.udpxy_proxy')" value="udpxy" />
+                          <el-option :label="$t('publish.igmp_direct')" value="igmp" />
+                          <el-option :label="$t('publish.rtp_direct')" value="rtp" />
+                        </el-select>
+                      </el-form-item>
+
+                      <el-form-item :label="$t('publish.udpxy_address')" v-if="getSourceConfig(srcId).multicast_type === 'udpxy'" :rules="[{ required: true, message: $t('publish.udpxy_address_required'), trigger: 'blur' }]">
+                        <el-input v-model.trim="getSourceConfig(srcId).udpxy_url" :placeholder="$t('publish.udpxy_placeholder')" />
+                        <div class="help-text" style="width: 100%">
+                          {{ $t('publish.udpxy_help') }}
+                        </div>
+                      </el-form-item>
+
+                      <el-form-item :label="$t('publish.fcc_enable')" v-if="getSourceConfig(srcId).multicast_type === 'udpxy'">
+                        <el-switch v-model="getSourceConfig(srcId).fcc_enabled" />
+                      </el-form-item>
+
+                      <el-form-item :label="$t('publish.fcc_type')" v-if="getSourceConfig(srcId).multicast_type === 'udpxy' && getSourceConfig(srcId).fcc_enabled">
+                        <el-select v-model="getSourceConfig(srcId).fcc_type" style="width: 100%">
+                          <el-option :label="$t('publish.fcc_type_telecom')" value="telecom" />
+                          <el-option :label="$t('publish.fcc_type_huawei')" value="huawei" />
+                        </el-select>
+                      </el-form-item>
+
+                      <el-form-item :label="$t('publish.custom_params')" v-if="getSourceConfig(srcId).multicast_type === 'udpxy'">
+                        <div style="width: 100%">
+                          <div v-for="(param, idx) in getSourceConfig(srcId).custom_params_arr" :key="idx"
+                            style="display: flex; gap: 8px; margin-bottom: 6px; align-items: center;">
+                            <el-input v-model.trim="param.key" :placeholder="$t('publish.custom_param_key')" style="flex: 1" />
+                            <el-input v-model.trim="param.value" :placeholder="$t('publish.custom_param_value')" style="flex: 1" />
+                            <el-button :icon="Delete" size="small" circle type="danger" @click="getSourceConfig(srcId).custom_params_arr.splice(idx, 1)" />
+                          </div>
+                          <el-button type="primary" plain size="small" @click="getSourceConfig(srcId).custom_params_arr.push({ key: '', value: '' })">
+                            {{ $t('publish.add_custom_param') }}
+                          </el-button>
+                        </div>
+                      </el-form-item>
+
+                      <el-form-item :label="$t('publish.catchup_template')" v-if="form.format === 'm3u'">
+                        <div style="width: 100%;">
+                          <el-input v-model.trim="getSourceConfig(srcId).m3u_catchup_template" :placeholder="$t('publish.catchup_placeholder')" clearable>
+                            <template #append>
+                              <el-dropdown trigger="click" @command="(cmd) => getSourceConfig(srcId).m3u_catchup_template = cmd">
+                                <span class="el-dropdown-link" style="cursor: pointer; display: flex; align-items: center; color: var(--el-color-primary)">
+                                  {{ $t('publish.select_template') }}<el-icon class="el-icon--right"><ArrowDown /></el-icon>
+                                </span>
+                                <template #dropdown>
+                                  <el-dropdown-menu>
+                                    <el-dropdown-item command="playseek=${(b)yyyyMMddHHmmss}-${(e)yyyyMMddHHmmss}">{{ $t('publish.template_iptv') }}</el-dropdown-item>
+                                    <el-dropdown-item command="playseek={utc:YmdHMS}-{utcend:YmdHMS}">{{ $t('publish.template_tivimate') }}</el-dropdown-item>
+                                  </el-dropdown-menu>
+                                </template>
+                              </el-dropdown>
+                            </template>
+                          </el-input>
+                        </div>
+                      </el-form-item>
+                    </div>
+                  </el-collapse-item>
+                </el-collapse>
+              </template>
             </template>
             <template v-if="form.type === 'epg'">
               <el-form-item :label="$t('publish.epg_days')">
@@ -352,9 +446,12 @@ const defaultForm = () => ({
   m3u_catchup_template: '',
   epg_days: 7, gzip_enabled: false, tvg_id_mode: 'channel_id', filter_invalid_source_ids_arr: [],
   ua_check_enabled: false, ua_allowed_values_text: '',
-  custom_params_arr: []
+  custom_params_arr: [],
+  output_config_mode: 'global',
+  source_output_configs: {}
 })
 const form = reactive(defaultForm())
+const activeSourcePanels = ref([])
 const formRules = computed(() => ({
   name: [{ required: true, message: t('publish.name_required'), trigger: 'blur' }],
   path: [{ required: true, message: t('publish.path_required'), trigger: 'blur' }],
@@ -410,6 +507,30 @@ function onSourceChange(newIds) {
   const added = newIds.filter(id => !form.filter_invalid_source_ids_arr.includes(id))
   form.filter_invalid_source_ids_arr = form.filter_invalid_source_ids_arr.filter(id => newIds.includes(id))
   form.filter_invalid_source_ids_arr.push(...added)
+
+  // Sync per-source output configs: add defaults for new sources, remove stale ones
+  for (const id of newIds) {
+    if (!form.source_output_configs[id]) {
+      form.source_output_configs[id] = makeDefaultSourceConfig()
+    }
+  }
+  for (const id of Object.keys(form.source_output_configs)) {
+    if (!newIds.includes(Number(id))) {
+      delete form.source_output_configs[id]
+    }
+  }
+}
+function makeDefaultSourceConfig() {
+  return {
+    address_type: 'multicast', multicast_type: 'udpxy', udpxy_url: '', fcc_enabled: false, fcc_type: 'telecom',
+    custom_params_arr: [], m3u_catchup_template: ''
+  }
+}
+function getSourceConfig(srcId) {
+  if (!form.source_output_configs[srcId]) {
+    form.source_output_configs[srcId] = makeDefaultSourceConfig()
+  }
+  return form.source_output_configs[srcId]
 }
 function getSourceName(srcId) {
   const src = availableSources.value.find(s => s.id === srcId)
@@ -437,6 +558,29 @@ function parseIds(str) {
 }
 function showEdit(row) {
   isEdit.value = true; editId.value = row.id
+  // Parse per-source configs
+  let parsedSourceConfigs = {}
+  let configMode = 'global'
+  if (row.source_output_configs) {
+    try {
+      const raw = JSON.parse(row.source_output_configs)
+      // Convert string-keyed object back to number-keyed with custom_params_arr
+      for (const [k, v] of Object.entries(raw)) {
+        parsedSourceConfigs[Number(k)] = {
+          address_type: v.address_type || 'multicast',
+          multicast_type: v.multicast_type || 'udpxy',
+          udpxy_url: v.udpxy_url || '',
+          fcc_enabled: v.fcc_enabled || false,
+          fcc_type: v.fcc_type || 'telecom',
+          custom_params_arr: v.custom_params ? (() => { try { return JSON.parse(v.custom_params) } catch { return [] } })() : [],
+          m3u_catchup_template: v.m3u_catchup_template || ''
+        }
+      }
+      if (Object.keys(parsedSourceConfigs).length > 0) {
+        configMode = 'per_source'
+      }
+    } catch {}
+  }
   Object.assign(form, {
     name: row.name, description: row.description || '', path: row.path, type: row.type, format: row.format,
     source_ids_arr: parseIds(row.source_ids),
@@ -452,7 +596,16 @@ function showEdit(row) {
     ua_check_enabled: row.ua_check_enabled || false,
     ua_allowed_values_text: (row.ua_allowed_values || '').split(',').filter(v => v.trim()).join('\n'),
     custom_params_arr: row.custom_params ? (() => { try { return JSON.parse(row.custom_params) } catch { return [] } })() : [],
+    output_config_mode: configMode,
+    source_output_configs: parsedSourceConfigs,
   })
+  // Ensure all source IDs have default configs
+  for (const id of form.source_ids_arr) {
+    if (!form.source_output_configs[id]) {
+      form.source_output_configs[id] = makeDefaultSourceConfig()
+    }
+  }
+  activeSourcePanels.value = []
   activeTab.value = 'basic'
   fetchSources(form.type)
   dialogVisible.value = true
@@ -468,7 +621,7 @@ async function handlePreview() {
   previewData.value = []
 
   try {
-    const { data } = await api.post('/publish/preview', {
+    const previewBody = {
       type: form.type,
       source_ids: form.source_ids_arr.join(','),
       rule_ids: form.rule_ids_arr.join(','),
@@ -479,7 +632,26 @@ async function handlePreview() {
       fcc_type: form.fcc_type,
       custom_params: JSON.stringify(form.custom_params_arr.filter(p => p.key.trim())),
       filter_invalid_source_ids: form.filter_invalid_source_ids_arr.join(',')
-    })
+    }
+    // Add per-source configs for preview if in per_source mode
+    if (form.output_config_mode === 'per_source' && form.type === 'live') {
+      const serialized = {}
+      for (const [id, cfg] of Object.entries(form.source_output_configs)) {
+        if (form.source_ids_arr.includes(Number(id))) {
+          serialized[id] = {
+            address_type: cfg.address_type,
+            multicast_type: cfg.multicast_type,
+            udpxy_url: cfg.udpxy_url,
+            fcc_enabled: cfg.fcc_enabled,
+            fcc_type: cfg.fcc_type,
+            custom_params: JSON.stringify((cfg.custom_params_arr || []).filter(p => p.key.trim())),
+            m3u_catchup_template: cfg.m3u_catchup_template || ''
+          }
+        }
+      }
+      previewBody.source_output_configs = JSON.stringify(serialized)
+    }
+    const { data } = await api.post('/publish/preview', previewBody)
     previewData.value = data || []
   } catch (e) {
     ElMessage.error(t('publish.preview_failed'))
@@ -522,6 +694,36 @@ async function handleSubmit() {
       epg_days: form.epg_days || 0, gzip_enabled: form.gzip_enabled,
       ua_check_enabled: form.ua_check_enabled,
       ua_allowed_values: form.ua_allowed_values_text.split('\n').map(v => v.trim()).filter(v => v).join(','),
+    }
+    // Per-source output configs
+    if (form.output_config_mode === 'per_source' && form.type === 'live') {
+      // Validate per-source configs: udpxy_url required when multicast_type is udpxy
+      for (const srcId of form.source_ids_arr) {
+        const cfg = form.source_output_configs[srcId]
+        if (cfg && cfg.multicast_type === 'udpxy' && !cfg.udpxy_url) {
+          ElMessage.warning(t('publish.udpxy_address_required') + ' (' + getSourceName(srcId) + ')')
+          activeTab.value = 'output'
+          return
+        }
+      }
+      // Serialize: convert custom_params_arr to custom_params string
+      const serialized = {}
+      for (const [id, cfg] of Object.entries(form.source_output_configs)) {
+        if (form.source_ids_arr.includes(Number(id))) {
+          serialized[id] = {
+            address_type: cfg.address_type,
+            multicast_type: cfg.multicast_type,
+            udpxy_url: cfg.udpxy_url,
+            fcc_enabled: cfg.fcc_enabled,
+            fcc_type: cfg.fcc_type,
+            custom_params: JSON.stringify((cfg.custom_params_arr || []).filter(p => p.key.trim())),
+            m3u_catchup_template: cfg.m3u_catchup_template || ''
+          }
+        }
+      }
+      body.source_output_configs = JSON.stringify(serialized)
+    } else {
+      body.source_output_configs = ''
     }
     if (isEdit.value) {
       body.status = form.status

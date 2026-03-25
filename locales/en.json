@@ -364,6 +364,12 @@
       "tab_data": "Sources & Rules",
       "tab_output": "Output Settings",
       "tab_access": "Access Control",
+      "output_config_mode": "Config Mode",
+      "output_global": "Global Config",
+      "output_per_source": "Per-Source Config",
+      "output_global_help": "Output settings below apply to all selected live sources",
+      "output_per_source_help": "Configure output settings individually for each live source",
+      "output_source_section": "Output Settings - {name}",
       "search_placeholder": "Search publish name",
       "total_count": "{count} interfaces",
       "filtered": "(filtered)"
