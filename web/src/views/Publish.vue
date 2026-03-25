@@ -442,7 +442,7 @@ const previewLoading = ref(false)
 const previewData = ref([])
 const defaultForm = () => ({
   name: '', description: '', path: '', type: 'live', format: 'm3u', source_ids_arr: [], rule_ids_arr: [], status: true,
-  address_type: 'multicast', multicast_type: 'udpxy', udpxy_url: '', fcc_enabled: false, fcc_type: 'telecom',
+  address_type: 'multicast', multicast_type: 'igmp', udpxy_url: '', fcc_enabled: false, fcc_type: 'telecom',
   m3u_catchup_template: '',
   epg_days: 7, gzip_enabled: false, tvg_id_mode: 'channel_id', filter_invalid_source_ids_arr: [],
   ua_check_enabled: false, ua_allowed_values_text: '',
@@ -522,7 +522,7 @@ function onSourceChange(newIds) {
 }
 function makeDefaultSourceConfig() {
   return {
-    address_type: 'multicast', multicast_type: 'udpxy', udpxy_url: '', fcc_enabled: false, fcc_type: 'telecom',
+    address_type: 'multicast', multicast_type: 'igmp', udpxy_url: '', fcc_enabled: false, fcc_type: 'telecom',
     custom_params_arr: [], m3u_catchup_template: ''
   }
 }
@@ -568,7 +568,7 @@ function showEdit(row) {
       for (const [k, v] of Object.entries(raw)) {
         parsedSourceConfigs[Number(k)] = {
           address_type: v.address_type || 'multicast',
-          multicast_type: v.multicast_type || 'udpxy',
+          multicast_type: v.multicast_type || 'igmp',
           udpxy_url: v.udpxy_url || '',
           fcc_enabled: v.fcc_enabled || false,
           fcc_type: v.fcc_type || 'telecom',
@@ -589,7 +589,7 @@ function showEdit(row) {
     status: row.status,
     tvg_id_mode: row.tvg_id_mode || 'channel_id',
     address_type: row.address_type || 'multicast',
-    multicast_type: row.multicast_type || '', udpxy_url: row.udpxy_url || '',
+    multicast_type: row.multicast_type || 'igmp', udpxy_url: row.udpxy_url || '',
     fcc_enabled: row.fcc_enabled || false, fcc_type: row.fcc_type || 'telecom',
     m3u_catchup_template: row.m3u_catchup_template || '',
     epg_days: row.epg_days || null, gzip_enabled: row.gzip_enabled || false,
