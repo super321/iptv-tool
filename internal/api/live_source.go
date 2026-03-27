@@ -18,6 +18,16 @@ import (
 	"iptv-tool-v2/pkg/utils"
 )
 
+// translateError checks if the error message is an i18n key (starts with "error.")
+// and translates it. Otherwise, returns the error message as-is.
+func translateError(lang string, err error) string {
+	msg := err.Error()
+	if strings.HasPrefix(msg, "error.") {
+		return i18n.T(lang, msg)
+	}
+	return msg
+}
+
 // LiveSourceController handles CRUD operations for live sources
 type LiveSourceController struct {
 	liveService *service.LiveSourceService
@@ -157,7 +167,7 @@ func (lc *LiveSourceController) Create(c *gin.Context) {
 		}
 		var err error
 		if _, tvgURL, err = lc.liveService.ValidateNetworkURL(req.URL, string(req.Headers)); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.JSON(http.StatusBadRequest, gin.H{"error": translateError(i18n.Lang(c), err)})
 			return
 		}
 	case model.LiveSourceTypeNetworkManual:
@@ -167,7 +177,7 @@ func (lc *LiveSourceController) Create(c *gin.Context) {
 		}
 		var err error
 		if _, tvgURL, err = lc.liveService.ValidateManualContent(req.Content); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.JSON(http.StatusBadRequest, gin.H{"error": translateError(i18n.Lang(c), err)})
 			return
 		}
 	case model.LiveSourceTypeIPTV:
