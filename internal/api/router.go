@@ -140,6 +140,12 @@ func SetupRouter(scheduler *task.Scheduler, logoDir string, dataDir string, fron
 
 		// Log Center
 		RegisterLogRoutes(authorized, runtimeLogBuf, accessLogBuf)
+
+		// Config Import/Export
+		configCtrl := NewConfigTransferController(scheduler, logoDir)
+		authorized.POST("/config/export", configCtrl.Export)
+		authorized.POST("/config/import/parse", configCtrl.ImportParse)
+		authorized.POST("/config/import/execute", configCtrl.ImportExecute)
 	}
 
 	// --- Embedded frontend (SPA with hash routing) ---

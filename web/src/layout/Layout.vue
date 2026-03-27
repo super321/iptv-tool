@@ -67,6 +67,10 @@
             <el-icon><Key /></el-icon>
             <template #title>{{ $t('nav.password') }}</template>
           </el-menu-item>
+          <el-menu-item index="/settings/data">
+            <el-icon><Upload /></el-icon>
+            <template #title>{{ $t('config_transfer.nav_label') }}</template>
+          </el-menu-item>
           <el-menu-item index="/settings/about">
             <el-icon><InfoFilled /></el-icon>
             <template #title>{{ $t('nav.about') }}</template>
@@ -149,7 +153,7 @@ import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../stores/auth'
 import { useThemeStore } from '../stores/theme'
 import { loadLocale } from '../i18n'
-import { UserFilled, User, SwitchButton, VideoCamera, Monitor, Calendar, Picture, Guide, Share, Setting, Fold, Expand, ArrowDown, Lock, InfoFilled, Stopwatch, Key, Document, Connection, Sunny, Moon } from '@element-plus/icons-vue'
+import { UserFilled, User, SwitchButton, VideoCamera, Monitor, Calendar, Picture, Guide, Share, Setting, Fold, Expand, ArrowDown, Lock, InfoFilled, Stopwatch, Key, Document, Connection, Sunny, Moon, Upload } from '@element-plus/icons-vue'
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()

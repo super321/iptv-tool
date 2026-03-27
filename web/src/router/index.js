@@ -69,6 +69,11 @@ const routes = [
         component: () => import('../views/SettingsPassword.vue'),
       },
       {
+        path: 'settings/data',
+        name: 'ConfigTransfer',
+        component: () => import('../views/ConfigTransfer.vue'),
+      },
+      {
         path: 'settings/about',
         name: 'SettingsAbout',
         component: () => import('../views/SettingsAbout.vue'),
