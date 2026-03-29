@@ -826,7 +826,7 @@ async function doCrack() {
   crackResult.value = ''
   crackError.value = ''
   try {
-    const { data } = await api.post('/crack-key', { authenticator: crackAuthenticator.value.trim() }, { timeout: 360000 })
+    const { data } = await api.post('/crack-key', { authenticator: crackAuthenticator.value.trim() }, { timeout: 960000 })
     crackResult.value = data.key
   } catch (e) {
     crackError.value = e.response?.data?.error || t('live_sources.crack_failed')

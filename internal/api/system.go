@@ -258,7 +258,7 @@ func (sc *SystemController) CrackKey(c *gin.Context) {
 	// Trim whitespace from string inputs
 	req.Authenticator = strings.TrimSpace(req.Authenticator)
 
-	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 15*time.Minute)
 	defer cancel()
 
 	key, err := utils.CrackAuthenticator(ctx, req.Authenticator)
