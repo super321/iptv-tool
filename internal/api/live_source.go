@@ -138,17 +138,27 @@ func (lc *LiveSourceController) Create(c *gin.Context) {
 		return
 	}
 
-	// Validate refresh interval for non-manual sources
+	// Validate refresh schedule for non-manual sources
 	if req.Type != model.LiveSourceTypeNetworkManual && req.CronTime != "" {
-		if !task.ValidateInterval(req.CronTime) {
+		cronCfg, err := task.ParseScheduleConfig(req.CronTime)
+		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": i18n.T(i18n.Lang(c), "error.invalid_refresh_interval")})
 			return
 		}
+		if err := task.ValidateScheduleConfig(cronCfg, i18n.Lang(c)); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": i18n.T(i18n.Lang(c), err.Error())})
+			return
+		}
 	}
-	// Validate detect interval
+	// Validate detect schedule
 	if req.CronDetect != "" {
-		if !task.ValidateInterval(req.CronDetect) {
+		detectCfg, err := task.ParseScheduleConfig(req.CronDetect)
+		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": i18n.T(i18n.Lang(c), "error.invalid_detect_interval")})
+			return
+		}
+		if err := task.ValidateScheduleConfig(detectCfg, i18n.Lang(c)); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": i18n.T(i18n.Lang(c), err.Error())})
 			return
 		}
 	}
@@ -224,7 +234,9 @@ func (lc *LiveSourceController) Create(c *gin.Context) {
 			createdEPGSource = &epgSource
 			// Schedule EPG source if interval is set
 			if epgSource.CronTime != "" {
-				lc.scheduler.AddEPGSourceTask(epgSource.ID, epgSource.CronTime)
+				if epgCfg, err := task.ParseScheduleConfig(epgSource.CronTime); err == nil {
+					lc.scheduler.AddEPGSourceTask(epgSource.ID, epgCfg)
+				}
 			}
 		}
 	}
@@ -248,7 +260,9 @@ func (lc *LiveSourceController) Create(c *gin.Context) {
 			if err := model.DB.Create(&epgSource).Error; err == nil {
 				slog.Info("Auto-created EPG source from x-tvg-url", "epg_id", epgSource.ID, "url", tvgURL, "live_source", source.Name)
 				if epgSource.CronTime != "" {
-					lc.scheduler.AddEPGSourceTask(epgSource.ID, epgSource.CronTime)
+					if epgCfg, err := task.ParseScheduleConfig(epgSource.CronTime); err == nil {
+						lc.scheduler.AddEPGSourceTask(epgSource.ID, epgCfg)
+					}
 				}
 				lc.scheduler.TriggerEPGSourceNow(epgSource.ID)
 			}
@@ -260,12 +274,16 @@ func (lc *LiveSourceController) Create(c *gin.Context) {
 
 	// Schedule refresh task if applicable
 	if source.CronTime != "" && source.Type != model.LiveSourceTypeNetworkManual {
-		lc.scheduler.AddLiveSourceTask(source.ID, source.CronTime)
+		if cfg, err := task.ParseScheduleConfig(source.CronTime); err == nil {
+			lc.scheduler.AddLiveSourceTask(source.ID, cfg)
+		}
 	}
 
 	// Schedule detect task if applicable
 	if source.CronDetect != "" {
-		lc.scheduler.AddDetectTask(source.ID, source.CronDetect, source.DetectStrategy)
+		if cfg, err := task.ParseScheduleConfig(source.CronDetect); err == nil {
+			lc.scheduler.AddDetectTask(source.ID, cfg, source.DetectStrategy)
+		}
 	}
 
 	// Trigger initial fetch for Live Source
@@ -370,19 +388,33 @@ func (lc *LiveSourceController) Update(c *gin.Context) {
 	}
 	if req.CronTime != nil {
 		if source.Type == model.LiveSourceTypeNetworkManual {
-			updates["cron_time"] = "" // Force no refresh interval for manual sources
+			updates["cron_time"] = "" // Force no refresh schedule for manual sources
 		} else {
-			if *req.CronTime != "" && !task.ValidateInterval(*req.CronTime) {
-				c.JSON(http.StatusBadRequest, gin.H{"error": i18n.T(i18n.Lang(c), "error.invalid_refresh_interval")})
-				return
+			if *req.CronTime != "" {
+				cronCfg, err := task.ParseScheduleConfig(*req.CronTime)
+				if err != nil {
+					c.JSON(http.StatusBadRequest, gin.H{"error": i18n.T(i18n.Lang(c), "error.invalid_refresh_interval")})
+					return
+				}
+				if err := task.ValidateScheduleConfig(cronCfg, i18n.Lang(c)); err != nil {
+					c.JSON(http.StatusBadRequest, gin.H{"error": i18n.T(i18n.Lang(c), err.Error())})
+					return
+				}
 			}
 			updates["cron_time"] = *req.CronTime
 		}
 	}
 	if req.CronDetect != nil {
-		if *req.CronDetect != "" && !task.ValidateInterval(*req.CronDetect) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": i18n.T(i18n.Lang(c), "error.invalid_detect_interval")})
-			return
+		if *req.CronDetect != "" {
+			detectCfg, err := task.ParseScheduleConfig(*req.CronDetect)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": i18n.T(i18n.Lang(c), "error.invalid_detect_interval")})
+				return
+			}
+			if err := task.ValidateScheduleConfig(detectCfg, i18n.Lang(c)); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": i18n.T(i18n.Lang(c), err.Error())})
+				return
+			}
 		}
 		updates["cron_detect"] = *req.CronDetect
 	}
@@ -459,7 +491,9 @@ func (lc *LiveSourceController) Update(c *gin.Context) {
 					if err := model.DB.Create(&epgSource).Error; err == nil {
 						slog.Info("Auto-created EPG source from x-tvg-url (update)", "epg_id", epgSource.ID, "url", tvgURL, "live_source", source.Name)
 						if epgSource.CronTime != "" {
-							lc.scheduler.AddEPGSourceTask(epgSource.ID, epgSource.CronTime)
+							if epgCfg, err := task.ParseScheduleConfig(epgSource.CronTime); err == nil {
+								lc.scheduler.AddEPGSourceTask(epgSource.ID, epgCfg)
+							}
 						}
 						lc.scheduler.TriggerEPGSourceNow(epgSource.ID)
 					}
@@ -473,14 +507,18 @@ func (lc *LiveSourceController) Update(c *gin.Context) {
 
 	// Update scheduler for refresh tasks
 	if source.Type != model.LiveSourceTypeNetworkManual && source.CronTime != "" && source.Status {
-		lc.scheduler.AddLiveSourceTask(source.ID, source.CronTime)
+		if cfg, err := task.ParseScheduleConfig(source.CronTime); err == nil {
+			lc.scheduler.AddLiveSourceTask(source.ID, cfg)
+		}
 	} else {
 		lc.scheduler.RemoveLiveSourceTask(source.ID)
 	}
 
 	// Update scheduler for detect tasks
 	if source.CronDetect != "" && source.Status {
-		lc.scheduler.AddDetectTask(source.ID, source.CronDetect, source.DetectStrategy)
+		if cfg, err := task.ParseScheduleConfig(source.CronDetect); err == nil {
+			lc.scheduler.AddDetectTask(source.ID, cfg, source.DetectStrategy)
+		}
 	} else {
 		lc.scheduler.RemoveDetectTask(source.ID)
 	}

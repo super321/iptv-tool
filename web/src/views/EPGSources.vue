@@ -26,7 +26,7 @@
         </template>
       </el-table-column>
       <el-table-column prop="cron_time" :label="$t('epg_sources.scheduled_refresh')" width="140">
-        <template #default="{ row }">{{ row.cron_time || '-' }}</template>
+        <template #default="{ row }">{{ formatSchedule(row.cron_time) }}</template>
       </el-table-column>
       <el-table-column :label="$t('epg_sources.channel_count')" width="120" align="center">
         <template #default="{ row }">{{ row.channel_count || 0 }}</template>
@@ -133,9 +133,7 @@
         </template>
 
         <el-form-item :label="$t('epg_sources.scheduled_refresh')">
-          <el-select v-model="form.cron_time" clearable :placeholder="$t('epg_sources.no_scheduled_refresh')" style="width: 100%">
-            <el-option v-for="opt in intervalOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
-          </el-select>
+          <ScheduleConfig v-model="form.cron_time" i18n-prefix="epg_sources" :enable-label="$t('epg_sources.scheduled_refresh')" />
         </el-form-item>
         <el-form-item :label="$t('common.status')" v-if="isEdit">
           <el-switch v-model="form.status" />
@@ -233,6 +231,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Notebook, Refresh, Edit, Delete, SuccessFilled, CircleCloseFilled, Loading, Plus, Search } from '@element-plus/icons-vue'
 import api from '../api'
 import { usePolling } from '../composables/usePolling'
+import ScheduleConfig from '../components/ScheduleConfig.vue'
 
 const { t, locale } = useI18n()
 
@@ -255,7 +254,6 @@ const isEdit = ref(false)
 const editId = ref(null)
 const submitting = ref(false)
 const formRef = ref()
-const intervalOptions = ref([])
 const epgStrategies = ref([])
 const unlinkedSources = ref([])
 const unlinkedLoading = ref(false)
@@ -298,6 +296,23 @@ function handleSearchChange() {
   drillCurrentPage.value = 1
 }
 
+// Helper: format schedule config JSON string into human-readable text
+function formatSchedule(jsonStr) {
+  if (!jsonStr) return '-'
+  try {
+    const cfg = JSON.parse(jsonStr)
+    if (cfg.mode === 'interval' && cfg.hours) {
+      return t('epg_sources.schedule_mode_interval') + ' ' + cfg.hours + t('epg_sources.schedule_hours_unit')
+    }
+    if (cfg.mode === 'daily' && cfg.times && cfg.times.length > 0) {
+      return t('epg_sources.schedule_mode_daily') + ' ' + cfg.times.join(', ')
+    }
+    return '-'
+  } catch {
+    return jsonStr || '-'
+  }
+}
+
 const defaultForm = () => ({
   name: '', description: '', type: 'network_xmltv', url: '', cron_time: '',
   network_headers: [],
@@ -323,11 +338,9 @@ const linkedSourceName = computed(() => {
 onMounted(async () => {
   await loadSources()
   try {
-    const [intervalRes, epgRes] = await Promise.all([
-      api.get('/settings/interval-options'),
+    const [epgRes] = await Promise.all([
       api.get('/settings/epg-strategies'),
     ])
-    intervalOptions.value = intervalRes.data
     epgStrategies.value = epgRes.data
   } catch {}
 })

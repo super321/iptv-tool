@@ -324,23 +324,8 @@ func (pc *PublishController) DeleteInterface(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-
 	publish.InvalidateAll()
 	c.JSON(http.StatusOK, gin.H{"message": i18n.T(i18n.Lang(c), "message.publish_deleted")})
-}
-
-// GetIntervalOptions returns the available interval options for frontend dropdowns
-// GET /api/settings/interval-options
-func GetIntervalOptions(c *gin.Context) {
-	lang := i18n.Lang(c)
-	options := make([]map[string]string, len(task.IntervalOptions))
-	for idx, opt := range task.IntervalOptions {
-		options[idx] = map[string]string{
-			"value": opt["value"],
-			"label": i18n.T(lang, opt["label"]),
-		}
-	}
-	c.JSON(http.StatusOK, options)
 }
 
 // PreviewRequest is the request body for previewing the publish output

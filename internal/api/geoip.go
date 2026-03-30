@@ -23,10 +23,10 @@ func NewGeoIPController(geoipSvc *service.GeoIPService, scheduler *task.Schedule
 
 // GeoIPStatusResponse is the response for GET geoip status
 type GeoIPStatusResponse struct {
-	Exists             bool   `json:"exists"`
-	Version            string `json:"version"`
-	AutoUpdate         bool   `json:"auto_update"`
-	UpdateIntervalDays int    `json:"update_interval_days"`
+	Exists         bool                 `json:"exists"`
+	Version        string               `json:"version"`
+	AutoUpdate     bool                 `json:"auto_update"`
+	ScheduleConfig *task.ScheduleConfig `json:"schedule_config,omitempty"`
 }
 
 // GetStatus returns the current GeoIP database status
@@ -37,13 +37,13 @@ func (gc *GeoIPController) GetStatus(c *gin.Context) {
 	if exists {
 		version = gc.geoipSvc.GetVersion()
 	}
-	autoUpdate, intervalDays := gc.geoipSvc.GetAutoUpdateConfig()
+	autoUpdate, scheduleCfg := gc.geoipSvc.GetAutoUpdateConfig()
 
 	c.JSON(http.StatusOK, GeoIPStatusResponse{
-		Exists:             exists,
-		Version:            version,
-		AutoUpdate:         autoUpdate,
-		UpdateIntervalDays: intervalDays,
+		Exists:         exists,
+		Version:        version,
+		AutoUpdate:     autoUpdate,
+		ScheduleConfig: &scheduleCfg,
 	})
 }
 
@@ -98,8 +98,8 @@ func (gc *GeoIPController) GetDownloadProgress(c *gin.Context) {
 
 // UpdateAutoUpdateRequest is the request for updating geoip auto-update settings
 type UpdateAutoUpdateRequest struct {
-	Enabled      bool `json:"enabled"`
-	IntervalDays int  `json:"interval_days" binding:"min=1,max=7"`
+	Enabled        bool                 `json:"enabled"`
+	ScheduleConfig *task.ScheduleConfig `json:"schedule_config"`
 }
 
 // UpdateAutoUpdate saves the auto-update settings and manages the scheduler task
@@ -111,18 +111,36 @@ func (gc *GeoIPController) UpdateAutoUpdate(c *gin.Context) {
 		return
 	}
 
-	gc.geoipSvc.SaveAutoUpdateConfig(req.Enabled, req.IntervalDays)
+	// Validate schedule config if enabled
+	if req.Enabled && req.ScheduleConfig != nil {
+		if err := task.ValidateScheduleConfig(req.ScheduleConfig, i18n.Lang(c)); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": i18n.T(i18n.Lang(c), err.Error())})
+			return
+		}
+	}
+
+	// Save auto-update with schedule config (only update config if provided)
+	if req.ScheduleConfig != nil {
+		gc.geoipSvc.SaveAutoUpdateConfig(req.Enabled, *req.ScheduleConfig)
+	} else {
+		// Only update enabled flag, keep existing schedule config
+		_, existingCfg := gc.geoipSvc.GetAutoUpdateConfig()
+		gc.geoipSvc.SaveAutoUpdateConfig(req.Enabled, existingCfg)
+	}
+
+	// Get the actual saved config to return and use for scheduler
+	_, savedCfg := gc.geoipSvc.GetAutoUpdateConfig()
 
 	// Manage scheduler task
 	if req.Enabled {
-		gc.scheduler.AddGeoIPUpdateTask(req.IntervalDays)
+		gc.scheduler.AddGeoIPUpdateTask(&savedCfg)
 	} else {
 		gc.scheduler.RemoveGeoIPUpdateTask()
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message":       i18n.T(i18n.Lang(c), "message.geoip_auto_update_saved"),
-		"enabled":       req.Enabled,
-		"interval_days": req.IntervalDays,
+		"message":         i18n.T(i18n.Lang(c), "message.geoip_auto_update_saved"),
+		"enabled":         req.Enabled,
+		"schedule_config": savedCfg,
 	})
 }

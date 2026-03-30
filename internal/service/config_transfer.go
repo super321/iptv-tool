@@ -93,9 +93,9 @@ type TaskScheduler interface {
 	RemoveLiveSourceTask(sourceID uint)
 	RemoveDetectTask(sourceID uint)
 	RemoveEPGSourceTask(sourceID uint)
-	AddLiveSourceTask(sourceID uint, cronTime string) error
-	AddDetectTask(sourceID uint, cronDetect string, detectStrategy string) error
-	AddEPGSourceTask(sourceID uint, cronTime string) error
+	AddLiveSourceTask(sourceID uint, cfg *model.ScheduleConfig) error
+	AddDetectTask(sourceID uint, cfg *model.ScheduleConfig, detectStrategy string) error
+	AddEPGSourceTask(sourceID uint, cfg *model.ScheduleConfig) error
 }
 
 // --- Service ---
@@ -487,8 +487,8 @@ func (s *ConfigTransferService) importSources(data *ImportParsedData, liveIDMap,
 				"url":             src.URL,
 				"content":         src.Content,
 				"headers":         src.Headers,
-				"cron_time":       src.CronTime,
-				"cron_detect":     src.CronDetect,
+				"cron_time":       migrateScheduleField(src.CronTime),
+				"cron_detect":     migrateScheduleField(src.CronDetect),
 				"detect_strategy": src.DetectStrategy,
 				"status":          src.Status,
 				"iptv_config":     src.IPTVConfig,
@@ -497,8 +497,9 @@ func (s *ConfigTransferService) importSources(data *ImportParsedData, liveIDMap,
 			liveIDMap[oldID] = existing.ID
 			liveNameMap[src.Name] = existing.ID
 
-			// Re-register scheduler tasks
-			s.registerLiveSourceTasks(existing.ID, src)
+			// Re-register scheduler tasks with migrated data
+			model.DB.First(&existing, existing.ID) // reload to get migrated values
+			s.registerLiveSourceTasks(existing.ID, existing)
 			mr.Success++
 		} else {
 			// New source
@@ -508,6 +509,8 @@ func (s *ConfigTransferService) importSources(data *ImportParsedData, liveIDMap,
 			newSrc.IsDetecting = false
 			newSrc.LastFetchedAt = nil
 			newSrc.LastError = ""
+			newSrc.CronTime = migrateScheduleField(newSrc.CronTime)
+			newSrc.CronDetect = migrateScheduleField(newSrc.CronDetect)
 			if err := model.DB.Create(&newSrc).Error; err != nil {
 				mr.Failed++
 				mr.Details = append(mr.Details, fmt.Sprintf("LiveSource \"%s\": create failed: %s", src.Name, err.Error()))
@@ -554,16 +557,19 @@ func (s *ConfigTransferService) importSources(data *ImportParsedData, liveIDMap,
 				"url":            src.URL,
 				"headers":        src.Headers,
 				"live_source_id": src.LiveSourceID,
-				"cron_time":      src.CronTime,
+				"cron_time":      migrateScheduleField(src.CronTime),
 				"status":         src.Status,
 				"iptv_config":    src.IPTVConfig,
 			}
 			model.DB.Model(&existing).Updates(updates)
 			epgIDMap[oldID] = existing.ID
 
-			// Re-register scheduler
-			if src.CronTime != "" && src.Status {
-				s.scheduler.AddEPGSourceTask(existing.ID, src.CronTime)
+			// Re-register scheduler with migrated data
+			model.DB.First(&existing, existing.ID) // reload to get migrated values
+			if existing.CronTime != "" && src.Status {
+				if cfg := parseScheduleConfig(existing.CronTime); cfg != nil {
+					s.scheduler.AddEPGSourceTask(existing.ID, cfg)
+				}
 			}
 			mr.Success++
 		} else {
@@ -572,6 +578,7 @@ func (s *ConfigTransferService) importSources(data *ImportParsedData, liveIDMap,
 			newSrc.IsSyncing = false
 			newSrc.LastFetchedAt = nil
 			newSrc.LastError = ""
+			newSrc.CronTime = migrateScheduleField(newSrc.CronTime)
 			if err := model.DB.Create(&newSrc).Error; err != nil {
 				mr.Failed++
 				mr.Details = append(mr.Details, fmt.Sprintf("EPGSource \"%s\": create failed: %s", src.Name, err.Error()))
@@ -579,7 +586,9 @@ func (s *ConfigTransferService) importSources(data *ImportParsedData, liveIDMap,
 			}
 			epgIDMap[oldID] = newSrc.ID
 			if newSrc.CronTime != "" && newSrc.Status {
-				s.scheduler.AddEPGSourceTask(newSrc.ID, newSrc.CronTime)
+				if cfg := parseScheduleConfig(newSrc.CronTime); cfg != nil {
+					s.scheduler.AddEPGSourceTask(newSrc.ID, cfg)
+				}
 			}
 			mr.Success++
 		}
@@ -590,15 +599,45 @@ func (s *ConfigTransferService) importSources(data *ImportParsedData, liveIDMap,
 
 func (s *ConfigTransferService) registerLiveSourceTasks(id uint, src model.LiveSource) {
 	if src.CronTime != "" && src.Type != model.LiveSourceTypeNetworkManual && src.Status {
-		if err := s.scheduler.AddLiveSourceTask(id, src.CronTime); err != nil {
-			slog.Warn("Import: failed to schedule live source task", "id", id, "error", err)
+		if cfg := parseScheduleConfig(src.CronTime); cfg != nil {
+			if err := s.scheduler.AddLiveSourceTask(id, cfg); err != nil {
+				slog.Warn("Import: failed to schedule live source task", "id", id, "error", err)
+			}
 		}
 	}
 	if src.CronDetect != "" && src.Status {
-		if err := s.scheduler.AddDetectTask(id, src.CronDetect, src.DetectStrategy); err != nil {
-			slog.Warn("Import: failed to schedule detect task", "id", id, "error", err)
+		if cfg := parseScheduleConfig(src.CronDetect); cfg != nil {
+			if err := s.scheduler.AddDetectTask(id, cfg, src.DetectStrategy); err != nil {
+				slog.Warn("Import: failed to schedule detect task", "id", id, "error", err)
+			}
 		}
 	}
+}
+
+// parseScheduleConfig is a local helper to parse a JSON schedule config string.
+// It also handles old-format interval strings (e.g. "6h") by migrating them first.
+func parseScheduleConfig(jsonStr string) *model.ScheduleConfig {
+	if jsonStr == "" {
+		return nil
+	}
+	// Migrate old format (e.g. "6h") to new JSON format
+	migrated := model.MigrateOldInterval(jsonStr)
+	if migrated == "" {
+		return nil
+	}
+	var cfg model.ScheduleConfig
+	if err := json.Unmarshal([]byte(migrated), &cfg); err != nil {
+		return nil
+	}
+	if cfg.Mode == "" {
+		return nil
+	}
+	return &cfg
+}
+
+// migrateScheduleField converts old-format interval strings inline before DB storage.
+func migrateScheduleField(val string) string {
+	return model.MigrateOldInterval(val)
 }
 
 func (s *ConfigTransferService) importLogos(data *ImportParsedData) ModuleResult {

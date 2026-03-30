@@ -1,96 +1,185 @@
 package task
 
 import (
+	"encoding/json"
 	"fmt"
 	"log/slog"
+	"sort"
+	"strings"
 	"sync"
 	"time"
+
+	"github.com/go-co-op/gocron/v2"
+	"github.com/google/uuid"
 
 	"iptv-tool-v2/internal/model"
 	"iptv-tool-v2/internal/publish"
 	"iptv-tool-v2/internal/service"
 )
 
-// validIntervals is the set of valid user-facing interval keys.
-var validIntervals = map[string]bool{
-	"1h": true, "2h": true, "4h": true,
-	"6h": true, "12h": true, "24h": true,
-}
+// --- Schedule configuration type aliases (canonical types in model package) ---
 
-// ParseInterval converts an interval key (e.g. "1h", "2h", "24h") to a time.Duration.
-func ParseInterval(interval string) (time.Duration, error) {
-	if !validIntervals[interval] {
-		return 0, fmt.Errorf("invalid interval: %s", interval)
+// ScheduleConfig is a type alias for model.ScheduleConfig.
+type ScheduleConfig = model.ScheduleConfig
+
+// --- Parsing & Validation ---
+
+// ParseScheduleConfig parses a JSON string into a ScheduleConfig.
+// Returns nil if jsonStr is empty.
+func ParseScheduleConfig(jsonStr string) (*ScheduleConfig, error) {
+	jsonStr = strings.TrimSpace(jsonStr)
+	if jsonStr == "" {
+		return nil, nil
 	}
-	return time.ParseDuration(interval)
+	var cfg ScheduleConfig
+	if err := json.Unmarshal([]byte(jsonStr), &cfg); err != nil {
+		return nil, fmt.Errorf("invalid schedule config JSON: %w", err)
+	}
+	return &cfg, nil
 }
 
-// IntervalOptions returns the available options for the frontend dropdown.
-// Labels are i18n keys that should be translated at the handler level.
-var IntervalOptions = []map[string]string{
-	{"value": "1h", "label": "label.interval_1h"},
-	{"value": "2h", "label": "label.interval_2h"},
-	{"value": "4h", "label": "label.interval_4h"},
-	{"value": "6h", "label": "label.interval_6h"},
-	{"value": "12h", "label": "label.interval_12h"},
-	{"value": "24h", "label": "label.interval_24h"},
+// MarshalScheduleConfig serializes a ScheduleConfig to JSON string.
+// Returns "" if config is nil or empty.
+func MarshalScheduleConfig(cfg *ScheduleConfig) string {
+	if cfg == nil || cfg.IsEmpty() {
+		return ""
+	}
+	data, err := json.Marshal(cfg)
+	if err != nil {
+		return ""
+	}
+	return string(data)
 }
 
-// taskHandle holds a stop channel and a done channel for a scheduled task goroutine.
-// stopCh is closed to signal the goroutine to stop.
-// doneCh is closed by the goroutine when it has fully exited.
-type taskHandle struct {
-	stopCh chan struct{}
-	doneCh chan struct{}
+// ValidateScheduleConfig validates a ScheduleConfig.
+func ValidateScheduleConfig(cfg *ScheduleConfig, lang string) error {
+	if cfg == nil || cfg.IsEmpty() {
+		return nil
+	}
+	switch cfg.Mode {
+	case model.ScheduleModeInterval:
+		if cfg.Hours < model.MinIntervalHours || cfg.Hours > model.MaxIntervalHours {
+			return fmt.Errorf("error.schedule_invalid_hours")
+		}
+	case model.ScheduleModeDaily:
+		if cfg.Days > model.MaxGeoIPDays {
+			return fmt.Errorf("error.schedule_invalid_days")
+		}
+		if len(cfg.Times) > 0 {
+			if err := validateTimePoints(cfg.Times); err != nil {
+				return err
+			}
+		}
+	default:
+		return fmt.Errorf("error.invalid_schedule_config")
+	}
+	return nil
 }
 
-// Scheduler manages all interval-based scheduled tasks for live sources and EPG sources
+// validateTimePoints validates a list of HH:MM time strings.
+func validateTimePoints(times []string) error {
+	if len(times) == 0 {
+		return fmt.Errorf("error.invalid_schedule_config")
+	}
+	if len(times) > model.MaxTimePoints {
+		return fmt.Errorf("error.schedule_max_times")
+	}
+
+	// Parse and check duplicates
+	seen := make(map[string]bool)
+	minutes := make([]int, 0, len(times))
+	for _, t := range times {
+		t = strings.TrimSpace(t)
+		m, err := parseTimeToMinutes(t)
+		if err != nil {
+			return fmt.Errorf("error.schedule_invalid_time_format")
+		}
+		if seen[t] {
+			return fmt.Errorf("error.schedule_duplicate_time")
+		}
+		seen[t] = true
+		minutes = append(minutes, m)
+	}
+
+	// Check minimum gap (circular)
+	if len(minutes) > 1 {
+		sort.Ints(minutes)
+		for i := 1; i < len(minutes); i++ {
+			if minutes[i]-minutes[i-1] < model.MinTimeGapMinute {
+				return fmt.Errorf("error.schedule_min_interval")
+			}
+		}
+		// Check wrap-around gap (last to first across midnight)
+		wrapGap := (1440 - minutes[len(minutes)-1]) + minutes[0]
+		if wrapGap < model.MinTimeGapMinute {
+			return fmt.Errorf("error.schedule_min_interval")
+		}
+	}
+
+	return nil
+}
+
+// parseTimeToMinutes parses "HH:MM" to minutes since midnight.
+func parseTimeToMinutes(t string) (int, error) {
+	parts := strings.Split(t, ":")
+	if len(parts) != 2 {
+		return 0, fmt.Errorf("invalid time format")
+	}
+	var h, m int
+	if _, err := fmt.Sscanf(parts[0], "%d", &h); err != nil || h < 0 || h > 23 {
+		return 0, fmt.Errorf("invalid hour")
+	}
+	if _, err := fmt.Sscanf(parts[1], "%d", &m); err != nil || m < 0 || m > 59 {
+		return 0, fmt.Errorf("invalid minute")
+	}
+	return h*60 + m, nil
+}
+
+// --- Scheduler ---
+
+// Scheduler manages all scheduled tasks using gocron/v2.
 type Scheduler struct {
 	liveService   *service.LiveSourceService
 	epgService    *service.EPGSourceService
 	detectService *service.DetectService
 
-	mu            sync.Mutex
-	wg            sync.WaitGroup
-	liveEntries   map[uint]*taskHandle // sourceID -> task handle
-	epgEntries    map[uint]*taskHandle // sourceID -> task handle
-	detectEntries map[uint]*taskHandle // sourceID -> detect task handle
-	geoipHandle   *taskHandle          // GeoIP auto-update task handle
-	cleanupHandle *taskHandle          // Access stats cleanup task handle
+	cron gocron.Scheduler
+	mu   sync.Mutex
+	jobs map[string]uuid.UUID // tag -> job UUID
+
 	accessStatSvc *service.AccessStatService
 	geoipSvc      *service.GeoIPService
 }
 
-// NewScheduler creates a new task scheduler
+// NewScheduler creates a new task scheduler.
 func NewScheduler(dataDir string) *Scheduler {
+	cronScheduler, err := gocron.NewScheduler(
+		gocron.WithLimitConcurrentJobs(10, gocron.LimitModeWait),
+	)
+	if err != nil {
+		slog.Error("Failed to create gocron scheduler", "error", err)
+		panic(fmt.Sprintf("failed to create gocron scheduler: %v", err))
+	}
 	return &Scheduler{
 		liveService:   service.NewLiveSourceService(),
 		epgService:    service.NewEPGSourceService(),
 		detectService: service.NewDetectService(dataDir),
-		liveEntries:   make(map[uint]*taskHandle),
-		epgEntries:    make(map[uint]*taskHandle),
-		detectEntries: make(map[uint]*taskHandle),
+		cron:          cronScheduler,
+		jobs:          make(map[string]uuid.UUID),
 	}
 }
 
-// SetAccessStatService sets the access stat service for cleanup tasks
+// SetAccessStatService sets the access stat service for cleanup tasks.
 func (s *Scheduler) SetAccessStatService(svc *service.AccessStatService) {
 	s.accessStatSvc = svc
 }
 
-// SetGeoIPService sets the GeoIP service for auto-update tasks
+// SetGeoIPService sets the GeoIP service for auto-update tasks.
 func (s *Scheduler) SetGeoIPService(svc *service.GeoIPService) {
 	s.geoipSvc = svc
 }
 
-// stopAndWait signals a task to stop and waits for its goroutine to fully exit.
-// The caller must NOT hold s.mu when calling this function.
-func stopAndWait(h *taskHandle) {
-	close(h.stopCh)
-	<-h.doneCh // Wait for goroutine to fully exit
-}
-
-// Start initializes and starts all scheduled tasks from the database
+// Start initializes and starts all scheduled tasks from the database.
 func (s *Scheduler) Start() error {
 	slog.Info("Initializing task scheduler...")
 
@@ -101,14 +190,18 @@ func (s *Scheduler) Start() error {
 	}
 
 	for _, src := range liveSources {
-		// network_manual sources are static content, no need for periodic fetching
 		if src.Type == model.LiveSourceTypeNetworkManual {
 			continue
 		}
 		if src.CronTime == "" {
 			continue
 		}
-		if err := s.AddLiveSourceTask(src.ID, src.CronTime); err != nil {
+		cfg, err := ParseScheduleConfig(src.CronTime)
+		if err != nil {
+			slog.Warn("Failed to parse schedule config for live source", "name", src.Name, "id", src.ID, "error", err)
+			continue
+		}
+		if err := s.AddLiveSourceTask(src.ID, cfg); err != nil {
 			slog.Warn("Failed to schedule live source", "name", src.Name, "id", src.ID, "error", err)
 		}
 	}
@@ -123,213 +216,231 @@ func (s *Scheduler) Start() error {
 		if src.CronTime == "" {
 			continue
 		}
-		if err := s.AddEPGSourceTask(src.ID, src.CronTime); err != nil {
+		cfg, err := ParseScheduleConfig(src.CronTime)
+		if err != nil {
+			slog.Warn("Failed to parse schedule config for EPG source", "name", src.Name, "id", src.ID, "error", err)
+			continue
+		}
+		if err := s.AddEPGSourceTask(src.ID, cfg); err != nil {
 			slog.Warn("Failed to schedule EPG source", "name", src.Name, "id", src.ID, "error", err)
 		}
 	}
 
-	// Load all enabled live sources with detect interval and register their detect tasks
+	// Load all enabled live sources with detect config
 	var detectSources []model.LiveSource
 	if err := model.DB.Where("status = ? AND cron_detect != ''", true).Find(&detectSources).Error; err != nil {
 		return fmt.Errorf("failed to load live sources for detection: %w", err)
 	}
 
 	for _, src := range detectSources {
-		if err := s.AddDetectTask(src.ID, src.CronDetect, src.DetectStrategy); err != nil {
+		cfg, err := ParseScheduleConfig(src.CronDetect)
+		if err != nil {
+			slog.Warn("Failed to parse detect schedule config", "name", src.Name, "id", src.ID, "error", err)
+			continue
+		}
+		if err := s.AddDetectTask(src.ID, cfg, src.DetectStrategy); err != nil {
 			slog.Warn("Failed to schedule detect task", "name", src.Name, "id", src.ID, "error", err)
 		}
 	}
 
 	// Start GeoIP auto-update task if enabled
 	if s.geoipSvc != nil {
-		enabled, days := s.geoipSvc.GetAutoUpdateConfig()
+		enabled, cfg := s.geoipSvc.GetAutoUpdateConfig()
 		if enabled {
-			s.AddGeoIPUpdateTask(days)
+			s.AddGeoIPUpdateTask(&cfg)
 		}
 	}
 
-	// Start access stats cleanup task (daily)
+	// Start access stats cleanup task (daily at 03:00)
 	s.startCleanupTask()
 
+	// Start the gocron scheduler
+	s.cron.Start()
+
 	s.mu.Lock()
-	liveCount := len(s.liveEntries)
-	epgCount := len(s.epgEntries)
-	detectCount := len(s.detectEntries)
+	jobCount := len(s.jobs)
 	s.mu.Unlock()
-	slog.Info("Task scheduler started", "live_tasks", liveCount, "epg_tasks", epgCount, "detect_tasks", detectCount)
+	slog.Info("Task scheduler started", "total_jobs", jobCount)
 	return nil
 }
 
-// Stop gracefully stops the scheduler, waiting for all running task goroutines to finish
+// Stop gracefully stops the scheduler.
 func (s *Scheduler) Stop() {
-	s.mu.Lock()
-	// Collect all handles first, then close them outside the lock to avoid
-	// holding the lock while waiting for goroutines
-	var handles []*taskHandle
-	for id, h := range s.liveEntries {
-		handles = append(handles, h)
-		delete(s.liveEntries, id)
+	if err := s.cron.Shutdown(); err != nil {
+		slog.Error("Failed to shutdown gocron scheduler", "error", err)
 	}
-	for id, h := range s.epgEntries {
-		handles = append(handles, h)
-		delete(s.epgEntries, id)
-	}
-	for id, h := range s.detectEntries {
-		handles = append(handles, h)
-		delete(s.detectEntries, id)
-	}
-	if s.geoipHandle != nil {
-		handles = append(handles, s.geoipHandle)
-		s.geoipHandle = nil
-	}
-	if s.cleanupHandle != nil {
-		handles = append(handles, s.cleanupHandle)
-		s.cleanupHandle = nil
-	}
-	s.mu.Unlock()
-
-	// Signal all goroutines to stop
-	for _, h := range handles {
-		close(h.stopCh)
-	}
-
-	s.wg.Wait()
 	slog.Info("Task scheduler stopped.")
 }
 
-// AddLiveSourceTask adds or updates a scheduled task for a live source
-func (s *Scheduler) AddLiveSourceTask(sourceID uint, interval string) error {
-	dur, err := ParseInterval(interval)
-	if err != nil {
-		return err
-	}
+// --- Job helpers ---
 
-	// Extract old handle under lock, then wait for it outside the lock
+// removeJobByTag removes an existing job by its tag. Caller must NOT hold s.mu.
+func (s *Scheduler) removeJobByTag(tag string) {
 	s.mu.Lock()
-	oldHandle := s.liveEntries[sourceID]
-	delete(s.liveEntries, sourceID)
+	jobID, exists := s.jobs[tag]
+	if exists {
+		delete(s.jobs, tag)
+	}
 	s.mu.Unlock()
 
-	// Wait for old goroutine to fully exit (outside lock to avoid deadlock)
-	if oldHandle != nil {
-		stopAndWait(oldHandle)
-	}
-
-	stopCh := make(chan struct{})
-	doneCh := make(chan struct{})
-	handle := &taskHandle{stopCh: stopCh, doneCh: doneCh}
-
-	s.mu.Lock()
-	s.liveEntries[sourceID] = handle
-	s.mu.Unlock()
-
-	id := sourceID // Capture for closure
-	s.wg.Add(1)
-	go func() {
-		defer s.wg.Done()
-		defer close(doneCh)
-		ticker := time.NewTicker(dur)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-stopCh:
-				return
-			case <-ticker.C:
-				slog.Info("Scheduler: fetching live source", "id", id)
-				if err := s.liveService.FetchAndUpdate(id); err != nil {
-					slog.Error("Scheduler: failed to fetch live source", "id", id, "error", err)
-				} else {
-					publish.InvalidateAll()
-				}
-			}
+	if exists {
+		if err := s.cron.RemoveJob(jobID); err != nil {
+			slog.Warn("Failed to remove job", "tag", tag, "error", err)
 		}
-	}()
+	}
+}
 
-	slog.Info("Scheduled live source task", "id", sourceID, "interval", interval)
+// addJob creates a gocron job from a ScheduleConfig. Returns an error if config is invalid.
+func (s *Scheduler) addJob(tag string, cfg *ScheduleConfig, taskFunc func()) error {
+	if cfg == nil || cfg.IsEmpty() {
+		return nil
+	}
+
+	// Remove existing job with same tag first
+	s.removeJobByTag(tag)
+
+	var jobDef gocron.JobDefinition
+
+	switch cfg.Mode {
+	case model.ScheduleModeInterval:
+		jobDef = gocron.DurationJob(time.Duration(cfg.Hours) * time.Hour)
+	case model.ScheduleModeDaily:
+		days := cfg.Days
+		if days < 1 {
+			days = 1
+		}
+		if len(cfg.Times) > 0 {
+			atTimes, err := buildAtTimes(cfg.Times)
+			if err != nil {
+				return err
+			}
+			jobDef = gocron.DailyJob(uint(days), atTimes)
+		} else {
+			// No specific times: use duration-based interval (days * 24h)
+			jobDef = gocron.DurationJob(time.Duration(days) * 24 * time.Hour)
+		}
+	default:
+		return fmt.Errorf("unsupported schedule mode: %s", cfg.Mode)
+	}
+
+	// Wrap taskFunc with panic recovery
+	safeFunc := func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Error("Scheduler task panicked", "tag", tag, "panic", r)
+			}
+		}()
+		taskFunc()
+	}
+
+	job, err := s.cron.NewJob(
+		jobDef,
+		gocron.NewTask(safeFunc),
+		gocron.WithTags(tag),
+		gocron.WithSingletonMode(gocron.LimitModeReschedule),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create job [%s]: %w", tag, err)
+	}
+
+	s.mu.Lock()
+	s.jobs[tag] = job.ID()
+	s.mu.Unlock()
+
 	return nil
 }
 
-// RemoveLiveSourceTask removes a scheduled task for a live source
+// buildAtTimes converts []string{"HH:MM",...} to gocron.AtTimes.
+func buildAtTimes(times []string) (gocron.AtTimes, error) {
+	atTimeList := make([]gocron.AtTime, 0, len(times))
+	for _, t := range times {
+		m, err := parseTimeToMinutes(t)
+		if err != nil {
+			return nil, fmt.Errorf("invalid time: %s", t)
+		}
+		h := m / 60
+		min := m % 60
+		atTimeList = append(atTimeList, gocron.NewAtTime(uint(h), uint(min), 0))
+	}
+	return gocron.NewAtTimes(atTimeList[0], atTimeList[1:]...), nil
+}
+
+// --- Task tag generators ---
+
+func liveSourceTag(sourceID uint) string { return fmt.Sprintf("live_sync_%d", sourceID) }
+func epgSourceTag(sourceID uint) string  { return fmt.Sprintf("epg_sync_%d", sourceID) }
+func detectTag(sourceID uint) string     { return fmt.Sprintf("detect_%d", sourceID) }
+func geoipTag() string                   { return "geoip_update" }
+func cleanupTag() string                 { return "access_stats_cleanup" }
+
+// --- Public API ---
+
+// AddLiveSourceTask adds or updates a scheduled task for a live source.
+func (s *Scheduler) AddLiveSourceTask(sourceID uint, cfg *ScheduleConfig) error {
+	if cfg == nil || cfg.IsEmpty() {
+		return nil
+	}
+	tag := liveSourceTag(sourceID)
+	id := sourceID
+	err := s.addJob(tag, cfg, func() {
+		slog.Info("Scheduler: fetching live source", "id", id)
+		if err := s.liveService.FetchAndUpdate(id); err != nil {
+			slog.Error("Scheduler: failed to fetch live source", "id", id, "error", err)
+		} else {
+			publish.InvalidateAll()
+		}
+	})
+	if err != nil {
+		return err
+	}
+	slog.Info("Scheduled live source task", "id", sourceID, "config", cfg.String())
+	return nil
+}
+
+// RemoveLiveSourceTask removes a scheduled task for a live source.
 func (s *Scheduler) RemoveLiveSourceTask(sourceID uint) {
-	s.mu.Lock()
-	h := s.liveEntries[sourceID]
-	delete(s.liveEntries, sourceID)
-	s.mu.Unlock()
-
-	if h != nil {
-		stopAndWait(h)
-		slog.Info("Removed live source task", "id", sourceID)
-	}
+	tag := liveSourceTag(sourceID)
+	s.removeJobByTag(tag)
+	slog.Info("Removed live source task", "id", sourceID)
 }
 
-// AddEPGSourceTask adds or updates a scheduled task for an EPG source
-func (s *Scheduler) AddEPGSourceTask(sourceID uint, interval string) error {
-	dur, err := ParseInterval(interval)
+// AddEPGSourceTask adds or updates a scheduled task for an EPG source.
+func (s *Scheduler) AddEPGSourceTask(sourceID uint, cfg *ScheduleConfig) error {
+	if cfg == nil || cfg.IsEmpty() {
+		return nil
+	}
+	tag := epgSourceTag(sourceID)
+	id := sourceID
+	err := s.addJob(tag, cfg, func() {
+		slog.Info("Scheduler: fetching EPG source", "id", id)
+		if err := s.epgService.FetchAndUpdate(id); err != nil {
+			slog.Error("Scheduler: failed to fetch EPG source", "id", id, "error", err)
+		} else {
+			publish.InvalidateAll()
+		}
+	})
 	if err != nil {
 		return err
 	}
-
-	// Extract old handle under lock, then wait for it outside the lock
-	s.mu.Lock()
-	oldHandle := s.epgEntries[sourceID]
-	delete(s.epgEntries, sourceID)
-	s.mu.Unlock()
-
-	// Wait for old goroutine to fully exit (outside lock to avoid deadlock)
-	if oldHandle != nil {
-		stopAndWait(oldHandle)
-	}
-
-	stopCh := make(chan struct{})
-	doneCh := make(chan struct{})
-	handle := &taskHandle{stopCh: stopCh, doneCh: doneCh}
-
-	s.mu.Lock()
-	s.epgEntries[sourceID] = handle
-	s.mu.Unlock()
-
-	id := sourceID // Capture for closure
-	s.wg.Add(1)
-	go func() {
-		defer s.wg.Done()
-		defer close(doneCh)
-		ticker := time.NewTicker(dur)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-stopCh:
-				return
-			case <-ticker.C:
-				slog.Info("Scheduler: fetching EPG source", "id", id)
-				if err := s.epgService.FetchAndUpdate(id); err != nil {
-					slog.Error("Scheduler: failed to fetch EPG source", "id", id, "error", err)
-				} else {
-					publish.InvalidateAll()
-				}
-			}
-		}
-	}()
-
-	slog.Info("Scheduled EPG source task", "id", sourceID, "interval", interval)
+	slog.Info("Scheduled EPG source task", "id", sourceID, "config", cfg.String())
 	return nil
 }
 
-// RemoveEPGSourceTask removes a scheduled task for an EPG source
+// RemoveEPGSourceTask removes a scheduled task for an EPG source.
 func (s *Scheduler) RemoveEPGSourceTask(sourceID uint) {
-	s.mu.Lock()
-	h := s.epgEntries[sourceID]
-	delete(s.epgEntries, sourceID)
-	s.mu.Unlock()
-
-	if h != nil {
-		stopAndWait(h)
-		slog.Info("Removed EPG source task", "id", sourceID)
-	}
+	tag := epgSourceTag(sourceID)
+	s.removeJobByTag(tag)
+	slog.Info("Removed EPG source task", "id", sourceID)
 }
 
-// TriggerLiveSourceNow manually triggers a live source fetch immediately (for first-time add / manual refresh)
+// TriggerLiveSourceNow manually triggers a live source fetch immediately.
 func (s *Scheduler) TriggerLiveSourceNow(sourceID uint) {
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Error("Manual trigger panicked", "type", "live_source", "id", sourceID, "panic", r)
+			}
+		}()
 		slog.Info("Manual trigger: fetching live source", "id", sourceID)
 		if err := s.liveService.FetchAndUpdate(sourceID); err != nil {
 			slog.Error("Manual trigger: failed to fetch live source", "id", sourceID, "error", err)
@@ -339,9 +450,14 @@ func (s *Scheduler) TriggerLiveSourceNow(sourceID uint) {
 	}()
 }
 
-// TriggerEPGSourceNow manually triggers an EPG source fetch immediately
+// TriggerEPGSourceNow manually triggers an EPG source fetch immediately.
 func (s *Scheduler) TriggerEPGSourceNow(sourceID uint) {
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Error("Manual trigger panicked", "type", "epg_source", "id", sourceID, "panic", r)
+			}
+		}()
 		slog.Info("Manual trigger: fetching EPG source", "id", sourceID)
 		if err := s.epgService.FetchAndUpdate(sourceID); err != nil {
 			slog.Error("Manual trigger: failed to fetch EPG source", "id", sourceID, "error", err)
@@ -351,81 +467,50 @@ func (s *Scheduler) TriggerEPGSourceNow(sourceID uint) {
 	}()
 }
 
-// AddDetectTask adds or updates a scheduled task for channel detection on a live source
-func (s *Scheduler) AddDetectTask(sourceID uint, interval string, strategy string) error {
-	dur, err := ParseInterval(interval)
+// AddDetectTask adds or updates a scheduled task for channel detection.
+func (s *Scheduler) AddDetectTask(sourceID uint, cfg *ScheduleConfig, strategy string) error {
+	if cfg == nil || cfg.IsEmpty() {
+		return nil
+	}
+	tag := detectTag(sourceID)
+	id := sourceID
+	st := strategy
+	err := s.addJob(tag, cfg, func() {
+		slog.Info("Scheduler: detecting channels for live source", "id", id, "strategy", st)
+		if err := s.detectService.DetectChannels(id, false, st); err != nil {
+			slog.Error("Scheduler: failed to detect channels", "id", id, "error", err)
+		} else {
+			publish.InvalidateAll()
+		}
+	})
 	if err != nil {
 		return err
 	}
-
-	// Extract old handle under lock, then wait for it outside the lock
-	s.mu.Lock()
-	oldHandle := s.detectEntries[sourceID]
-	delete(s.detectEntries, sourceID)
-	s.mu.Unlock()
-
-	// Wait for old goroutine to fully exit (outside lock to avoid deadlock)
-	if oldHandle != nil {
-		stopAndWait(oldHandle)
-	}
-
-	stopCh := make(chan struct{})
-	doneCh := make(chan struct{})
-	handle := &taskHandle{stopCh: stopCh, doneCh: doneCh}
-
-	s.mu.Lock()
-	s.detectEntries[sourceID] = handle
-	s.mu.Unlock()
-
-	id := sourceID // Capture for closure
-	st := strategy // Capture for closure
-	s.wg.Add(1)
-	go func() {
-		defer s.wg.Done()
-		defer close(doneCh)
-		ticker := time.NewTicker(dur)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-stopCh:
-				return
-			case <-ticker.C:
-				slog.Info("Scheduler: detecting channels for live source", "id", id, "strategy", st)
-				if err := s.detectService.DetectChannels(id, false, st); err != nil {
-					slog.Error("Scheduler: failed to detect channels", "id", id, "error", err)
-				} else {
-					publish.InvalidateAll()
-				}
-			}
-		}
-	}()
-
-	slog.Info("Scheduled detect task", "id", sourceID, "interval", interval, "strategy", strategy)
+	slog.Info("Scheduled detect task", "id", sourceID, "strategy", strategy, "config", cfg.String())
 	return nil
 }
 
-// RemoveDetectTask removes a scheduled task for channel detection
+// RemoveDetectTask removes a scheduled task for channel detection.
 func (s *Scheduler) RemoveDetectTask(sourceID uint) {
-	s.mu.Lock()
-	h := s.detectEntries[sourceID]
-	delete(s.detectEntries, sourceID)
-	s.mu.Unlock()
-
-	if h != nil {
-		stopAndWait(h)
-		slog.Info("Removed detect task", "id", sourceID)
-	}
+	tag := detectTag(sourceID)
+	s.removeJobByTag(tag)
+	slog.Info("Removed detect task", "id", sourceID)
 }
 
-// CheckFFprobe checks whether the ffprobe executable is available
+// CheckFFprobe checks whether the ffprobe executable is available.
 func (s *Scheduler) CheckFFprobe() error {
 	_, _, err := s.detectService.GetFFprobePath()
 	return err
 }
 
-// TriggerDetectNow manually triggers channel detection immediately
+// TriggerDetectNow manually triggers channel detection immediately.
 func (s *Scheduler) TriggerDetectNow(sourceID uint, strategy string) {
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Error("Manual trigger panicked", "type", "detect", "id", sourceID, "panic", r)
+			}
+		}()
 		slog.Info("Manual trigger: detecting channels for live source", "id", sourceID, "strategy", strategy)
 		if err := s.detectService.DetectChannels(sourceID, true, strategy); err != nil {
 			slog.Error("Manual trigger: failed to detect channels", "id", sourceID, "error", err)
@@ -435,100 +520,62 @@ func (s *Scheduler) TriggerDetectNow(sourceID uint, strategy string) {
 	}()
 }
 
-// ValidateInterval checks if an interval value is valid
-func ValidateInterval(interval string) bool {
-	return validIntervals[interval]
-}
-
 // --- GeoIP auto-update task ---
 
-// AddGeoIPUpdateTask starts a periodic GeoIP database update task
-func (s *Scheduler) AddGeoIPUpdateTask(intervalDays int) {
-	s.mu.Lock()
-	oldHandle := s.geoipHandle
-	s.geoipHandle = nil
-	s.mu.Unlock()
+// AddGeoIPUpdateTask starts a periodic GeoIP database update task.
+func (s *Scheduler) AddGeoIPUpdateTask(cfg *ScheduleConfig) {
+	if s.geoipSvc == nil || cfg == nil || cfg.IsEmpty() {
+		return
+	}
+	tag := geoipTag()
+	err := s.addJob(tag, cfg, func() {
+		slog.Info("Scheduler: auto-updating GeoIP database")
+		if err := s.geoipSvc.DownloadAndExtract(); err != nil {
+			slog.Error("Scheduler: failed to auto-update GeoIP database", "error", err)
+		}
+	})
+	if err != nil {
+		slog.Error("Failed to schedule GeoIP update task", "error", err)
+		return
+	}
+	slog.Info("Scheduled GeoIP auto-update task", "config", cfg.String())
+}
 
-	if oldHandle != nil {
-		stopAndWait(oldHandle)
+// RemoveGeoIPUpdateTask stops the GeoIP auto-update task.
+func (s *Scheduler) RemoveGeoIPUpdateTask() {
+	s.removeJobByTag(geoipTag())
+	slog.Info("Removed GeoIP auto-update task")
+}
+
+// --- Access stats cleanup task ---
+
+func (s *Scheduler) startCleanupTask() {
+	tag := cleanupTag()
+	safeFunc := func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Error("Cleanup task panicked", "panic", r)
+			}
+		}()
+		if s.accessStatSvc != nil {
+			s.accessStatSvc.Cleanup()
+		}
 	}
 
-	if s.geoipSvc == nil || intervalDays < 1 {
+	job, err := s.cron.NewJob(
+		gocron.DailyJob(1, gocron.NewAtTimes(gocron.NewAtTime(3, 0, 0))),
+		gocron.NewTask(safeFunc),
+		gocron.WithTags(tag),
+		gocron.WithSingletonMode(gocron.LimitModeReschedule),
+	)
+	if err != nil {
+		slog.Error("Failed to schedule cleanup task", "error", err)
 		return
 	}
 
-	dur := time.Duration(intervalDays) * 24 * time.Hour
-	stopCh := make(chan struct{})
-	doneCh := make(chan struct{})
-	handle := &taskHandle{stopCh: stopCh, doneCh: doneCh}
-
 	s.mu.Lock()
-	s.geoipHandle = handle
+	s.jobs[tag] = job.ID()
 	s.mu.Unlock()
 
-	s.wg.Add(1)
-	go func() {
-		defer s.wg.Done()
-		defer close(doneCh)
-		ticker := time.NewTicker(dur)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-stopCh:
-				return
-			case <-ticker.C:
-				slog.Info("Scheduler: auto-updating GeoIP database")
-				if err := s.geoipSvc.DownloadAndExtract(); err != nil {
-					slog.Error("Scheduler: failed to auto-update GeoIP database", "error", err)
-				}
-			}
-		}
-	}()
-
-	slog.Info("Scheduled GeoIP auto-update task", "interval_days", intervalDays)
-}
-
-// RemoveGeoIPUpdateTask stops the GeoIP auto-update task
-func (s *Scheduler) RemoveGeoIPUpdateTask() {
-	s.mu.Lock()
-	h := s.geoipHandle
-	s.geoipHandle = nil
-	s.mu.Unlock()
-
-	if h != nil {
-		stopAndWait(h)
-		slog.Info("Removed GeoIP auto-update task")
-	}
-}
-
-// --- Access stats cleanup task (daily) ---
-
-func (s *Scheduler) startCleanupTask() {
-	stopCh := make(chan struct{})
-	doneCh := make(chan struct{})
-	handle := &taskHandle{stopCh: stopCh, doneCh: doneCh}
-
-	s.mu.Lock()
-	s.cleanupHandle = handle
-	s.mu.Unlock()
-
-	s.wg.Add(1)
-	go func() {
-		defer s.wg.Done()
-		defer close(doneCh)
-		ticker := time.NewTicker(24 * time.Hour)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-stopCh:
-				return
-			case <-ticker.C:
-				if s.accessStatSvc != nil {
-					s.accessStatSvc.Cleanup()
-				}
-			}
-		}
-	}()
-
-	slog.Info("Scheduled access stats cleanup task (daily)")
+	slog.Info("Scheduled access stats cleanup task (daily at 03:00)")
 }

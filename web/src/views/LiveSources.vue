@@ -26,7 +26,7 @@
         </template>
       </el-table-column>
       <el-table-column prop="cron_time" :label="$t('live_sources.scheduled_refresh')" width="140">
-        <template #default="{ row }">{{ row.cron_time || '-' }}</template>
+        <template #default="{ row }">{{ formatSchedule(row.cron_time) }}</template>
       </el-table-column>
       <el-table-column prop="status" :label="$t('common.status')" width="100">
         <template #default="{ row }">
@@ -173,16 +173,12 @@
 
         <!-- Scheduled Refresh -->
         <el-form-item :label="$t('live_sources.scheduled_refresh')" v-if="form.type !== 'network_manual'">
-          <el-select v-model="form.cron_time" clearable :placeholder="$t('live_sources.no_scheduled_refresh')" style="width: 100%">
-            <el-option v-for="opt in intervalOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
-          </el-select>
+          <ScheduleConfig v-model="form.cron_time" i18n-prefix="live_sources" :enable-label="$t('live_sources.scheduled_refresh')" />
         </el-form-item>
 
         <!-- Scheduled Detect -->
         <el-form-item :label="$t('live_sources.scheduled_detect')">
-          <el-select v-model="form.cron_detect" clearable :placeholder="$t('live_sources.no_scheduled_detect')" style="width: 100%">
-            <el-option v-for="opt in intervalOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
-          </el-select>
+          <ScheduleConfig v-model="form.cron_detect" i18n-prefix="live_sources" :enable-label="$t('live_sources.scheduled_detect')" />
           <div class="help-text">
             {{ $t('live_sources.scheduled_detect_help') }}
           </div>
@@ -365,6 +361,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { List, Refresh, Edit, Delete, Plus, SuccessFilled, CircleCloseFilled, Loading, Search } from '@element-plus/icons-vue'
 import api from '../api'
 import { usePolling } from '../composables/usePolling'
+import ScheduleConfig from '../components/ScheduleConfig.vue'
 
 const { t } = useI18n()
 
@@ -427,7 +424,6 @@ const isEdit = ref(false)
 const editId = ref(null)
 const submitting = ref(false)
 const formRef = ref()
-const intervalOptions = ref([])
 const epgStrategies = ref([])
 
 // Crack dialog state
@@ -444,6 +440,23 @@ const typeTagMap = { iptv: 'danger', network_url: '', network_manual: 'warning' 
 function getUrls(row) {
   if (!row.url) return []
   return row.url.split('|').filter(u => u.trim())
+}
+
+// Helper: format schedule config JSON string into human-readable text
+function formatSchedule(jsonStr) {
+  if (!jsonStr) return '-'
+  try {
+    const cfg = JSON.parse(jsonStr)
+    if (cfg.mode === 'interval' && cfg.hours) {
+      return t('live_sources.schedule_mode_interval') + ' ' + cfg.hours + t('live_sources.schedule_hours_unit')
+    }
+    if (cfg.mode === 'daily' && cfg.times && cfg.times.length > 0) {
+      return t('live_sources.schedule_mode_daily') + ' ' + cfg.times.join(', ')
+    }
+    return '-'
+  } catch {
+    return jsonStr || '-'
+  }
 }
 
 const defaultHeaders = [
@@ -511,11 +524,9 @@ const formRules = computed(() => ({
 onMounted(async () => {
   await loadSources()
   try {
-    const [intervalRes, epgRes] = await Promise.all([
-      api.get('/settings/interval-options'),
+    const [epgRes] = await Promise.all([
       api.get('/settings/epg-strategies'),
     ])
-    intervalOptions.value = intervalRes.data
     epgStrategies.value = epgRes.data
   } catch {}
 })

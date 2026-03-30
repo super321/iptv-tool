@@ -42,19 +42,10 @@
           </template>
         </el-descriptions-item>
         <el-descriptions-item :label="$t('settings_access_control.geoip_auto_update')">
-          <div style="display: flex; align-items: center; gap: 12px">
+          <div style="display: flex; align-items: flex-start; gap: 12px; flex-direction: column">
             <el-switch v-model="geoipAutoUpdate" @change="saveGeoIPAutoUpdate" />
             <template v-if="geoipAutoUpdate">
-              <span style="color: var(--el-text-color-regular); font-size: 12px">{{ $t('settings_access_control.geoip_update_interval_label') }}</span>
-              <el-input-number
-                v-model="geoipIntervalDays"
-                :min="1"
-                :max="7"
-                size="small"
-                style="width: 100px"
-                @change="saveGeoIPAutoUpdate"
-              />
-              <span class="form-hint">{{ $t('settings_access_control.geoip_interval_days') }}</span>
+              <GeoIPScheduleConfig v-model="geoipScheduleConfig" @update:model-value="saveGeoIPAutoUpdate" />
             </template>
           </div>
         </el-descriptions-item>
@@ -341,13 +332,14 @@ import { ElMessage } from 'element-plus'
 import { Warning, CircleClose, CircleCheck, Remove, Plus, Delete, Location, Refresh, DataAnalysis, QuestionFilled } from '@element-plus/icons-vue'
 import api from '../api'
 import { usePolling } from '../composables/usePolling'
+import GeoIPScheduleConfig from '../components/GeoIPScheduleConfig.vue'
 
 const { t } = useI18n()
 
 // --- GeoIP State ---
 const geoipStatus = reactive({ exists: false, version: '' })
 const geoipAutoUpdate = ref(false)
-const geoipIntervalDays = ref(1)
+const geoipScheduleConfig = ref('')
 const geoipDownloading = ref(false)
 const downloadProgress = reactive({ percent: '', downloaded_bytes: 0, total_bytes: 0, attempt: 0, max_retries: 3, error: '' })
 
@@ -477,7 +469,9 @@ async function loadGeoIPStatus() {
     geoipStatus.exists = data.exists
     geoipStatus.version = data.version
     geoipAutoUpdate.value = data.auto_update
-    geoipIntervalDays.value = data.update_interval_days || 1
+    if (data.schedule_config) {
+      geoipScheduleConfig.value = typeof data.schedule_config === 'string' ? data.schedule_config : JSON.stringify(data.schedule_config)
+    }
   } catch {}
 }
 
@@ -539,10 +533,16 @@ function formatFileSize(bytes) {
 
 async function saveGeoIPAutoUpdate() {
   try {
-    await api.put('/settings/geoip/auto-update', {
+    const body = {
       enabled: geoipAutoUpdate.value,
-      interval_days: geoipIntervalDays.value,
-    })
+    }
+    // Always send schedule_config if available, so toggling enabled off doesn't reset it
+    if (geoipScheduleConfig.value) {
+      try {
+        body.schedule_config = JSON.parse(geoipScheduleConfig.value)
+      } catch {}
+    }
+    await api.put('/settings/geoip/auto-update', body)
     ElMessage.success(t('settings_access_control.geoip_auto_update_saved'))
   } catch {}
 }

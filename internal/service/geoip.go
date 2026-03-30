@@ -3,6 +3,7 @@ package service
 import (
 	"archive/tar"
 	"compress/gzip"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -10,7 +11,6 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -411,40 +411,57 @@ func (s *GeoIPService) downloadOnce(attempt int) error {
 // --- Auto-update settings helpers ---
 
 const (
-	settingGeoIPAutoUpdate = "geoip_auto_update"
-	settingGeoIPUpdateDays = "geoip_update_interval_days"
+	settingGeoIPAutoUpdate     = "geoip_auto_update"
+	settingGeoIPScheduleConfig = "geoip_schedule_config"
 )
 
 // GetAutoUpdateConfig returns the auto-update settings
-func (s *GeoIPService) GetAutoUpdateConfig() (enabled bool, intervalDays int) {
+func (s *GeoIPService) GetAutoUpdateConfig() (enabled bool, cfg model.ScheduleConfig) {
 	enabled = false
-	intervalDays = 1
+	cfg = model.ScheduleConfig{Mode: model.ScheduleModeDaily, Days: 1} // default
 
-	var setting model.SystemSetting
-	if err := model.DB.Where("key = ?", settingGeoIPAutoUpdate).First(&setting).Error; err == nil {
-		enabled = setting.Value == "true"
+	var autoSetting model.SystemSetting
+	if err := model.DB.Where("key = ?", settingGeoIPAutoUpdate).First(&autoSetting).Error; err == nil {
+		enabled = autoSetting.Value == "true"
 	}
 
-	if err := model.DB.Where("key = ?", settingGeoIPUpdateDays).First(&setting).Error; err == nil {
-		if v, err := strconv.Atoi(setting.Value); err == nil && v >= 1 && v <= 7 {
-			intervalDays = v
+	var cfgSetting model.SystemSetting
+	if err := model.DB.Where("key = ?", settingGeoIPScheduleConfig).First(&cfgSetting).Error; err == nil {
+		var parsed model.ScheduleConfig
+		if err := json.Unmarshal([]byte(cfgSetting.Value), &parsed); err != nil {
+			cfg = model.ScheduleConfig{Mode: model.ScheduleModeDaily, Days: 1}
+		} else {
+			// Ensure mode is set (migrate old format without mode field)
+			if parsed.Mode == "" {
+				parsed.Mode = model.ScheduleModeDaily
+			}
+			if parsed.Days < 1 {
+				parsed.Days = 1
+			}
+			cfg = parsed
 		}
 	}
 
-	return enabled, intervalDays
+	return enabled, cfg
 }
 
 // SaveAutoUpdateConfig saves the auto-update settings
-func (s *GeoIPService) SaveAutoUpdateConfig(enabled bool, intervalDays int) {
-	if intervalDays < 1 {
-		intervalDays = 1
+func (s *GeoIPService) SaveAutoUpdateConfig(enabled bool, cfg model.ScheduleConfig) {
+	if cfg.Days < 1 {
+		cfg.Days = 1
 	}
-	if intervalDays > 7 {
-		intervalDays = 7
+	if cfg.Days > 30 {
+		cfg.Days = 30
+	}
+	// Ensure mode is set
+	if cfg.Mode == "" {
+		cfg.Mode = model.ScheduleModeDaily
 	}
 
 	upsertSetting(settingGeoIPAutoUpdate, fmt.Sprintf("%v", enabled))
-	upsertSetting(settingGeoIPUpdateDays, fmt.Sprintf("%d", intervalDays))
+
+	cfgJSON, _ := json.Marshal(cfg)
+	upsertSetting(settingGeoIPScheduleConfig, string(cfgJSON))
 }
 
 func upsertSetting(key, value string) {
