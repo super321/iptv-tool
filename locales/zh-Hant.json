@@ -713,7 +713,11 @@
       "schedule_max_times": "每天最多設定5個時間點",
       "schedule_invalid_time_format": "時間點格式無效（正確格式：HH:MM）",
       "schedule_duplicate_time": "時間點不能重複",
-      "schedule_min_interval": "時間點之間至少需要間隔30分鐘"
+      "schedule_min_interval": "時間點之間至少需要間隔30分鐘",
+      "live_source_syncing": "該直播源正在同步資料中，請等待同步完成後再刪除",
+      "live_source_detecting": "該直播源正在檢測中，請等待檢測完成後再刪除",
+      "live_epg_source_syncing": "該直播源關聯的EPG源正在同步資料中，請等待同步完成後再刪除",
+      "epg_source_syncing": "該EPG源正在同步資料中，請等待同步完成後再刪除"
     },
     "message": {
       "init_success": "系統初始化成功",

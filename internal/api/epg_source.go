@@ -344,6 +344,17 @@ func (ec *EPGSourceController) Delete(c *gin.Context) {
 
 	sourceID := uint(id)
 
+	// Block deletion while the source is syncing
+	var source model.EPGSource
+	if err := model.DB.First(&source, sourceID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": i18n.T(i18n.Lang(c), "error.epg_source_not_found")})
+		return
+	}
+	if source.IsSyncing {
+		c.JSON(http.StatusConflict, gin.H{"error": i18n.T(i18n.Lang(c), "error.epg_source_syncing")})
+		return
+	}
+
 	// Check if this source is referenced by any publish interface
 	var publishInterfaces []model.PublishInterface
 	model.DB.Where("type = ?", "epg").Find(&publishInterfaces)

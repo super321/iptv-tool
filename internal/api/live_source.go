@@ -545,6 +545,29 @@ func (lc *LiveSourceController) Delete(c *gin.Context) {
 
 	// === Phase 1: Defensive Checks (Read-Only) ===
 
+	// 0. Block deletion while the source is syncing or detecting
+	var source model.LiveSource
+	if err := model.DB.First(&source, sourceID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": i18n.T(i18n.Lang(c), "error.live_source_not_found")})
+		return
+	}
+	if source.IsSyncing {
+		c.JSON(http.StatusConflict, gin.H{"error": i18n.T(i18n.Lang(c), "error.live_source_syncing")})
+		return
+	}
+	if source.IsDetecting {
+		c.JSON(http.StatusConflict, gin.H{"error": i18n.T(i18n.Lang(c), "error.live_source_detecting")})
+		return
+	}
+
+	// Also check if any linked EPG source is syncing
+	var syncingEPGCount int64
+	model.DB.Model(&model.EPGSource{}).Where("live_source_id = ? AND is_syncing = ?", sourceID, true).Count(&syncingEPGCount)
+	if syncingEPGCount > 0 {
+		c.JSON(http.StatusConflict, gin.H{"error": i18n.T(i18n.Lang(c), "error.live_epg_source_syncing")})
+		return
+	}
+
 	// 1. Check if this source is referenced by any live publish interface
 	var publishInterfaces []model.PublishInterface
 	model.DB.Where("type = ?", "live").Find(&publishInterfaces)

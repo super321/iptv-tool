@@ -713,7 +713,11 @@
       "schedule_max_times": "Maximum 5 time points per day",
       "schedule_invalid_time_format": "Invalid time format (expected HH:MM)",
       "schedule_duplicate_time": "Duplicate time points are not allowed",
-      "schedule_min_interval": "Time points must be at least 30 minutes apart"
+      "schedule_min_interval": "Time points must be at least 30 minutes apart",
+      "live_source_syncing": "This live source is currently syncing, please wait until sync completes before deleting",
+      "live_source_detecting": "This live source is currently being detected, please wait until detection completes before deleting",
+      "live_epg_source_syncing": "The linked EPG source of this live source is currently syncing, please wait until sync completes before deleting",
+      "epg_source_syncing": "This EPG source is currently syncing, please wait until sync completes before deleting"
     },
     "message": {
       "init_success": "System initialized successfully",
