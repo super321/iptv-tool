@@ -169,7 +169,7 @@ func (c *Client) validAuthenticationHW(ctx context.Context, encryptToken string)
 	// Format: random$EncryptToken$UserID$STBID$IP$MAC$Reserved$CTC
 	plaintext := fmt.Sprintf("%d$%s$%s$%s$%s$%s$$%s",
 		random, encryptToken, c.config.GetAuthParam("UserID"), c.config.GetAuthParam("STBID"),
-		ipv4Addr, c.config.GetAuthParam("mac"), c.config.ProviderSuffix)
+		ipv4Addr, c.config.GetAuthParam("mac"), "CTC")
 
 	crypto := utils.NewTripleDESCrypto(c.config.Key)
 	authenticator, err := crypto.ECBEncrypt(plaintext)
