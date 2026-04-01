@@ -44,8 +44,11 @@
           <el-tag size="small" type="info">{{ parseIds(row.rule_ids).length }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column :label="$t('common.operations')" width="120" fixed="right" align="center">
+      <el-table-column :label="$t('common.operations')" width="160" fixed="right" align="center">
         <template #default="{ row }">
+          <el-tooltip v-if="canDownload(row)" :content="$t('publish.download')" placement="top" :show-after="500">
+            <el-button :icon="Download" size="small" circle type="success" @click="handleDownload(row)" :loading="row._downloading" />
+          </el-tooltip>
           <el-tooltip :content="$t('common.edit')" placement="top" :show-after="500">
             <el-button :icon="Edit" size="small" circle type="primary" @click="showEdit(row)" />
           </el-tooltip>
@@ -413,7 +416,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Edit, Delete, View, ArrowDown, Search } from '@element-plus/icons-vue'
+import { Edit, Delete, View, ArrowDown, Search, Download } from '@element-plus/icons-vue'
 import api from '../api'
 
 const { t } = useI18n()
@@ -738,6 +741,41 @@ async function handleSubmit() {
   } catch {}
   finally { submitting.value = false }
 }
+function canDownload(row) {
+  // EPG DIYP JSON format requires query params (?ch=&date=), not suitable for one-click download
+  return !(row.type === 'epg' && row.format === 'diyp')
+}
+
+const formatExtMap = {
+  m3u: '.m3u',
+  txt: '.txt',
+  xmltv: '.xml',
+  diyp: '.json'
+}
+
+async function handleDownload(row) {
+  row._downloading = true
+  try {
+    const { data } = await api.get(`/publish/${row.id}/download`, { responseType: 'blob' })
+    // XMLTV with gzip enabled returns raw .gz binary, use .xml.gz extension
+    const ext = (row.format === 'xmltv' && row.gzip_enabled) ? '.xml.gz' : (formatExtMap[row.format] || '')
+    const filename = `${row.path}${ext}`
+    const url = URL.createObjectURL(data)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    ElMessage.success(t('publish.download_success'))
+  } catch (e) {
+    ElMessage.error(t('publish.download_failed'))
+  } finally {
+    row._downloading = false
+  }
+}
+
 async function handleDelete(row) {
   await ElMessageBox.confirm(t('publish.delete_confirm', { name: row.name }), t('common.confirm_delete'), { type: 'warning', confirmButtonText: t('common.confirm'), cancelButtonText: t('common.cancel') })
   await api.delete(`/publish/${row.id}`)

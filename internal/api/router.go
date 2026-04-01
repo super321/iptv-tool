@@ -136,6 +136,7 @@ func SetupRouter(scheduler *task.Scheduler, logoDir string, dataDir string, fron
 		authorized.PUT("/publish/:id", publishCtrl.UpdateInterface)
 		authorized.DELETE("/publish/:id", publishCtrl.DeleteInterface)
 		authorized.POST("/publish/preview", publishCtrl.PreviewInterface)
+		authorized.GET("/publish/:id/download", publishCtrl.DownloadInterface)
 
 		// Log Center
 		RegisterLogRoutes(authorized, runtimeLogBuf, accessLogBuf)

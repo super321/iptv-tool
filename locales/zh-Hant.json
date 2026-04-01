@@ -379,6 +379,9 @@
       "output_global_help": "以下輸出設定將對所有已選直播源統一生效",
       "output_per_source_help": "為每個直播源單獨配置輸出設定",
       "output_source_section": "輸出設定 - {name}",
+      "download": "下載",
+      "download_success": "下載成功",
+      "download_failed": "下載失敗，請檢查介面是否可用",
       "search_placeholder": "搜尋發布介面名稱",
       "total_count": "共 {count} 個發布介面",
       "filtered": "(已篩選)"

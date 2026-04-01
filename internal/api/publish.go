@@ -418,3 +418,34 @@ func (pc *PublishController) PreviewInterface(c *gin.Context) {
 		c.JSON(http.StatusOK, result)
 	}
 }
+
+// DownloadInterface serves the publish content for admin download (no UA check)
+// GET /api/publish/:id/download
+func (pc *PublishController) DownloadInterface(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": i18n.T(i18n.Lang(c), "error.invalid_id")})
+		return
+	}
+
+	var iface model.PublishInterface
+	if err := model.DB.First(&iface, uint(id)).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": i18n.T(i18n.Lang(c), "error.publish_not_found")})
+		return
+	}
+
+	engine, err := publish.NewEngine(iface)
+	if err != nil {
+		slog.Error("Internal server error", "error", err, "path", c.Request.URL.Path)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	requestHost := c.Request.Host
+	if fwd := c.GetHeader("X-Forwarded-Host"); fwd != "" {
+		requestHost = fwd
+	}
+
+	// Serve content directly, bypassing UA check (admin is authenticated via JWT)
+	publish.ServeLiveOrEPG(c, engine, iface, requestHost)
+}

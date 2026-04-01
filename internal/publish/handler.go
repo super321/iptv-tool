@@ -150,3 +150,13 @@ func serveEPG(c *gin.Context, engine *Engine, iface model.PublishInterface, _ st
 		c.String(http.StatusBadRequest, i18n.T(i18n.Lang(c), "publish_handler.epg_format_unsupported"))
 	}
 }
+
+// ServeLiveOrEPG dispatches to the appropriate serve function based on interface type.
+// Exported for use by admin download endpoint (bypasses UA check).
+func ServeLiveOrEPG(c *gin.Context, engine *Engine, iface model.PublishInterface, requestHost string) {
+	if iface.Type == "live" {
+		serveLive(c, engine, iface, requestHost)
+	} else {
+		serveEPG(c, engine, iface, requestHost)
+	}
+}
