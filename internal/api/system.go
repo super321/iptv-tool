@@ -1,11 +1,9 @@
 package api
 
 import (
-	"context"
 	"log/slog"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/mojocn/base64Captcha"
@@ -241,33 +239,48 @@ func (sc *SystemController) ChangePassword(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": i18n.T(i18n.Lang(c), "message.password_changed")})
 }
 
-// CrackKeyRequest is the request body for cracking the 3DES key
-type CrackKeyRequest struct {
+// StartCrackKeyRequest is the request body for starting a crack task
+type StartCrackKeyRequest struct {
 	Authenticator string `json:"authenticator" binding:"required"`
+	Mode          string `json:"mode"`
 }
 
-// CrackKey attempts to brute-force the 3DES key from an authenticator string
-// POST /api/crack-key
-func (sc *SystemController) CrackKey(c *gin.Context) {
-	var req CrackKeyRequest
+// StartCrack starts a background crack task
+// POST /api/crack-key/start
+func (sc *SystemController) StartCrack(c *gin.Context) {
+	var req StartCrackKeyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Trim whitespace from string inputs
 	req.Authenticator = strings.TrimSpace(req.Authenticator)
 
-	ctx, cancel := context.WithTimeout(c.Request.Context(), 15*time.Minute)
-	defer cancel()
+	mode := utils.CrackModeDecimal
+	if req.Mode == "hex" {
+		mode = utils.CrackModeHex
+	}
 
-	key, err := utils.CrackAuthenticator(ctx, req.Authenticator)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": i18n.T(i18n.Lang(c), "error.crack_failed") + ": " + err.Error()})
+	errMsg := service.GetCrackManager().Start(req.Authenticator, mode)
+	if errMsg != "" {
+		c.JSON(http.StatusConflict, gin.H{"error": i18n.T(i18n.Lang(c), "error.crack_already_running")})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"key": key})
+	c.JSON(http.StatusOK, gin.H{"message": "started"})
+}
+
+// GetCrackStatus returns the current crack task status
+// GET /api/crack-key/status
+func (sc *SystemController) GetCrackStatus(c *gin.Context) {
+	c.JSON(http.StatusOK, service.GetCrackManager().GetStatus())
+}
+
+// StopCrack stops the current running crack task
+// POST /api/crack-key/stop
+func (sc *SystemController) StopCrack(c *gin.Context) {
+	service.GetCrackManager().Stop()
+	c.JSON(http.StatusOK, gin.H{"message": "stopped"})
 }
 
 // GetEPGStrategies returns all registered EPG strategy names

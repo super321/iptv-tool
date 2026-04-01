@@ -100,7 +100,9 @@ func JWTAuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		claims, err := ParseToken(parts[1])
+		tokenStr := parts[1]
+
+		claims, err := ParseToken(tokenStr)
 		if err != nil {
 			slog.Warn("Unauthorized access attempt: Invalid token", "error", err, "client_ip", c.ClientIP(), "path", c.Request.URL.Path)
 			c.JSON(http.StatusUnauthorized, gin.H{"error": i18n.T(i18n.Lang(c), "error.invalid_token")})

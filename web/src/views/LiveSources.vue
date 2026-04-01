@@ -137,7 +137,7 @@
           <el-form-item :label="$t('live_sources.encrypt_key')" prop="iptv.key">
             <div style="display: flex; gap: 8px; width: 100%">
               <el-input v-model.trim="form.iptv.key" :placeholder="$t('live_sources.key_placeholder')" style="flex: 1" />
-              <el-button type="success" @click="showCrackDialog" :disabled="cracking">{{ $t('live_sources.crack_key') }}</el-button>
+              <el-button type="success" @click="showCrackDialog">{{ $t('live_sources.crack_key') }}</el-button>
             </div>
           </el-form-item>
 
@@ -233,23 +233,70 @@
     </el-dialog>
 
     <!-- Crack Key Dialog -->
-    <el-dialog v-model="crackDialogVisible" :title="$t('live_sources.crack_title')" width="500px" destroy-on-close :close-on-click-modal="false">
-      <el-form label-width="100px">
+    <el-dialog v-model="crackDialogVisible" :title="$t('live_sources.crack_title')" width="600px" destroy-on-close :close-on-click-modal="false" @close="onCrackDialogClose">
+      <el-form label-width="110px">
         <el-form-item label="Authenticator">
           <el-input v-model="crackAuthenticator" type="textarea" :rows="3"
-            :placeholder="$t('live_sources.crack_auth_placeholder')" />
+            :placeholder="$t('live_sources.crack_auth_placeholder')" :disabled="cracking" />
         </el-form-item>
-        <el-alert v-if="crackResult" :title="$t('live_sources.crack_success') + crackResult" type="success" show-icon :closable="false" style="margin-bottom: 12px" />
+        <el-form-item :label="$t('live_sources.crack_mode')">
+          <el-radio-group v-model="crackMode" :disabled="cracking">
+            <el-radio value="decimal">
+              {{ $t('live_sources.crack_mode_decimal') }}
+              <span style="color: var(--el-text-color-secondary); font-size: 12px; margin-left: 4px">
+                ({{ $t('live_sources.crack_decimal_total') }})
+              </span>
+            </el-radio>
+            <el-radio value="hex">
+              {{ $t('live_sources.crack_mode_hex') }}
+            </el-radio>
+          </el-radio-group>
+          <el-alert v-if="crackMode === 'hex'" :title="$t('live_sources.crack_hex_warning')" type="warning" show-icon :closable="false" style="margin-top: 8px" />
+        </el-form-item>
+
+        <!-- Progress -->
+        <template v-if="cracking || crackProgress">
+          <el-form-item :label="$t('live_sources.cracking')">
+            <div style="width: 100%">
+              <el-progress :percentage="crackProgress ? Math.min(100, crackProgress.percent) : 0" :stroke-width="18" :text-inside="true"
+                :format="() => crackProgress ? Math.min(100, crackProgress.percent).toFixed(2) + '%' : '0%'" />
+              <div v-if="crackProgress" style="margin-top: 6px; font-size: 12px; color: var(--el-text-color-secondary)">
+                {{ $t('live_sources.crack_progress_detail', { tried: formatNumber(crackProgress.tried), total: formatNumber(crackProgress.total) }) }}
+              </div>
+            </div>
+          </el-form-item>
+        </template>
+
+        <!-- Success result -->
+        <template v-if="crackResult">
+          <el-alert :title="$t('live_sources.crack_success')" type="success" show-icon :closable="false" style="margin-bottom: 16px">
+            <template #default>
+              <span style="font-size: 16px; font-weight: 700; letter-spacing: 1px; font-family: 'Courier New', monospace">
+                {{ $t('live_sources.crack_key_label') }}: {{ crackResult.key }}
+              </span>
+            </template>
+          </el-alert>
+          <el-descriptions :title="$t('live_sources.crack_fields_title')" :column="1" border size="small" style="margin-bottom: 12px">
+            <el-descriptions-item v-for="field in crackResult.fields" :key="field.name" :label="field.name" label-class-name="crack-field-label">
+              <span style="font-family: 'Courier New', monospace; word-break: break-all; user-select: text">{{ field.value || '-' }}</span>
+            </el-descriptions-item>
+          </el-descriptions>
+        </template>
+
+        <!-- Error / Stopped -->
         <el-alert v-if="crackError" :title="crackError" type="error" show-icon :closable="false" style="margin-bottom: 12px" />
+        <el-alert v-if="crackStopped" :title="$t('live_sources.crack_stopped')" type="info" show-icon :closable="false" style="margin-bottom: 12px" />
       </el-form>
       <template #footer>
         <el-button @click="crackDialogVisible = false">{{ $t('common.cancel') }}</el-button>
-        <el-button type="primary" @click="doCrack" :loading="cracking">
-          {{ cracking ? $t('live_sources.cracking') : $t('live_sources.crack_start') }}
+        <el-button v-if="cracking" type="danger" @click="stopCrack">{{ $t('live_sources.crack_stop') }}</el-button>
+        <el-button v-else type="primary" @click="doCrack">
+          {{ $t('live_sources.crack_start') }}
         </el-button>
         <el-button v-if="crackResult" type="success" @click="applyCrackResult">{{ $t('live_sources.crack_apply') }}</el-button>
       </template>
     </el-dialog>
+
 
     <!-- Channels Dialog -->
     <el-dialog v-model="channelsVisible" :title="$t('live_sources.channels_title')" width="1100px" destroy-on-close :close-on-click-modal="false">
@@ -381,6 +428,7 @@ const { startPolling: startSyncPolling, stopPolling: stopSyncPolling } = usePoll
 
 onUnmounted(() => {
   stopDetectPolling()
+  stopCrackPolling()
 })
 
 const dialogVisible = ref(false)
@@ -429,9 +477,13 @@ const epgStrategies = ref([])
 // Crack dialog state
 const crackDialogVisible = ref(false)
 const crackAuthenticator = ref('')
-const crackResult = ref('')
+const crackMode = ref('decimal')
+const crackResult = ref(null)  // { key, fields }
 const crackError = ref('')
+const crackStopped = ref(false)
+const crackProgress = ref(null) // { tried, total, percent }
 const cracking = ref(false)
+let crackPollTimer = null
 
 const typeNameMap = computed(() => ({ iptv: 'IPTV', network_url: t('live_sources.type_network_url'), network_manual: t('live_sources.type_network_manual') }))
 const typeTagMap = { iptv: 'danger', network_url: '', network_manual: 'warning' }
@@ -820,11 +872,82 @@ function fillAuthExample() {
   form.iptv.authParamsStr = authParamsExample
 }
 
-// Crack key
-function showCrackDialog() {
+// Crack key - polling based
+function stopCrackPolling() {
+  if (crackPollTimer) {
+    clearInterval(crackPollTimer)
+    crackPollTimer = null
+  }
+}
+
+function startCrackPolling() {
+  stopCrackPolling()
+  crackPollTimer = setInterval(async () => {
+    try {
+      const { data } = await api.get('/crack-key/status')
+      applyCrackStatus(data)
+    } catch {
+      stopCrackPolling()
+    }
+  }, 1000)
+}
+
+function applyCrackStatus(status) {
+  if (status.state === 'running') {
+    cracking.value = true
+    crackStopped.value = false
+    crackError.value = ''
+    crackResult.value = null
+    crackAuthenticator.value = status.authenticator || ''
+    crackMode.value = status.mode || 'decimal'
+    if (status.progress) {
+      crackProgress.value = status.progress
+    }
+  } else if (status.state === 'completed') {
+    cracking.value = false
+    crackResult.value = status.result
+    crackProgress.value = status.progress
+    crackAuthenticator.value = status.authenticator || ''
+    crackMode.value = status.mode || 'decimal'
+    stopCrackPolling()
+  } else if (status.state === 'failed') {
+    cracking.value = false
+    crackError.value = status.error || t('live_sources.crack_failed')
+    crackProgress.value = status.progress
+    stopCrackPolling()
+  } else if (status.state === 'stopped') {
+    cracking.value = false
+    crackStopped.value = true
+    crackProgress.value = status.progress
+    stopCrackPolling()
+  } else {
+    // idle
+    cracking.value = false
+    stopCrackPolling()
+  }
+}
+
+async function showCrackDialog() {
+  // Reset local UI state
   crackAuthenticator.value = ''
-  crackResult.value = ''
+  crackMode.value = 'decimal'
+  crackResult.value = null
   crackError.value = ''
+  crackStopped.value = false
+  crackProgress.value = null
+  cracking.value = false
+
+  // Check if a task is already running or completed
+  try {
+    const { data } = await api.get('/crack-key/status')
+    if (data.state !== 'idle') {
+      applyCrackStatus(data)
+      if (data.state === 'running') {
+        startCrackPolling()
+      }
+    }
+  } catch {}
+
   crackDialogVisible.value = true
 }
 
@@ -834,23 +957,47 @@ async function doCrack() {
     return
   }
   cracking.value = true
-  crackResult.value = ''
+  crackResult.value = null
   crackError.value = ''
+  crackStopped.value = false
+  crackProgress.value = null
+
   try {
-    const { data } = await api.post('/crack-key', { authenticator: crackAuthenticator.value.trim() }, { timeout: 960000 })
-    crackResult.value = data.key
+    await api.post('/crack-key/start', {
+      authenticator: crackAuthenticator.value.trim(),
+      mode: crackMode.value
+    })
+    startCrackPolling()
   } catch (e) {
-    crackError.value = e.response?.data?.error || t('live_sources.crack_failed')
-  } finally {
     cracking.value = false
+    crackError.value = e.response?.data?.error || t('live_sources.crack_failed')
   }
+}
+
+async function stopCrack() {
+  try {
+    await api.post('/crack-key/stop')
+  } catch {}
+  crackStopped.value = true
+  cracking.value = false
+  stopCrackPolling()
+}
+
+function onCrackDialogClose() {
+  // Only stop polling, do NOT stop backend task
+  stopCrackPolling()
 }
 
 function applyCrackResult() {
   if (crackResult.value) {
-    form.iptv.key = crackResult.value
+    form.iptv.key = crackResult.value.key
     crackDialogVisible.value = false
     ElMessage.success(t('live_sources.key_applied'))
   }
+}
+
+function formatNumber(num) {
+  if (num === null || num === undefined) return '0'
+  return num.toLocaleString()
 }
 </script>

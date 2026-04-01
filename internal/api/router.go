@@ -62,7 +62,9 @@ func SetupRouter(scheduler *task.Scheduler, logoDir string, dataDir string, fron
 	{
 		// User management
 		authorized.POST("/user/password", systemCtrl.ChangePassword)
-		authorized.POST("/crack-key", systemCtrl.CrackKey)
+		authorized.POST("/crack-key/start", systemCtrl.StartCrack)
+		authorized.GET("/crack-key/status", systemCtrl.GetCrackStatus)
+		authorized.POST("/crack-key/stop", systemCtrl.StopCrack)
 		authorized.GET("/system/check-update", CheckUpdate)
 
 		// Live Sources CRUD
