@@ -15,7 +15,7 @@ import (
 )
 
 // SetupRouter creates and configures the Gin router with all routes
-func SetupRouter(scheduler *task.Scheduler, logoDir string, dataDir string, frontendFS fs.FS, runtimeLogBuf *RuntimeLogBuffer, accessLogBuf *AccessLogBuffer, geoipSvc *service.GeoIPService, accessStatSvc *service.AccessStatService) *gin.Engine {
+func SetupRouter(scheduler *task.Scheduler, logoDir string, dataDir string, frontendFS fs.FS, runtimeLogBuf *RuntimeLogBuffer, accessLogBuf *AccessLogBuffer, geoipSvc *service.GeoIPService, accessStatSvc *service.AccessStatService, httpsSvc *service.HTTPSService) *gin.Engine {
 	r := gin.Default()
 	r.Use(i18n.Middleware())
 	r.Use(AccessControlMiddleware())
@@ -118,6 +118,15 @@ func SetupRouter(scheduler *task.Scheduler, logoDir string, dataDir string, fron
 		authorized.PUT("/settings/access-control", aclCtrl.UpdateAccessControl)
 		authorized.DELETE("/settings/access-control/entries/:id", aclCtrl.DeleteEntry)
 		authorized.POST("/settings/detect/ffprobe", settingsCtrl.UploadFFprobe)
+
+		// HTTPS Settings
+		httpsCtrl := NewHTTPSController(httpsSvc)
+		authorized.GET("/settings/https", httpsCtrl.GetHTTPSSettings)
+		authorized.PUT("/settings/https", httpsCtrl.UpdateHTTPSSettings)
+		authorized.POST("/settings/https/cert", httpsCtrl.UploadCert)
+		authorized.POST("/settings/https/key", httpsCtrl.UploadKey)
+		authorized.POST("/settings/https/ca", httpsCtrl.UploadCACert)
+		authorized.DELETE("/settings/https/ca", httpsCtrl.DeleteCACert)
 
 		// GeoIP Settings
 		geoipCtrl := NewGeoIPController(geoipSvc, scheduler)

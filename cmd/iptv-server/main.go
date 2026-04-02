@@ -113,9 +113,20 @@ func main() {
 		logger.Fatalf("Failed to load embedded frontend", "error", err)
 	}
 
-	// Setup and start HTTP server
-	router := api.SetupRouter(scheduler, logoDir, dataDir, frontendFS, runtimeLogBuf, accessLogBuf, geoipSvc, accessStatSvc)
+	// Create HTTPS service (needs the router as handler, so we set it up in two phases)
+	httpsSvc := service.NewHTTPSService(dataDir, nil, *addr)
+	defer httpsSvc.Stop()
 
+	// Setup HTTP router (passes httpsSvc for the settings API)
+	router := api.SetupRouter(scheduler, logoDir, dataDir, frontendFS, runtimeLogBuf, accessLogBuf, geoipSvc, accessStatSvc, httpsSvc)
+
+	// Now set the handler on the HTTPS service (it needs the fully configured router)
+	httpsSvc.SetHandler(router)
+
+	// Start HTTPS server if previously configured and enabled
+	httpsSvc.LoadAndStart()
+
+	// Start HTTP server (blocking)
 	slog.Info("IPTV Tool v2 starting", "address", *addr)
 	if err := router.Run(*addr); err != nil {
 		logger.Fatalf("Failed to start server", "error", err)

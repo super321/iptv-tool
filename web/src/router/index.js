@@ -59,6 +59,11 @@ const routes = [
         component: () => import('../views/SettingsDetect.vue'),
       },
       {
+        path: 'settings/https',
+        name: 'SettingsHTTPS',
+        component: () => import('../views/SettingsHTTPS.vue'),
+      },
+      {
         path: 'settings/access-control',
         name: 'SettingsAccessControl',
         component: () => import('../views/SettingsAccessControl.vue'),

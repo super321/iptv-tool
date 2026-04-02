@@ -59,6 +59,10 @@
             <el-icon><Stopwatch /></el-icon>
             <template #title>{{ $t('nav.detect') }}</template>
           </el-menu-item>
+          <el-menu-item index="/settings/https">
+            <el-icon><Connection /></el-icon>
+            <template #title>{{ $t('nav.https') }}</template>
+          </el-menu-item>
           <el-menu-item index="/settings/access-control">
             <el-icon><Lock /></el-icon>
             <template #title>{{ $t('settings_access_control.nav_label') }}</template>
