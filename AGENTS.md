@@ -248,7 +248,7 @@ Full i18n support with three languages: Simplified Chinese (`zh`), English (`en`
 - **In-memory publish cache**: TTL-based cache (15 min) with per-key mutex and double-checked locking to prevent stampede; invalidated on any data mutation (`publish.InvalidateAll()`)
 - **Async batched writes**: `AccessStatService` uses goroutine + buffered channel + periodic flush (every 5s or 50 entries) for non-blocking IP access recording
 - **Per-source IPTV lock**: `iptv_lock.go` provides per-LiveSourceID mutex registry preventing concurrent authenticated sessions to the same IPTV server
-- **Ring buffer logs**: `RuntimeLogBuffer` and `AccessLogBuffer` are fixed-size ring buffers (10k entries) for the web UI log center, decoupled from slog via `LogAppender` interface
+- **Ring buffer logs**: `RuntimeLogBuffer` and `AccessLogBuffer` are fixed-size ring buffers (5k entries) for the web UI log center, decoupled from slog via `LogAppender` interface
 - **Access control**: IP whitelist/blacklist with cached ACL evaluation, self-lockout prevention, supports single IP, CIDR, and IP range entries
 - **GeoIP integration**: Downloads GeoLite2 mmdb from GitHub, supports auto-update (configurable interval 1-7 days), retry with progress tracking, used for access stats IP geolocation
 - **Security**: RSA-OAEP password encryption (frontend encrypts, backend decrypts); CAPTCHA after 3 failed login attempts (`base64Captcha`); per-IP rate limiting on login; access control (whitelist/blacklist)

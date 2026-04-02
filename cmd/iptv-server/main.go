@@ -52,8 +52,8 @@ func main() {
 	}
 
 	// Create log buffers for the web UI log center
-	runtimeLogBuf := api.NewRuntimeLogBuffer(10000)
-	accessLogBuf := api.NewAccessLogBuffer(10000)
+	runtimeLogBuf := api.NewRuntimeLogBuffer(5000)
+	accessLogBuf := api.NewAccessLogBuffer(5000)
 
 	// Initialize logger early, with runtime log buffer tee
 	if err := logger.InitLogger(logDir, runtimeLogBuf); err != nil {
