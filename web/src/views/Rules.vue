@@ -73,8 +73,11 @@
         
         <!-- Type: Alias -->
         <template v-if="form.type === 'alias'">
-          <div class="text-secondary" style="margin-bottom: 8px">
-            {{ $t('rules.alias_help') }}
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span class="text-secondary">{{ $t('rules.alias_help') }}</span>
+            <el-button size="small" type="success" @click="startAIGenerate('alias')" :icon="MagicStick">
+              {{ $t('rules.ai_generate') }}
+            </el-button>
           </div>
           <div v-for="(rule, idx) in aliasConfig" :key="idx" class="rule-box">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
@@ -103,8 +106,11 @@
 
         <!-- Type: Filter -->
         <template v-if="form.type === 'filter'">
-          <div style="margin-bottom: 8px; color: #909399; font-size: 13px;">
-            {{ $t('rules.filter_help') }}
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span class="text-secondary">{{ $t('rules.filter_help') }}</span>
+            <el-button size="small" type="success" @click="startAIGenerate('filter')" :icon="MagicStick">
+              {{ $t('rules.ai_generate') }}
+            </el-button>
           </div>
           <div v-for="(rule, idx) in filterConfig" :key="idx" class="rule-box">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
@@ -138,7 +144,7 @@
         <template v-if="form.type === 'group'">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
             <span class="text-secondary">{{ $t('rules.group_help') }}</span>
-            <el-button size="small" type="success" @click="startAIGenerate" :icon="MagicStick">
+            <el-button size="small" type="success" @click="startAIGenerate('group')" :icon="MagicStick">
               {{ $t('rules.ai_generate') }}
             </el-button>
           </div>
@@ -193,24 +199,90 @@
       </template>
       <template #footer>
         <el-button @click="aiSourceDialogVisible = false">{{ $t('common.cancel') }}</el-button>
-        <el-button type="primary" @click="aiLoadChannelsAndBuildPrompt" :loading="aiChannelsLoading" :disabled="aiSelectedSourceIds.length === 0">
+        <el-button type="primary" @click="aiLoadChannelsAndNext" :loading="aiChannelsLoading" :disabled="aiSelectedSourceIds.length === 0">
           {{ $t('rules.ai_next') }}
         </el-button>
       </template>
     </el-dialog>
 
-    <!-- AI Step 2: Prompt Display Dialog -->
+    <!-- AI Step 2: Intent Input + Channel List Dialog -->
+    <el-dialog v-model="aiIntentDialogVisible" :title="aiIntentTitle" width="800px" destroy-on-close :close-on-click-modal="false">
+      <div style="display: flex; gap: 16px; height: 420px;">
+        <!-- Left: Channel name list with search -->
+        <div style="flex: 0 0 280px; display: flex; flex-direction: column; min-width: 0;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+            <span class="text-secondary" style="font-weight: 500;">{{ $t('rules.ai_channel_list_title') }}</span>
+            <el-tag type="success" size="small">{{ aiChannelNames.length }}</el-tag>
+          </div>
+          <el-input
+            v-model="aiChannelSearch"
+            :placeholder="$t('rules.ai_channel_search')"
+            size="small"
+            clearable
+            :prefix-icon="Search"
+            style="margin-bottom: 8px;"
+          />
+          <div class="ai-channel-list">
+            <div
+              v-for="name in filteredAiChannelNames"
+              :key="name"
+              class="ai-channel-item"
+            >{{ name }}</div>
+            <div v-if="filteredAiChannelNames.length === 0" style="padding: 12px; color: var(--el-text-color-placeholder); text-align: center; font-size: 13px;">
+              {{ $t('rules.ai_no_channels') }}
+            </div>
+          </div>
+        </div>
+        <!-- Right: Preset tags + Intent textarea -->
+        <div style="flex: 1; display: flex; flex-direction: column; min-width: 0;">
+          <div style="margin-bottom: 8px;">
+            <span class="text-secondary" style="display: block; margin-bottom: 6px;">
+              {{ aiIntentDesc }}
+            </span>
+          </div>
+          <div style="margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 6px;">
+            <el-tag
+              v-for="preset in currentPresetTags"
+              :key="preset.key"
+              class="ai-preset-tag"
+              effect="plain"
+              round
+              @click="applyPresetTag(preset.value)"
+            >{{ preset.label }}</el-tag>
+          </div>
+          <el-input
+            v-model="aiUserIntent"
+            type="textarea"
+            :rows="10"
+            :placeholder="aiIntentPlaceholder"
+            style="flex: 1;"
+          />
+          <div v-if="aiRuleType !== 'filter'" class="help-text" style="margin-top: 6px;">
+            {{ aiRuleType === 'alias' ? $t('rules.ai_alias_intent_optional') : $t('rules.ai_group_intent_optional') }}
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="aiIntentDialogVisible = false; aiSourceDialogVisible = true">{{ $t('rules.ai_prev') }}</el-button>
+        <el-button type="primary" @click="aiBuildPromptWithIntent" :disabled="aiRuleType === 'filter' && !aiUserIntent.trim()">
+          {{ $t('rules.ai_next') }}
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <!-- AI Step 3: Prompt Display Dialog -->
     <el-dialog v-model="aiPromptDialogVisible" :title="$t('rules.ai_prompt_ready')" width="700px" destroy-on-close :close-on-click-modal="false">
       <el-alert :title="$t('rules.ai_prompt_instruction')" type="info" :closable="false" show-icon style="margin-bottom: 12px;" />
       <el-tag type="success" size="small" style="margin-bottom: 8px;">{{ $t('rules.ai_channel_count', { count: aiChannelNames.length }) }}</el-tag>
       <el-input v-model="aiPromptText" type="textarea" :rows="14" readonly style="font-family: monospace; font-size: 12px;" />
       <template #footer>
-        <el-button @click="aiPromptDialogVisible = false; aiSourceDialogVisible = true">{{ $t('rules.ai_prev') }}</el-button>
-        <el-button type="primary" @click="aiCopyAndNext" :icon="DocumentCopy">{{ $t('rules.ai_copy_prompt') }}</el-button>
+        <el-button @click="aiGoBackFromPrompt">{{ $t('rules.ai_prev') }}</el-button>
+        <el-button @click="aiCopyPrompt" :icon="DocumentCopy">{{ $t('rules.ai_copy_prompt') }}</el-button>
+        <el-button type="primary" @click="aiGoToResponse">{{ $t('rules.ai_next') }}</el-button>
       </template>
     </el-dialog>
 
-    <!-- AI Step 3: Response Input Dialog -->
+    <!-- AI Step 4: Response Input Dialog -->
     <el-dialog v-model="aiResponseDialogVisible" :title="$t('rules.ai_paste_response')" width="700px" destroy-on-close :close-on-click-modal="false">
       <el-input v-model="aiResponseText" type="textarea" :rows="14" :placeholder="$t('rules.ai_paste_placeholder')" style="font-family: monospace; font-size: 12px;" />
       <template #footer>
@@ -227,7 +299,7 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Edit, MagicStick, DocumentCopy, Search } from '@element-plus/icons-vue'
 import api from '../api'
-import { getPromptTemplate, validateGroupRulesJSON } from '../utils/promptTemplates'
+import { getPromptTemplate, validateGroupRulesJSON, validateAliasRulesJSON, validateFilterRulesJSON } from '../utils/promptTemplates'
 
 const { t } = useI18n()
 
@@ -249,7 +321,7 @@ const formRef = ref()
 const typeNameMap = computed(() => ({ alias: t('rules.type_alias'), filter: t('rules.type_filter'), group: t('rules.type_group') }))
 const typeTagMap = { alias: 'primary', filter: 'danger', group: 'warning' }
 
-const form = reactive({ name: '', type: 'alias', status: true })
+const form = reactive({ name: '', description: '', type: 'alias', status: true })
 const formRules = computed(() => ({
   name: [{ required: true, message: t('rules.rule_name_placeholder'), trigger: 'blur' }],
 }))
@@ -259,8 +331,10 @@ const aliasConfig = ref([])
 const filterConfig = ref([])
 const groupConfig = ref([])
 
-// --- AI Generate states ---
+// --- AI Generate states (unified for all rule types) ---
+const aiRuleType = ref('')           // 'alias' | 'filter' | 'group'
 const aiSourceDialogVisible = ref(false)
+const aiIntentDialogVisible = ref(false)
 const aiPromptDialogVisible = ref(false)
 const aiResponseDialogVisible = ref(false)
 const aiSources = ref([])
@@ -268,8 +342,72 @@ const aiSourcesLoading = ref(false)
 const aiSelectedSourceIds = ref([])
 const aiChannelsLoading = ref(false)
 const aiChannelNames = ref([])
+const aiChannelSearch = ref('')
+const aiUserIntent = ref('')
 const aiPromptText = ref('')
 const aiResponseText = ref('')
+
+// Filtered channel names for search in Intent dialog
+const filteredAiChannelNames = computed(() => {
+  if (!aiChannelSearch.value) return aiChannelNames.value
+  const q = aiChannelSearch.value.toLowerCase()
+  return aiChannelNames.value.filter(name => name.toLowerCase().includes(q))
+})
+
+// Intent dialog dynamic text based on rule type
+const aiIntentTitle = computed(() => {
+  const map = {
+    alias: t('rules.ai_intent_title_alias'),
+    filter: t('rules.ai_intent_title_filter'),
+    group: t('rules.ai_intent_title_group'),
+  }
+  return map[aiRuleType.value] || ''
+})
+const aiIntentDesc = computed(() => {
+  const map = {
+    alias: t('rules.ai_intent_desc_alias'),
+    filter: t('rules.ai_intent_desc_filter'),
+    group: t('rules.ai_intent_desc_group'),
+  }
+  return map[aiRuleType.value] || ''
+})
+const aiIntentPlaceholder = computed(() => {
+  const map = {
+    alias: t('rules.ai_intent_placeholder_alias'),
+    filter: t('rules.ai_intent_placeholder_filter'),
+    group: t('rules.ai_intent_placeholder_group'),
+  }
+  return map[aiRuleType.value] || ''
+})
+
+// Preset tags per rule type
+const currentPresetTags = computed(() => {
+  if (aiRuleType.value === 'alias') {
+    return [
+      { key: 'hd', label: t('rules.ai_preset_alias_hd'), value: t('rules.ai_preset_alias_hd') },
+      { key: 'cctv', label: t('rules.ai_preset_alias_cctv'), value: t('rules.ai_preset_alias_cctv') },
+      { key: 'number', label: t('rules.ai_preset_alias_number'), value: t('rules.ai_preset_alias_number') },
+      { key: 'space', label: t('rules.ai_preset_alias_space'), value: t('rules.ai_preset_alias_space') },
+    ]
+  }
+  if (aiRuleType.value === 'group') {
+    return [
+      { key: 'cctv_sat', label: t('rules.ai_preset_group_cctv_sat'), value: t('rules.ai_preset_group_cctv_sat') },
+      { key: 'by_region', label: t('rules.ai_preset_group_by_region'), value: t('rules.ai_preset_group_by_region') },
+      { key: 'by_genre', label: t('rules.ai_preset_group_by_genre'), value: t('rules.ai_preset_group_by_genre') },
+    ]
+  }
+  if (aiRuleType.value === 'filter') {
+    return [
+      { key: 'shopping', label: t('rules.ai_preset_filter_shopping'), value: t('rules.ai_preset_filter_shopping') },
+      { key: 'sd', label: t('rules.ai_preset_filter_sd'), value: t('rules.ai_preset_filter_sd') },
+      { key: 'test', label: t('rules.ai_preset_filter_test'), value: t('rules.ai_preset_filter_test') },
+      { key: 'kids', label: t('rules.ai_preset_filter_kids'), value: t('rules.ai_preset_filter_kids') },
+      { key: 'radio', label: t('rules.ai_preset_filter_radio'), value: t('rules.ai_preset_filter_radio') },
+    ]
+  }
+  return []
+})
 
 onMounted(() => loadRules())
 
@@ -387,13 +525,17 @@ async function handleDelete(row) {
 }
 
 // ===========================
-// AI Generate Workflow
+// AI Generate Workflow (Unified)
 // ===========================
 
-async function startAIGenerate() {
+async function startAIGenerate(ruleType) {
+  aiRuleType.value = ruleType
+
   // Reset AI state
   aiSelectedSourceIds.value = []
   aiChannelNames.value = []
+  aiChannelSearch.value = ''
+  aiUserIntent.value = ''
   aiPromptText.value = ''
   aiResponseText.value = ''
   aiSources.value = []
@@ -411,7 +553,7 @@ async function startAIGenerate() {
   }
 }
 
-async function aiLoadChannelsAndBuildPrompt() {
+async function aiLoadChannelsAndNext() {
   aiChannelsLoading.value = true
   try {
     // Fetch channels from each selected source in parallel
@@ -435,21 +577,9 @@ async function aiLoadChannelsAndBuildPrompt() {
       return
     }
 
-    // Build prompt using template
-    const template = getPromptTemplate('group_rules')
-    aiPromptText.value = template.build(aiChannelNames.value)
-
-    // Move to prompt dialog
     aiSourceDialogVisible.value = false
-    aiPromptDialogVisible.value = true
-
-    // Try to auto-copy to clipboard
-    try {
-      await navigator.clipboard.writeText(aiPromptText.value)
-      ElMessage.success(t('rules.ai_prompt_copied'))
-    } catch {
-      ElMessage.warning(t('rules.ai_prompt_copy_failed'))
-    }
+    // All types go to intent input dialog
+    aiIntentDialogVisible.value = true
   } catch {
     ElMessage.error(t('rules.ai_no_channels'))
   } finally {
@@ -457,14 +587,85 @@ async function aiLoadChannelsAndBuildPrompt() {
   }
 }
 
-function aiCopyAndNext() {
-  navigator.clipboard.writeText(aiPromptText.value).then(() => {
+function applyPresetTag(text) {
+  if (aiUserIntent.value.trim()) {
+    // Append with separator
+    aiUserIntent.value = aiUserIntent.value.trim() + '，' + text
+  } else {
+    aiUserIntent.value = text
+  }
+}
+
+async function aiBuildPromptWithIntent() {
+  // Validate for filter
+  if (aiRuleType.value === 'filter' && !aiUserIntent.value.trim()) {
+    ElMessage.warning(t('rules.ai_filter_intent_empty'))
+    return
+  }
+
+  const templateMap = { alias: 'alias_rules', filter: 'filter_rules', group: 'group_rules' }
+  const template = getPromptTemplate(templateMap[aiRuleType.value])
+  aiPromptText.value = template.build(aiChannelNames.value, aiUserIntent.value)
+
+  aiIntentDialogVisible.value = false
+  aiPromptDialogVisible.value = true
+
+  // Try auto-copy
+  const ok = await copyToClipboard(aiPromptText.value)
+  if (ok) {
     ElMessage.success(t('rules.ai_prompt_copied'))
-  }).catch(() => {
+  } else {
     ElMessage.warning(t('rules.ai_prompt_copy_failed'))
-  })
+  }
+}
+
+function aiGoBackFromPrompt() {
+  aiPromptDialogVisible.value = false
+  aiIntentDialogVisible.value = true
+}
+
+async function aiCopyPrompt() {
+  const ok = await copyToClipboard(aiPromptText.value)
+  if (ok) {
+    ElMessage.success(t('rules.ai_prompt_copied'))
+  } else {
+    ElMessage.warning(t('rules.ai_prompt_copy_failed'))
+  }
+}
+
+function aiGoToResponse() {
   aiPromptDialogVisible.value = false
   aiResponseDialogVisible.value = true
+}
+
+/**
+ * Copy text to clipboard with fallback for HTTP (non-secure) contexts.
+ * navigator.clipboard is undefined on HTTP, so we fall back to execCommand.
+ * @returns {Promise<boolean>} true if copy succeeded
+ */
+async function copyToClipboard(text) {
+  // Prefer Clipboard API (requires HTTPS or localhost)
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text)
+      return true
+    } catch {
+      // Fall through to fallback
+    }
+  }
+  // Fallback: hidden textarea + execCommand
+  try {
+    const textarea = document.createElement('textarea')
+    textarea.value = text
+    textarea.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0'
+    document.body.appendChild(textarea)
+    textarea.select()
+    const ok = document.execCommand('copy')
+    document.body.removeChild(textarea)
+    return ok
+  } catch {
+    return false
+  }
 }
 
 async function aiParseResponse() {
@@ -474,24 +675,51 @@ async function aiParseResponse() {
     return
   }
 
-  const result = validateGroupRulesJSON(text)
-  if (!result.valid) {
-    ElMessage.error(t('rules.ai_parse_error'))
-    return
-  }
+  if (aiRuleType.value === 'group') {
+    const result = validateGroupRulesJSON(text)
+    if (!result.valid) {
+      ElMessage.error(t('rules.ai_parse_error'))
+      return
+    }
+    groupConfig.value = result.data.map(g => ({
+      group_name: g.group_name,
+      rules: g.rules.map(r => ({
+        target: r.target || 'name',
+        match_mode: r.match_mode || 'regex',
+        pattern: r.pattern
+      }))
+    }))
+    aiResponseDialogVisible.value = false
+    ElMessage.success(t('rules.ai_parse_success', { count: result.data.length }))
 
-  // Directly overwrite existing group config with AI-generated rules
-  groupConfig.value = result.data.map(g => ({
-    group_name: g.group_name,
-    rules: g.rules.map(r => ({
+  } else if (aiRuleType.value === 'alias') {
+    const result = validateAliasRulesJSON(text)
+    if (!result.valid) {
+      ElMessage.error(t('rules.ai_alias_parse_error'))
+      return
+    }
+    aliasConfig.value = result.data.map(r => ({
+      match_mode: r.match_mode || 'regex',
+      pattern: r.pattern,
+      replacement: r.replacement ?? ''
+    }))
+    aiResponseDialogVisible.value = false
+    ElMessage.success(t('rules.ai_alias_parse_success', { count: result.data.length }))
+
+  } else if (aiRuleType.value === 'filter') {
+    const result = validateFilterRulesJSON(text)
+    if (!result.valid) {
+      ElMessage.error(t('rules.ai_filter_parse_error'))
+      return
+    }
+    filterConfig.value = result.data.map(r => ({
       target: r.target || 'name',
       match_mode: r.match_mode || 'regex',
       pattern: r.pattern
     }))
-  }))
-
-  aiResponseDialogVisible.value = false
-  ElMessage.success(t('rules.ai_parse_success', { count: result.data.length }))
+    aiResponseDialogVisible.value = false
+    ElMessage.success(t('rules.ai_filter_parse_success', { count: result.data.length }))
+  }
 }
 </script>
 
@@ -501,5 +729,37 @@ async function aiParseResponse() {
   padding: 16px;
   border-radius: 4px;
   margin-bottom: 12px;
+}
+
+.ai-channel-list {
+  flex: 1;
+  overflow-y: auto;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 6px;
+  padding: 4px;
+}
+
+.ai-channel-item {
+  padding: 4px 10px;
+  font-size: 13px;
+  color: var(--el-text-color-regular);
+  border-radius: 4px;
+  line-height: 1.6;
+  transition: background-color 0.15s;
+}
+
+.ai-channel-item:hover {
+  background-color: var(--el-fill-color-light);
+}
+
+.ai-preset-tag {
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ai-preset-tag:hover {
+  color: var(--el-color-success);
+  border-color: var(--el-color-success);
+  background-color: var(--el-color-success-light-9);
 }
 </style>
