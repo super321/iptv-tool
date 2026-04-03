@@ -46,7 +46,7 @@ func NewClient(config *iptv.Config) *Client {
 // Authenticate performs the multi-step login to the Huawei IPTV platform
 func (c *Client) Authenticate(ctx context.Context) error {
 	// Step 1: Visit AuthenticationURL to get redirect and host
-	referer, err := c.authenticationURL(ctx, true)
+	referer, err := c.authenticationURL(ctx)
 	if err != nil {
 		slog.Error("IPTV Auth: Step 1 failed", "error", err, "host", c.config.ServerHost)
 		return fmt.Errorf("step 1 (AuthenticationURL) failed: %w", err)
@@ -78,7 +78,7 @@ func (c *Client) setCommonHeaders(req *http.Request) {
 }
 
 // Step 1
-func (c *Client) authenticationURL(ctx context.Context, fccSupport bool) (string, error) {
+func (c *Client) authenticationURL(ctx context.Context) (string, error) {
 	if c.config.ServerHost == "" {
 		return "", fmt.Errorf("serverHost is not configured")
 	}
@@ -95,9 +95,7 @@ func (c *Client) authenticationURL(ctx context.Context, fccSupport bool) (string
 	params := req.URL.Query()
 	params.Add("UserID", c.config.GetAuthParam("UserID"))
 	params.Add("Action", "Login")
-	if fccSupport {
-		params.Add("FCCSupport", "1")
-	}
+	params.Add("FCCSupport", "1")
 	req.URL.RawQuery = params.Encode()
 
 	c.setCommonHeaders(req)
@@ -122,6 +120,7 @@ func (c *Client) authenticationURL(ctx context.Context, fccSupport bool) (string
 func (c *Client) authLoginHW(ctx context.Context, referer string) (string, error) {
 	data := url.Values{}
 	data.Set("UserID", c.config.GetAuthParam("UserID"))
+	data.Set("VIP", c.config.GetAuthParam("VIP"))
 
 	// Build the path with ProviderSuffix (e.g., authLoginHWCTC.jsp)
 	path := fmt.Sprintf("http://%s/EPG/jsp/authLoginHW%s.jsp", c.host, c.config.ProviderSuffix)
@@ -179,19 +178,10 @@ func (c *Client) validAuthenticationHW(ctx context.Context, encryptToken string)
 
 	data := url.Values{}
 
-	// Set dynamic attributes from config.AuthParams.
-	// We only strictly hardcode "Authenticator" and "userToken".
-	data.Set("Authenticator", strings.ToUpper(authenticator))
-	data.Set("userToken", encryptToken)
-
-	// Loop over user-provided auth params and set them EXACTLY as typed (case-sensitive)
+	// First, set user-provided auth params so they form the base request body.
+	// Program-generated params below will overwrite any conflicting keys.
 	if c.config.AuthParams != nil {
 		for key, val := range c.config.AuthParams {
-			// Skip setting Authenticator and userToken as they are securely computed above
-			if strings.ToLower(key) == "authenticator" || strings.ToLower(key) == "usertoken" {
-				continue
-			}
-			// Convert the raw value to string format
 			var strVal string
 			switch v := val.(type) {
 			case string:
@@ -206,6 +196,11 @@ func (c *Client) validAuthenticationHW(ctx context.Context, encryptToken string)
 			data.Set(key, strVal)
 		}
 	}
+
+	// Then, set program-generated dynamic params last to ensure they are never
+	// accidentally overwritten by user-configured values.
+	data.Set("Authenticator", strings.ToUpper(authenticator))
+	data.Set("userToken", encryptToken)
 
 	path := fmt.Sprintf("http://%s/EPG/jsp/ValidAuthenticationHW%s.jsp", c.host, c.config.ProviderSuffix)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, path, strings.NewReader(data.Encode()))
