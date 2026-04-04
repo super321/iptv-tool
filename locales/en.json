@@ -246,6 +246,9 @@
       "batch_upload_success": "All {total} files uploaded successfully",
       "batch_upload_partial": "{total} files total, {success} succeeded, {fail} failed",
       "batch_upload_all_failed": "All {total} files failed to upload",
+      "batch_delete": "Batch Delete",
+      "batch_delete_confirm": "Delete {count} selected logos? This action cannot be undone.",
+      "batch_delete_success": "Successfully deleted {count} logos",
       "search_placeholder": "Search logo name",
       "total_count": "{count} logos",
       "filtered": "(filtered)"
@@ -822,6 +825,7 @@
       "publish_deleted": "Publish interface deleted",
       "rule_deleted": "Rule deleted",
       "logo_deleted": "Logo deleted",
+      "logos_batch_deleted": "Successfully deleted %d logos",
       "trigger_fetch": "Fetch triggered",
       "trigger_detect": "Detection triggered",
       "detect_config_updated": "Detection configuration updated",

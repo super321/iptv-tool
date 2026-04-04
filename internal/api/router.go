@@ -98,6 +98,7 @@ func SetupRouter(scheduler *task.Scheduler, logoDir string, dataDir string, fron
 		authorized.POST("/logos/batch-upload", logoCtrl.BatchUpload)
 		authorized.PUT("/logos/:id", logoCtrl.Update)
 		authorized.DELETE("/logos/:id", logoCtrl.Delete)
+		authorized.POST("/logos/batch-delete", logoCtrl.BatchDelete)
 
 		// Aggregation Rules
 		ruleCtrl := NewRuleController()

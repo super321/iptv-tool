@@ -10,6 +10,11 @@
       </div>
       <div style="display: flex; align-items: center; gap: 12px">
         <el-input v-model="searchQuery" :placeholder="$t('logos.search_placeholder')" style="width: 220px" clearable :prefix-icon="Search" />
+        <el-button type="danger" plain :icon="Delete" :disabled="!selectedRows.length"
+                   @click="handleBatchDelete">
+          {{ $t('logos.batch_delete') }}
+          <span v-if="selectedRows.length"> ({{ selectedRows.length }})</span>
+        </el-button>
         <el-upload :auto-upload="false" :show-file-list="false" accept="image/*" multiple
                    :on-change="onFileChange">
           <el-button type="primary" :loading="uploading">{{ $t('logos.upload') }}</el-button>
@@ -17,7 +22,9 @@
       </div>
     </div>
 
-    <el-table :data="filteredLogos" v-loading="loading" border stripe>
+    <el-table :data="filteredLogos" v-loading="loading" border stripe
+              @selection-change="onSelectionChange">
+      <el-table-column type="selection" width="42" />
       <el-table-column prop="id" label="ID" width="60" />
       <el-table-column :label="$t('common.name')" min-width="180">
         <template #default="{ row }">
@@ -73,6 +80,7 @@ const logos = ref([])
 const loading = ref(false)
 const uploading = ref(false)
 const searchQuery = ref('')
+const selectedRows = ref([])
 
 const filteredLogos = computed(() => {
   if (!searchQuery.value) return logos.value
@@ -97,6 +105,10 @@ async function loadLogos() {
       editName: ''
     }))
   } finally { loading.value = false }
+}
+
+function onSelectionChange(rows) {
+  selectedRows.value = rows
 }
 
 // el-upload on-change: 多选时每个文件触发一次，用 nextTick 合并为一次批量上传
@@ -182,5 +194,24 @@ async function handleDelete(row) {
   await api.delete(`/logos/${row.id}`)
   ElMessage.success(t('common.delete_success'))
   await loadLogos()
+}
+
+async function handleBatchDelete() {
+  if (!selectedRows.value.length) return
+  const count = selectedRows.value.length
+  await ElMessageBox.confirm(
+    t('logos.batch_delete_confirm', { count }),
+    t('common.confirm_delete'),
+    { type: 'warning', confirmButtonText: t('common.confirm'), cancelButtonText: t('common.cancel') }
+  )
+  const ids = selectedRows.value.map(row => row.id)
+  try {
+    await api.post('/logos/batch-delete', { ids })
+    ElMessage.success(t('logos.batch_delete_success', { count }))
+    selectedRows.value = []
+    await loadLogos()
+  } catch {
+    // 错误在api拦截器已处理
+  }
 }
 </script>

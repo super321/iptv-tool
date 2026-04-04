@@ -246,6 +246,9 @@
       "batch_upload_success": "共 {total} 個檔案，全部上傳成功",
       "batch_upload_partial": "共 {total} 個檔案，成功 {success} 個，失敗 {fail} 個",
       "batch_upload_all_failed": "{total} 個檔案全部上傳失敗",
+      "batch_delete": "批次刪除",
+      "batch_delete_confirm": "確定刪除選中的 {count} 個台標？此操作不可撤銷。",
+      "batch_delete_success": "成功刪除 {count} 個台標",
       "search_placeholder": "搜尋台標名稱",
       "total_count": "共 {count} 個台標",
       "filtered": "(已篩選)"
@@ -822,6 +825,7 @@
       "publish_deleted": "發布介面已刪除",
       "rule_deleted": "規則已刪除",
       "logo_deleted": "台標已刪除",
+      "logos_batch_deleted": "成功刪除 %d 個台標",
       "trigger_fetch": "已觸發擷取",
       "trigger_detect": "已觸發檢測",
       "detect_config_updated": "檢測設定已更新",

@@ -236,3 +236,49 @@ func (lc *LogoController) Delete(c *gin.Context) {
 	publish.InvalidateAll()
 	c.JSON(http.StatusOK, gin.H{"message": i18n.T(i18n.Lang(c), "message.logo_deleted")})
 }
+
+// LogoBatchDeleteRequest is the request body for batch deleting logos
+type LogoBatchDeleteRequest struct {
+	IDs []uint `json:"ids" binding:"required,min=1"`
+}
+
+// BatchDelete removes multiple channel logos at once
+// POST /api/logos/batch-delete
+func (lc *LogoController) BatchDelete(c *gin.Context) {
+	var req LogoBatchDeleteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": i18n.T(i18n.Lang(c), "error.invalid_request_params")})
+		return
+	}
+
+	// Fetch all logos to delete
+	var logos []model.ChannelLogo
+	if err := model.DB.Where("id IN ?", req.IDs).Find(&logos).Error; err != nil {
+		slog.Error("Internal server error", "error", err, "path", c.Request.URL.Path)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if len(logos) == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": i18n.T(i18n.Lang(c), "error.logo_not_found")})
+		return
+	}
+
+	// Delete files from disk
+	for _, logo := range logos {
+		os.Remove(logo.FilePath)
+	}
+
+	// Delete records from DB
+	if err := model.DB.Where("id IN ?", req.IDs).Delete(&model.ChannelLogo{}).Error; err != nil {
+		slog.Error("Internal server error", "error", err, "path", c.Request.URL.Path)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	publish.InvalidateAll()
+	c.JSON(http.StatusOK, gin.H{
+		"message": i18n.T(i18n.Lang(c), "message.logos_batch_deleted", len(logos)),
+		"count":   len(logos),
+	})
+}

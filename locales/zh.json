@@ -246,6 +246,9 @@
       "batch_upload_success": "共 {total} 个文件，全部上传成功",
       "batch_upload_partial": "共 {total} 个文件，成功 {success} 个，失败 {fail} 个",
       "batch_upload_all_failed": "{total} 个文件全部上传失败",
+      "batch_delete": "批量删除",
+      "batch_delete_confirm": "确定删除选中的 {count} 个台标？此操作不可撤销。",
+      "batch_delete_success": "成功删除 {count} 个台标",
       "search_placeholder": "搜索台标名称",
       "total_count": "共 {count} 个台标",
       "filtered": "(已过滤)"
@@ -822,6 +825,7 @@
       "publish_deleted": "发布接口已删除",
       "rule_deleted": "规则已删除",
       "logo_deleted": "台标已删除",
+      "logos_batch_deleted": "成功删除 %d 个台标",
       "trigger_fetch": "已触发抓取",
       "trigger_detect": "已触发检测",
       "detect_config_updated": "检测配置已更新",
