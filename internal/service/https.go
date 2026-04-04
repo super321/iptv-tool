@@ -11,7 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -57,15 +56,18 @@ func (s *HTTPSService) SetHandler(handler http.Handler) {
 	s.handler = handler
 }
 
-// HTTPPort returns the HTTP listen port extracted from the httpAddr (e.g. ":8023" → 8023)
+// HTTPPort returns the HTTP listen port extracted from the httpAddr.
+// Supports all formats: ":8023", "0.0.0.0:8023", "[::]:8023", "[::1]:8023".
 func (s *HTTPSService) HTTPPort() int {
-	addr := s.httpAddr
-	if idx := strings.LastIndex(addr, ":"); idx >= 0 {
-		if port, err := strconv.Atoi(addr[idx+1:]); err == nil {
-			return port
-		}
+	_, portStr, err := net.SplitHostPort(s.httpAddr)
+	if err != nil {
+		return 0
 	}
-	return 0
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return 0
+	}
+	return port
 }
 
 // CertsDir returns the path to the certificate directory

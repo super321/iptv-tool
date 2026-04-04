@@ -609,10 +609,58 @@ function resetAddForm() {
   addForm.blockDays = 7
 }
 
+function validateIPv4(value) {
+  const parts = value.split('.')
+  if (parts.length !== 4) return false
+  return parts.every(p => {
+    if (!/^\d{1,3}$/.test(p)) return false
+    const n = parseInt(p, 10)
+    return n >= 0 && n <= 255
+  })
+}
+
+function validateIPv6(value) {
+  if (!value) return false
+  let hexPart = value
+  let maxGroups = 8
+
+  // Detect IPv4-mapped/compatible suffix (e.g., ::ffff:192.168.1.1)
+  const lastColonIdx = value.lastIndexOf(':')
+  if (lastColonIdx >= 0) {
+    const afterLastColon = value.substring(lastColonIdx + 1)
+    if (afterLastColon.includes('.')) {
+      if (!validateIPv4(afterLastColon)) return false
+      maxGroups = 6 // IPv4 suffix occupies the last 2 of 8 groups
+      hexPart = value.substring(0, lastColonIdx + 1)
+      // Remove trailing colon unless it is part of ::
+      if (hexPart.endsWith(':') && !hexPart.endsWith('::')) {
+        hexPart = hexPart.slice(0, -1)
+      }
+    }
+  }
+
+  // At most one :: allowed
+  const dcCount = (hexPart.match(/::/g) || []).length
+  if (dcCount > 1) return false
+
+  if (dcCount === 1) {
+    const [left, right] = hexPart.split('::')
+    const leftGroups = left === '' ? [] : left.split(':')
+    const rightGroups = right === '' ? [] : right.split(':')
+    // :: must represent at least one all-zero group
+    if (leftGroups.length + rightGroups.length >= maxGroups) return false
+    return [...leftGroups, ...rightGroups].every(g => /^[0-9a-fA-F]{1,4}$/.test(g))
+  }
+
+  // No :: compression — must have exactly maxGroups groups
+  const groups = hexPart.split(':')
+  if (groups.length !== maxGroups) return false
+  return groups.every(g => /^[0-9a-fA-F]{1,4}$/.test(g))
+}
+
 function validateIP(value) {
-  const ipv4 = /^(\d{1,3}\.){3}\d{1,3}$/
-  const ipv6 = /^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$/
-  return ipv4.test(value) || ipv6.test(value)
+  if (!value) return false
+  return value.includes(':') ? validateIPv6(value) : validateIPv4(value)
 }
 
 function validateCIDR(value) {

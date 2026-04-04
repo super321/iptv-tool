@@ -403,13 +403,26 @@ func (e *Engine) parseCustomParams() []customParam {
 	return result
 }
 
+// extractMulticastAddr strips the igmp:// or rtp:// prefix from a multicast URL
+// and returns the raw address (e.g. "239.1.2.3:5140" or "[ff0e::1]:5140").
+// This works for both IPv4 and IPv6 multicast addresses.
+func extractMulticastAddr(multicastURL string) (addr string, ok bool) {
+	if strings.HasPrefix(multicastURL, "igmp://") {
+		return strings.TrimPrefix(multicastURL, "igmp://"), true
+	}
+	if strings.HasPrefix(multicastURL, "rtp://") {
+		return strings.TrimPrefix(multicastURL, "rtp://"), true
+	}
+	return "", false
+}
+
 // transformMulticastURL 根据配置的组播协议和 UDPxy 地址转换组播 URL
 // fccIP 和 fccPort 为频道级别的 FCC 服务器信息
+// Supports both IPv4 (igmp://239.x.x.x:port) and IPv6 (rtp://[ff0e::1]:port) multicast.
 func (e *Engine) transformMulticastURL(multicastURL, fccIP, fccPort string) string {
 	switch e.iface.MulticastType {
 	case "udpxy":
-		if e.iface.UDPxyURL != "" && strings.HasPrefix(multicastURL, "igmp://") {
-			addr := strings.TrimPrefix(multicastURL, "igmp://")
+		if addr, ok := extractMulticastAddr(multicastURL); ok && e.iface.UDPxyURL != "" {
 			result := strings.TrimRight(e.iface.UDPxyURL, "/") + "/rtp/" + addr
 			// Append FCC parameters if enabled and channel has FCC info
 			if e.iface.FCCEnabled && fccIP != "" && fccPort != "" {
@@ -525,12 +538,12 @@ func isMulticastURLStr(url, udpxyURL string) bool {
 	return false
 }
 
-// transformMulticastURLWithConfig transforms a multicast URL using a SourceOutputConfig
+// transformMulticastURLWithConfig transforms a multicast URL using a SourceOutputConfig.
+// Supports both IPv4 (igmp://239.x.x.x:port) and IPv6 (rtp://[ff0e::1]:port) multicast.
 func transformMulticastURLWithConfig(cfg SourceOutputConfig, multicastURL, fccIP, fccPort string) string {
 	switch cfg.MulticastType {
 	case "udpxy":
-		if cfg.UDPxyURL != "" && strings.HasPrefix(multicastURL, "igmp://") {
-			addr := strings.TrimPrefix(multicastURL, "igmp://")
+		if addr, ok := extractMulticastAddr(multicastURL); ok && cfg.UDPxyURL != "" {
 			result := strings.TrimRight(cfg.UDPxyURL, "/") + "/rtp/" + addr
 			if cfg.FCCEnabled && fccIP != "" && fccPort != "" {
 				result += "?fcc=" + fccIP + ":" + fccPort
