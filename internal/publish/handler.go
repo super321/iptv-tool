@@ -10,13 +10,14 @@ import (
 	"iptv-tool-v2/pkg/i18n"
 )
 
-// checkUserAgent returns true if reqUA contains at least one of the comma-separated allowed values.
+// checkUserAgent returns true if reqUA contains at least one of the newline-separated allowed values.
 // Returns false when reqUA is empty or no match is found.
+// NOTE: newline (\n) is used as separator instead of comma, because UA strings may contain commas.
 func checkUserAgent(reqUA, allowedValues string) bool {
 	if reqUA == "" {
 		return false
 	}
-	for _, v := range strings.Split(allowedValues, ",") {
+	for _, v := range strings.Split(allowedValues, "\n") {
 		v = strings.TrimSpace(v)
 		if v != "" && strings.Contains(reqUA, v) {
 			return true

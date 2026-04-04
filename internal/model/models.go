@@ -128,7 +128,7 @@ type PublishInterface struct {
 
 	// User-Agent validation
 	UACheckEnabled  bool   `json:"ua_check_enabled"`  // Enable User-Agent validation
-	UAAllowedValues string `json:"ua_allowed_values"` // Comma-separated allowed UA substrings
+	UAAllowedValues string `json:"ua_allowed_values"` // Newline-separated allowed UA substrings (newline avoids conflict with commas in UA strings)
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`

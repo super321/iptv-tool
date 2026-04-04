@@ -691,7 +691,7 @@ function showEdit(row) {
     unicast_proxy_rules_arr: row.unicast_proxy_rules ? (() => { try { return JSON.parse(row.unicast_proxy_rules) } catch { return [] } })() : [],
     epg_days: row.epg_days || null, gzip_enabled: row.gzip_enabled || false,
     ua_check_enabled: row.ua_check_enabled || false,
-    ua_allowed_values_text: (row.ua_allowed_values || '').split(',').filter(v => v.trim()).join('\n'),
+    ua_allowed_values_text: row.ua_allowed_values || '',
     custom_params_arr: row.custom_params ? (() => { try { return JSON.parse(row.custom_params) } catch { return [] } })() : [],
     output_config_mode: configMode,
     source_output_configs: parsedSourceConfigs,
@@ -796,7 +796,7 @@ async function handleSubmit() {
       unicast_proxy_rules: JSON.stringify(form.unicast_proxy_rules_arr.filter(r => r.pattern.trim())),
       epg_days: form.epg_days || 0, gzip_enabled: form.gzip_enabled,
       ua_check_enabled: form.ua_check_enabled,
-      ua_allowed_values: form.ua_allowed_values_text.split('\n').map(v => v.trim()).filter(v => v).join(','),
+      ua_allowed_values: form.ua_allowed_values_text.split('\n').map(v => v.trim()).filter(v => v).join('\n'),
     }
     // Validate global unicast proxy: require at least one non-empty rule when proxy mode is selected
     if (form.type === 'live' && form.output_config_mode !== 'per_source' && form.unicast_type === 'proxy') {
