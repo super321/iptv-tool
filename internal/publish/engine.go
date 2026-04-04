@@ -26,6 +26,15 @@ type SourceOutputConfig struct {
 	FCCType            string `json:"fcc_type"`
 	CustomParams       string `json:"custom_params"`
 	M3UCatchupTemplate string `json:"m3u_catchup_template"`
+	UnicastType        string `json:"unicast_type"`
+	UnicastProxyRules  string `json:"unicast_proxy_rules"`
+}
+
+// UnicastProxyRule defines a regex-based URL transformation rule for unicast addresses
+type UnicastProxyRule struct {
+	Pattern     string `json:"pattern"`
+	Replacement string `json:"replacement"`
+	regex       *regexp.Regexp
 }
 
 // AggregatedChannel is the result of applying rules to a parsed channel
@@ -87,12 +96,14 @@ type GroupRuleConfig struct {
 
 // Engine handles the aggregation logic
 type Engine struct {
-	iface         model.PublishInterface
-	aliasRules    []AliasRule
-	filterRules   []FilterRule
-	groupRules    []GroupRuleConfig
-	logoMapCache  map[string]string           // Maps lowercased logo name to url_path
-	sourceConfigs map[uint]SourceOutputConfig // Per-source output configs (nil = all global)
+	iface              model.PublishInterface
+	aliasRules         []AliasRule
+	filterRules        []FilterRule
+	groupRules         []GroupRuleConfig
+	logoMapCache       map[string]string           // Maps lowercased logo name to url_path
+	sourceConfigs      map[uint]SourceOutputConfig // Per-source output configs (nil = all global)
+	unicastRules       []UnicastProxyRule          // Pre-compiled global unicast proxy rules
+	sourceUnicastRules map[uint][]UnicastProxyRule // Pre-compiled per-source unicast proxy rules
 }
 
 // NewEngine creates a new publish engine for the given interface
@@ -107,9 +118,21 @@ func NewEngine(iface model.PublishInterface) (*Engine, error) {
 			for k, v := range rawMap {
 				if id, err := strconv.ParseUint(k, 10, 32); err == nil {
 					e.sourceConfigs[uint(id)] = v
+					// Pre-compile per-source unicast proxy rules
+					if v.UnicastType == "proxy" {
+						if e.sourceUnicastRules == nil {
+							e.sourceUnicastRules = make(map[uint][]UnicastProxyRule)
+						}
+						e.sourceUnicastRules[uint(id)] = parseUnicastProxyRules(v.UnicastProxyRules)
+					}
 				}
 			}
 		}
+	}
+
+	// Pre-compile global unicast proxy rules
+	if iface.UnicastType == "proxy" {
+		e.unicastRules = parseUnicastProxyRules(iface.UnicastProxyRules)
 	}
 
 	// Load and compile rules
@@ -331,11 +354,20 @@ func (e *Engine) AggregateLiveChannels() ([]AggregatedChannel, error) {
 		// Determine URL and catchup template based on per-source or global config
 		var channelURL string
 		var catchupTemplate string
+		var catchupSrc string
 		if srcCfg, ok := e.sourceConfigs[ch.SourceID]; ok {
-			channelURL = e.extractBestURLWithConfig(srcCfg, ch.URL, ch.CatchupURL, ch.FCCIP, ch.FCCPort)
+			channelURL = e.extractBestURLWithConfig(srcCfg, e.sourceUnicastRules[ch.SourceID], ch.URL, ch.CatchupURL, ch.FCCIP, ch.FCCPort)
 			catchupTemplate = srcCfg.M3UCatchupTemplate
+			// Apply pre-compiled per-source unicast proxy rules to catchup source
+			if rules, ok := e.sourceUnicastRules[ch.SourceID]; ok {
+				catchupSrc = transformUnicastURL(ch.CatchupURL, rules)
+			} else {
+				catchupSrc = ch.CatchupURL
+			}
 		} else {
 			channelURL = e.extractBestURL(ch.URL, ch.CatchupURL, ch.FCCIP, ch.FCCPort)
+			// Apply global unicast proxy rules to catchup source
+			catchupSrc = transformUnicastURL(ch.CatchupURL, e.unicastRules)
 		}
 
 		agg := AggregatedChannel{
@@ -347,7 +379,7 @@ func (e *Engine) AggregateLiveChannels() ([]AggregatedChannel, error) {
 			SourceLogo:      ch.Logo,
 			TVGId:           ch.TVGId,
 			TVGName:         ch.TVGName,
-			CatchupSrc:      ch.CatchupURL,
+			CatchupSrc:      catchupSrc,
 			CatchupDays:     ch.CatchupDays,
 			FCCIP:           ch.FCCIP,
 			FCCPort:         ch.FCCPort,
@@ -451,6 +483,46 @@ func (e *Engine) transformMulticastURL(multicastURL, fccIP, fccPort string) stri
 	return multicastURL
 }
 
+// parseUnicastProxyRules parses a JSON string into compiled UnicastProxyRule slice
+func parseUnicastProxyRules(raw string) []UnicastProxyRule {
+	if raw == "" {
+		return nil
+	}
+	var rules []UnicastProxyRule
+	if err := json.Unmarshal([]byte(raw), &rules); err != nil {
+		slog.Error("Failed to parse unicast proxy rules", "error", err)
+		return nil
+	}
+	var compiled []UnicastProxyRule
+	for _, r := range rules {
+		if strings.TrimSpace(r.Pattern) == "" {
+			continue
+		}
+		re, err := regexp.Compile(r.Pattern)
+		if err != nil {
+			slog.Warn("Skipping invalid unicast proxy rule regex", "pattern", r.Pattern, "error", err)
+			continue
+		}
+		compiled = append(compiled, UnicastProxyRule{
+			Pattern:     r.Pattern,
+			Replacement: r.Replacement,
+			regex:       re,
+		})
+	}
+	return compiled
+}
+
+// transformUnicastURL applies unicast proxy rules to a unicast URL.
+// Rules are matched in order; the first match wins.
+func transformUnicastURL(url string, rules []UnicastProxyRule) string {
+	for _, r := range rules {
+		if r.regex != nil && r.regex.MatchString(url) {
+			return r.regex.ReplaceAllString(url, r.Replacement)
+		}
+	}
+	return url
+}
+
 func (e *Engine) extractBestURL(rawURLs, catchupURL, fccIP, fccPort string) string {
 	urls := strings.Split(rawURLs, "|")
 
@@ -477,11 +549,11 @@ func (e *Engine) extractBestURL(rawURLs, catchupURL, fccIP, fccPort string) stri
 	if e.iface.AddressType == "unicast" {
 		// 优先级 1: 直接使用单播地址
 		if unicastURL != "" {
-			return unicastURL
+			return transformUnicastURL(unicastURL, e.unicastRules)
 		}
 		// 优先级 2: 仅有组播地址，但有对应的回看单播地址时，使用回看地址替代
 		if multicastURL != "" && catchupURL != "" && !e.isMulticastURL(catchupURL) {
-			return catchupURL
+			return transformUnicastURL(catchupURL, e.unicastRules)
 		}
 		// 优先级 3: 以上都不满足，使用组播地址（根据配置转换协议）
 		if multicastURL != "" {
@@ -495,9 +567,9 @@ func (e *Engine) extractBestURL(rawURLs, catchupURL, fccIP, fccPort string) stri
 		return e.transformMulticastURL(multicastURL, fccIP, fccPort)
 	}
 
-	// 无组播地址时，使用任意现有地址
+	// 无组播地址时，使用任意现有地址（也应用单播代理规则）
 	if unicastURL != "" {
-		return unicastURL
+		return transformUnicastURL(unicastURL, e.unicastRules)
 	}
 
 	// 兜底返回最原始的值
@@ -571,7 +643,7 @@ func transformMulticastURLWithConfig(cfg SourceOutputConfig, multicastURL, fccIP
 }
 
 // extractBestURLWithConfig uses a SourceOutputConfig instead of the global iface fields
-func (e *Engine) extractBestURLWithConfig(cfg SourceOutputConfig, rawURLs, catchupURL, fccIP, fccPort string) string {
+func (e *Engine) extractBestURLWithConfig(cfg SourceOutputConfig, unicastRules []UnicastProxyRule, rawURLs, catchupURL, fccIP, fccPort string) string {
 	urls := strings.Split(rawURLs, "|")
 
 	var multicastURL string
@@ -595,10 +667,10 @@ func (e *Engine) extractBestURLWithConfig(cfg SourceOutputConfig, rawURLs, catch
 
 	if cfg.AddressType == "unicast" {
 		if unicastURL != "" {
-			return unicastURL
+			return transformUnicastURL(unicastURL, unicastRules)
 		}
 		if multicastURL != "" && catchupURL != "" && !isMulticastURLStr(catchupURL, cfg.UDPxyURL) {
-			return catchupURL
+			return transformUnicastURL(catchupURL, unicastRules)
 		}
 		if multicastURL != "" {
 			return transformMulticastURLWithConfig(cfg, multicastURL, fccIP, fccPort)
@@ -612,7 +684,7 @@ func (e *Engine) extractBestURLWithConfig(cfg SourceOutputConfig, rawURLs, catch
 	}
 
 	if unicastURL != "" {
-		return unicastURL
+		return transformUnicastURL(unicastURL, unicastRules)
 	}
 
 	return rawURLs
@@ -653,10 +725,12 @@ func (e *Engine) FormatM3U(channels []AggregatedChannel, requestHost string) str
 			sb.WriteString(fmt.Sprintf(` tvg-logo="%s"`, ch.SourceLogo))
 		}
 		// ====== 核心功能：处理 Catchup 时移参数 ======
-		// Per-source catchup template overrides global
-		templateParams := globalTemplateParams
+		// When per-source mode is active, only use per-source template (no global fallback)
+		var templateParams string
 		if ch.CatchupTemplate != "" {
 			templateParams = strings.TrimLeft(ch.CatchupTemplate, "?&")
+		} else if len(e.sourceConfigs) == 0 {
+			templateParams = globalTemplateParams
 		}
 		if templateParams != "" {
 			// Determine multicast detection using per-source config if available

@@ -176,10 +176,12 @@
                   </div>
                 </el-form-item>
 
+                <!-- Multicast Protocol Conversion -->
+                <el-divider content-position="left" style="margin: 16px 0 12px">{{ $t('publish.multicast_protocol') }}</el-divider>
                 <el-form-item :label="$t('publish.multicast_protocol')">
                   <el-select v-model="form.multicast_type" style="width: 100%">
-                    <el-option :label="$t('publish.udpxy_proxy')" value="udpxy" />
                     <el-option :label="$t('publish.igmp_direct')" value="igmp" />
+                    <el-option :label="$t('publish.udpxy_proxy')" value="udpxy" />
                     <el-option :label="$t('publish.rtp_direct')" value="rtp" />
                   </el-select>
                 </el-form-item>
@@ -222,6 +224,48 @@
                   </div>
                 </el-form-item>
 
+                <!-- Unicast Protocol Conversion -->
+                <el-divider content-position="left" style="margin: 16px 0 12px">{{ $t('publish.unicast_protocol') }}</el-divider>
+                <el-form-item :label="$t('publish.unicast_protocol')">
+                  <el-select v-model="form.unicast_type" style="width: 100%">
+                    <el-option :label="$t('publish.unicast_original')" value="original" />
+                    <el-option :label="$t('publish.unicast_proxy')" value="proxy" />
+                  </el-select>
+                </el-form-item>
+
+                <el-form-item :label="$t('publish.unicast_proxy_rules')" v-if="form.unicast_type === 'proxy'">
+                  <div style="width: 100%">
+                    <div class="help-text" style="margin-bottom: 8px; margin-top: 0; display: flex; align-items: center; gap: 4px">
+                      {{ $t('publish.unicast_proxy_rules_help') }}
+                      <el-popover placement="bottom-start" :width="420" trigger="hover">
+                        <template #reference>
+                          <el-icon style="cursor: help; color: var(--el-color-primary); font-size: 15px; flex-shrink: 0"><QuestionFilled /></el-icon>
+                        </template>
+                        <div style="font-size: 13px; line-height: 1.7">
+                          <div style="font-weight: 600; margin-bottom: 6px">{{ $t('publish.unicast_proxy_example_title') }}</div>
+                          <div style="white-space: pre-line; color: var(--el-text-color-regular)">{{ $t('publish.unicast_proxy_example') }}</div>
+                        </div>
+                      </el-popover>
+                    </div>
+                    <div v-for="(rule, idx) in form.unicast_proxy_rules_arr" :key="idx"
+                      style="background: var(--el-fill-color-light); border-radius: 6px; padding: 10px 12px; margin-bottom: 8px;">
+                      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <span style="font-size: 13px; font-weight: 500; color: var(--el-text-color-secondary)">{{ $t('publish.unicast_proxy_rule_n', { n: idx + 1 }) }}</span>
+                        <el-button :icon="Delete" size="small" circle type="danger" @click="form.unicast_proxy_rules_arr.splice(idx, 1)" />
+                      </div>
+                      <el-input v-model.trim="rule.pattern" :placeholder="$t('publish.unicast_proxy_pattern')" style="margin-bottom: 6px">
+                        <template #prepend>{{ $t('publish.unicast_proxy_pattern') }}</template>
+                      </el-input>
+                      <el-input v-model.trim="rule.replacement" :placeholder="$t('publish.unicast_proxy_replacement')">
+                        <template #prepend>{{ $t('publish.unicast_proxy_replacement') }}</template>
+                      </el-input>
+                    </div>
+                    <el-button type="primary" plain size="small" @click="form.unicast_proxy_rules_arr.push({ pattern: '', replacement: '' })">
+                      {{ $t('publish.add_unicast_proxy_rule') }}
+                    </el-button>
+                  </div>
+                </el-form-item>
+
                 <el-form-item :label="$t('publish.catchup_template')" v-if="form.format === 'm3u'">
                   <div style="width: 100%;">
                     <el-input v-model.trim="form.m3u_catchup_template" :placeholder="$t('publish.catchup_placeholder')" clearable>
@@ -259,10 +303,12 @@
                         </el-select>
                       </el-form-item>
 
+                      <!-- Multicast Protocol Conversion (per-source) -->
+                      <el-divider content-position="left" style="margin: 12px 0 8px">{{ $t('publish.multicast_protocol') }}</el-divider>
                       <el-form-item :label="$t('publish.multicast_protocol')">
                         <el-select v-model="getSourceConfig(srcId).multicast_type" style="width: 100%">
-                          <el-option :label="$t('publish.udpxy_proxy')" value="udpxy" />
                           <el-option :label="$t('publish.igmp_direct')" value="igmp" />
+                          <el-option :label="$t('publish.udpxy_proxy')" value="udpxy" />
                           <el-option :label="$t('publish.rtp_direct')" value="rtp" />
                         </el-select>
                       </el-form-item>
@@ -295,6 +341,48 @@
                           </div>
                           <el-button type="primary" plain size="small" @click="getSourceConfig(srcId).custom_params_arr.push({ key: '', value: '' })">
                             {{ $t('publish.add_custom_param') }}
+                          </el-button>
+                        </div>
+                      </el-form-item>
+
+                      <!-- Unicast Protocol Conversion (per-source) -->
+                      <el-divider content-position="left" style="margin: 12px 0 8px">{{ $t('publish.unicast_protocol') }}</el-divider>
+                      <el-form-item :label="$t('publish.unicast_protocol')">
+                        <el-select v-model="getSourceConfig(srcId).unicast_type" style="width: 100%">
+                          <el-option :label="$t('publish.unicast_original')" value="original" />
+                          <el-option :label="$t('publish.unicast_proxy')" value="proxy" />
+                        </el-select>
+                      </el-form-item>
+
+                      <el-form-item :label="$t('publish.unicast_proxy_rules')" v-if="getSourceConfig(srcId).unicast_type === 'proxy'">
+                        <div style="width: 100%">
+                          <div class="help-text" style="margin-bottom: 8px; margin-top: 0; display: flex; align-items: center; gap: 4px">
+                            {{ $t('publish.unicast_proxy_rules_help') }}
+                            <el-popover placement="bottom-start" :width="420" trigger="hover">
+                              <template #reference>
+                                <el-icon style="cursor: help; color: var(--el-color-primary); font-size: 15px; flex-shrink: 0"><QuestionFilled /></el-icon>
+                              </template>
+                              <div style="font-size: 13px; line-height: 1.7">
+                                <div style="font-weight: 600; margin-bottom: 6px">{{ $t('publish.unicast_proxy_example_title') }}</div>
+                                <div style="white-space: pre-line; color: var(--el-text-color-regular)">{{ $t('publish.unicast_proxy_example') }}</div>
+                              </div>
+                            </el-popover>
+                          </div>
+                          <div v-for="(rule, idx) in getSourceConfig(srcId).unicast_proxy_rules_arr" :key="idx"
+                            style="background: var(--el-fill-color); border-radius: 6px; padding: 10px 12px; margin-bottom: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                              <span style="font-size: 13px; font-weight: 500; color: var(--el-text-color-secondary)">{{ $t('publish.unicast_proxy_rule_n', { n: idx + 1 }) }}</span>
+                              <el-button :icon="Delete" size="small" circle type="danger" @click="getSourceConfig(srcId).unicast_proxy_rules_arr.splice(idx, 1)" />
+                            </div>
+                            <el-input v-model.trim="rule.pattern" :placeholder="$t('publish.unicast_proxy_pattern')" style="margin-bottom: 6px">
+                              <template #prepend>{{ $t('publish.unicast_proxy_pattern') }}</template>
+                            </el-input>
+                            <el-input v-model.trim="rule.replacement" :placeholder="$t('publish.unicast_proxy_replacement')">
+                              <template #prepend>{{ $t('publish.unicast_proxy_replacement') }}</template>
+                            </el-input>
+                          </div>
+                          <el-button type="primary" plain size="small" @click="getSourceConfig(srcId).unicast_proxy_rules_arr.push({ pattern: '', replacement: '' })">
+                            {{ $t('publish.add_unicast_proxy_rule') }}
                           </el-button>
                         </div>
                       </el-form-item>
@@ -416,7 +504,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Edit, Delete, View, ArrowDown, Search, Download } from '@element-plus/icons-vue'
+import { Edit, Delete, View, ArrowDown, Search, Download, QuestionFilled } from '@element-plus/icons-vue'
 import api from '../api'
 
 const { t } = useI18n()
@@ -447,6 +535,7 @@ const defaultForm = () => ({
   name: '', description: '', path: '', type: 'live', format: 'm3u', source_ids_arr: [], rule_ids_arr: [], status: true,
   address_type: 'multicast', multicast_type: 'igmp', udpxy_url: '', fcc_enabled: false, fcc_type: 'telecom',
   m3u_catchup_template: '',
+  unicast_type: 'original', unicast_proxy_rules_arr: [],
   epg_days: 7, gzip_enabled: false, tvg_id_mode: 'channel_id', filter_invalid_source_ids_arr: [],
   ua_check_enabled: false, ua_allowed_values_text: '',
   custom_params_arr: [],
@@ -526,7 +615,8 @@ function onSourceChange(newIds) {
 function makeDefaultSourceConfig() {
   return {
     address_type: 'multicast', multicast_type: 'igmp', udpxy_url: '', fcc_enabled: false, fcc_type: 'telecom',
-    custom_params_arr: [], m3u_catchup_template: ''
+    custom_params_arr: [], m3u_catchup_template: '',
+    unicast_type: 'original', unicast_proxy_rules_arr: []
   }
 }
 function getSourceConfig(srcId) {
@@ -576,7 +666,9 @@ function showEdit(row) {
           fcc_enabled: v.fcc_enabled || false,
           fcc_type: v.fcc_type || 'telecom',
           custom_params_arr: v.custom_params ? (() => { try { return JSON.parse(v.custom_params) } catch { return [] } })() : [],
-          m3u_catchup_template: v.m3u_catchup_template || ''
+          m3u_catchup_template: v.m3u_catchup_template || '',
+          unicast_type: v.unicast_type || 'original',
+          unicast_proxy_rules_arr: v.unicast_proxy_rules ? (() => { try { return JSON.parse(v.unicast_proxy_rules) } catch { return [] } })() : []
         }
       }
       if (Object.keys(parsedSourceConfigs).length > 0) {
@@ -595,6 +687,8 @@ function showEdit(row) {
     multicast_type: row.multicast_type || 'igmp', udpxy_url: row.udpxy_url || '',
     fcc_enabled: row.fcc_enabled || false, fcc_type: row.fcc_type || 'telecom',
     m3u_catchup_template: row.m3u_catchup_template || '',
+    unicast_type: row.unicast_type || 'original',
+    unicast_proxy_rules_arr: row.unicast_proxy_rules ? (() => { try { return JSON.parse(row.unicast_proxy_rules) } catch { return [] } })() : [],
     epg_days: row.epg_days || null, gzip_enabled: row.gzip_enabled || false,
     ua_check_enabled: row.ua_check_enabled || false,
     ua_allowed_values_text: (row.ua_allowed_values || '').split(',').filter(v => v.trim()).join('\n'),
@@ -634,7 +728,9 @@ async function handlePreview() {
       fcc_enabled: form.fcc_enabled,
       fcc_type: form.fcc_type,
       custom_params: JSON.stringify(form.custom_params_arr.filter(p => p.key.trim())),
-      filter_invalid_source_ids: form.filter_invalid_source_ids_arr.join(',')
+      filter_invalid_source_ids: form.filter_invalid_source_ids_arr.join(','),
+      unicast_type: form.unicast_type,
+      unicast_proxy_rules: JSON.stringify(form.unicast_proxy_rules_arr.filter(r => r.pattern.trim()))
     }
     // Add per-source configs for preview if in per_source mode
     if (form.output_config_mode === 'per_source' && form.type === 'live') {
@@ -648,7 +744,9 @@ async function handlePreview() {
             fcc_enabled: cfg.fcc_enabled,
             fcc_type: cfg.fcc_type,
             custom_params: JSON.stringify((cfg.custom_params_arr || []).filter(p => p.key.trim())),
-            m3u_catchup_template: cfg.m3u_catchup_template || ''
+            m3u_catchup_template: cfg.m3u_catchup_template || '',
+            unicast_type: cfg.unicast_type || 'original',
+            unicast_proxy_rules: JSON.stringify((cfg.unicast_proxy_rules_arr || []).filter(r => r.pattern.trim()))
           }
         }
       }
@@ -694,9 +792,20 @@ async function handleSubmit() {
       udpxy_url: form.udpxy_url, fcc_enabled: form.fcc_enabled, fcc_type: form.fcc_type,
       custom_params: JSON.stringify(form.custom_params_arr.filter(p => p.key.trim())),
       m3u_catchup_template: form.m3u_catchup_template,
+      unicast_type: form.unicast_type,
+      unicast_proxy_rules: JSON.stringify(form.unicast_proxy_rules_arr.filter(r => r.pattern.trim())),
       epg_days: form.epg_days || 0, gzip_enabled: form.gzip_enabled,
       ua_check_enabled: form.ua_check_enabled,
       ua_allowed_values: form.ua_allowed_values_text.split('\n').map(v => v.trim()).filter(v => v).join(','),
+    }
+    // Validate global unicast proxy: require at least one non-empty rule when proxy mode is selected
+    if (form.type === 'live' && form.output_config_mode !== 'per_source' && form.unicast_type === 'proxy') {
+      const validRules = form.unicast_proxy_rules_arr.filter(r => r.pattern.trim())
+      if (validRules.length === 0) {
+        ElMessage.warning(t('publish.unicast_proxy_rules_required'))
+        activeTab.value = 'output'
+        return
+      }
     }
     // Per-source output configs
     if (form.output_config_mode === 'per_source' && form.type === 'live') {
@@ -707,6 +816,15 @@ async function handleSubmit() {
           ElMessage.warning(t('publish.udpxy_address_required') + ' (' + getSourceName(srcId) + ')')
           activeTab.value = 'output'
           return
+        }
+        // Validate per-source unicast proxy: require at least one non-empty rule
+        if (cfg && cfg.unicast_type === 'proxy') {
+          const validRules = (cfg.unicast_proxy_rules_arr || []).filter(r => r.pattern.trim())
+          if (validRules.length === 0) {
+            ElMessage.warning(t('publish.unicast_proxy_rules_required') + ' (' + getSourceName(srcId) + ')')
+            activeTab.value = 'output'
+            return
+          }
         }
       }
       // Serialize: convert custom_params_arr to custom_params string
@@ -720,7 +838,9 @@ async function handleSubmit() {
             fcc_enabled: cfg.fcc_enabled,
             fcc_type: cfg.fcc_type,
             custom_params: JSON.stringify((cfg.custom_params_arr || []).filter(p => p.key.trim())),
-            m3u_catchup_template: cfg.m3u_catchup_template || ''
+            m3u_catchup_template: cfg.m3u_catchup_template || '',
+            unicast_type: cfg.unicast_type || 'original',
+            unicast_proxy_rules: JSON.stringify((cfg.unicast_proxy_rules_arr || []).filter(r => r.pattern.trim()))
           }
         }
       }
