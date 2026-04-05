@@ -304,9 +304,19 @@ func TestExtractBestURL(t *testing.T) {
 					CustomParams:  tt.customParams,
 				},
 			}
-			got := e.extractBestURL(tt.rawURLs, tt.catchupURL, tt.fccIP, tt.fccPort)
+			// Build globalSourceCfg and pre-parse custom params (matching NewEngine behavior)
+			e.globalSourceCfg = SourceOutputConfig{
+				AddressType:   tt.addressType,
+				MulticastType: tt.multicastType,
+				UDPxyURL:      tt.udpxyURL,
+				FCCEnabled:    tt.fccEnabled,
+				FCCType:       tt.fccType,
+				CustomParams:  tt.customParams,
+			}
+			e.globalCustomParams = parseCustomParams(tt.customParams)
+			got := e.extractBestURLWithConfig(e.globalSourceCfg, e.unicastRules, e.globalCustomParams, tt.rawURLs, tt.catchupURL, tt.fccIP, tt.fccPort)
 			if got != tt.want {
-				t.Errorf("extractBestURL(%q, %q) = %q, want %q", tt.rawURLs, tt.catchupURL, got, tt.want)
+				t.Errorf("extractBestURLWithConfig(%q, %q) = %q, want %q", tt.rawURLs, tt.catchupURL, got, tt.want)
 			}
 		})
 	}
@@ -445,13 +455,17 @@ func TestExtractBestURLWithUnicastProxy(t *testing.T) {
 					UnicastProxyRules: tt.unicastProxyRules,
 				},
 			}
-			// Pre-compile unicast rules (matching NewEngine behavior)
+			// Build globalSourceCfg and pre-compile unicast rules (matching NewEngine behavior)
+			e.globalSourceCfg = SourceOutputConfig{
+				AddressType: tt.addressType,
+				UnicastType: tt.unicastType,
+			}
 			if tt.unicastType == "proxy" {
 				e.unicastRules = parseUnicastProxyRules(tt.unicastProxyRules)
 			}
-			got := e.extractBestURL(tt.rawURLs, tt.catchupURL, "", "")
+			got := e.extractBestURLWithConfig(e.globalSourceCfg, e.unicastRules, nil, tt.rawURLs, tt.catchupURL, "", "")
 			if got != tt.want {
-				t.Errorf("extractBestURL(%q) = %q, want %q", tt.rawURLs, got, tt.want)
+				t.Errorf("extractBestURLWithConfig(%q) = %q, want %q", tt.rawURLs, got, tt.want)
 			}
 		})
 	}
@@ -495,7 +509,7 @@ func TestExtractBestURLWithConfigUnicastProxy(t *testing.T) {
 			if tt.cfg.UnicastType == "proxy" {
 				rules = parseUnicastProxyRules(tt.cfg.UnicastProxyRules)
 			}
-			got := e.extractBestURLWithConfig(tt.cfg, rules, tt.raw, "", "", "")
+			got := e.extractBestURLWithConfig(tt.cfg, rules, nil, tt.raw, "", "", "")
 			if got != tt.want {
 				t.Errorf("extractBestURLWithConfig(%q) = %q, want %q", tt.raw, got, tt.want)
 			}

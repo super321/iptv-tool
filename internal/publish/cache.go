@@ -159,6 +159,10 @@ func InvalidateAll() {
 
 	pubCache.liveCache = make(map[uint]cacheEntry[[]AggregatedChannel])
 	pubCache.epgCache = make(map[uint]cacheEntry[*AggregatedEPG])
-	keyMutexes.Clear()
+	// Note: keyMutexes is intentionally NOT cleared here.
+	// Clearing it while a LoadOrStore* goroutine holds a per-key mutex
+	// would allow another goroutine to create a new mutex for the same key,
+	// breaking the stampede prevention guarantee. The mutexes are stateless
+	// and lightweight (~8 bytes each), so retaining them has negligible cost.
 	slog.Debug("Publish cache invalidated")
 }

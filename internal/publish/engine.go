@@ -104,6 +104,9 @@ type Engine struct {
 	sourceConfigs      map[uint]SourceOutputConfig // Per-source output configs (nil = all global)
 	unicastRules       []UnicastProxyRule          // Pre-compiled global unicast proxy rules
 	sourceUnicastRules map[uint][]UnicastProxyRule // Pre-compiled per-source unicast proxy rules
+	globalSourceCfg    SourceOutputConfig          // Global config as SourceOutputConfig (unified code path)
+	globalCustomParams []customParam               // Pre-parsed global custom params
+	sourceCustomParams map[uint][]customParam      // Pre-parsed per-source custom params
 }
 
 // NewEngine creates a new publish engine for the given interface
@@ -133,6 +136,26 @@ func NewEngine(iface model.PublishInterface) (*Engine, error) {
 	// Pre-compile global unicast proxy rules
 	if iface.UnicastType == "proxy" {
 		e.unicastRules = parseUnicastProxyRules(iface.UnicastProxyRules)
+	}
+
+	// Build global source config for unified code paths (eliminates duplicate functions)
+	e.globalSourceCfg = SourceOutputConfig{
+		AddressType:   iface.AddressType,
+		MulticastType: iface.MulticastType,
+		UDPxyURL:      iface.UDPxyURL,
+		FCCEnabled:    iface.FCCEnabled,
+		FCCType:       iface.FCCType,
+		CustomParams:  iface.CustomParams,
+		UnicastType:   iface.UnicastType,
+	}
+
+	// Pre-parse custom params to avoid repeated JSON deserialization per channel
+	e.globalCustomParams = parseCustomParams(iface.CustomParams)
+	if len(e.sourceConfigs) > 0 {
+		e.sourceCustomParams = make(map[uint][]customParam, len(e.sourceConfigs))
+		for id, cfg := range e.sourceConfigs {
+			e.sourceCustomParams[id] = parseCustomParams(cfg.CustomParams)
+		}
 	}
 
 	// Load and compile rules
@@ -356,7 +379,7 @@ func (e *Engine) AggregateLiveChannels() ([]AggregatedChannel, error) {
 		var catchupTemplate string
 		var catchupSrc string
 		if srcCfg, ok := e.sourceConfigs[ch.SourceID]; ok {
-			channelURL = e.extractBestURLWithConfig(srcCfg, e.sourceUnicastRules[ch.SourceID], ch.URL, ch.CatchupURL, ch.FCCIP, ch.FCCPort)
+			channelURL = e.extractBestURLWithConfig(srcCfg, e.sourceUnicastRules[ch.SourceID], e.sourceCustomParams[ch.SourceID], ch.URL, ch.CatchupURL, ch.FCCIP, ch.FCCPort)
 			catchupTemplate = srcCfg.M3UCatchupTemplate
 			// Apply pre-compiled per-source unicast proxy rules to catchup source
 			if rules, ok := e.sourceUnicastRules[ch.SourceID]; ok {
@@ -365,7 +388,7 @@ func (e *Engine) AggregateLiveChannels() ([]AggregatedChannel, error) {
 				catchupSrc = ch.CatchupURL
 			}
 		} else {
-			channelURL = e.extractBestURL(ch.URL, ch.CatchupURL, ch.FCCIP, ch.FCCPort)
+			channelURL = e.extractBestURLWithConfig(e.globalSourceCfg, e.unicastRules, e.globalCustomParams, ch.URL, ch.CatchupURL, ch.FCCIP, ch.FCCPort)
 			// Apply global unicast proxy rules to catchup source
 			catchupSrc = transformUnicastURL(ch.CatchupURL, e.unicastRules)
 		}
@@ -393,36 +416,22 @@ func (e *Engine) AggregateLiveChannels() ([]AggregatedChannel, error) {
 	return result, nil
 }
 
-// isMulticastURL 判断给定的最终播放地址是否为组播类型
-// 包括: igmp://, rtp://, 以及通过 UDPXY 代理的组播地址
-func (e *Engine) isMulticastURL(url string) bool {
-	if strings.HasPrefix(url, "igmp://") || strings.HasPrefix(url, "rtp://") {
-		return true
-	}
-	// UDPXY 代理的组播地址形如 http://udpxy-host:port/rtp/239.x.x.x:1234
-	if e.iface.UDPxyURL != "" && strings.HasPrefix(url, strings.TrimRight(e.iface.UDPxyURL, "/")) {
-		return true
-	}
-	return false
-}
-
 // customParam represents a single custom URL parameter
 type customParam struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
 }
 
-// parseCustomParams parses the JSON custom params string into a slice
-func (e *Engine) parseCustomParams() []customParam {
-	if e.iface.CustomParams == "" {
+// parseCustomParams parses a JSON string of custom params into a slice.
+// Called once at Engine creation to avoid per-channel JSON deserialization.
+func parseCustomParams(raw string) []customParam {
+	if raw == "" {
 		return nil
 	}
 	var params []customParam
-	if err := json.Unmarshal([]byte(e.iface.CustomParams), &params); err != nil {
-		slog.Error("Publish Engine: Failed to parse custom params", "error", err, "iface_id", e.iface.ID)
+	if err := json.Unmarshal([]byte(raw), &params); err != nil {
 		return nil
 	}
-	// Filter out entries with empty key
 	var result []customParam
 	for _, p := range params {
 		if strings.TrimSpace(p.Key) != "" {
@@ -446,41 +455,6 @@ func extractMulticastAddr(multicastURL string) (addr string, ok bool) {
 		return strings.TrimPrefix(multicastURL, "rtp://"), true
 	}
 	return "", false
-}
-
-// transformMulticastURL 根据配置的组播协议和 UDPxy 地址转换组播 URL
-// fccIP 和 fccPort 为频道级别的 FCC 服务器信息
-// Supports both IPv4 (igmp://239.x.x.x:port) and IPv6 (rtp://[ff0e::1]:port) multicast.
-func (e *Engine) transformMulticastURL(multicastURL, fccIP, fccPort string) string {
-	switch e.iface.MulticastType {
-	case "udpxy":
-		if addr, ok := extractMulticastAddr(multicastURL); ok && e.iface.UDPxyURL != "" {
-			result := strings.TrimRight(e.iface.UDPxyURL, "/") + "/rtp/" + addr
-			// Append FCC parameters if enabled and channel has FCC info
-			if e.iface.FCCEnabled && fccIP != "" && fccPort != "" {
-				result += "?fcc=" + fccIP + ":" + fccPort
-				if e.iface.FCCType == "huawei" {
-					result += "&fcc-type=huawei"
-				}
-			}
-			// Append custom parameters
-			for _, p := range e.parseCustomParams() {
-				if strings.Contains(result, "?") {
-					result += "&" + p.Key + "=" + p.Value
-				} else {
-					result += "?" + p.Key + "=" + p.Value
-				}
-			}
-			return result
-		}
-	case "rtp":
-		if strings.HasPrefix(multicastURL, "igmp://") {
-			return "rtp://" + strings.TrimPrefix(multicastURL, "igmp://")
-		}
-	case "igmp":
-		return multicastURL
-	}
-	return multicastURL
 }
 
 // parseUnicastProxyRules parses a JSON string into compiled UnicastProxyRule slice
@@ -523,82 +497,6 @@ func transformUnicastURL(url string, rules []UnicastProxyRule) string {
 	return url
 }
 
-func (e *Engine) extractBestURL(rawURLs, catchupURL, fccIP, fccPort string) string {
-	urls := strings.Split(rawURLs, "|")
-
-	var multicastURL string
-	var unicastURL string
-
-	for _, u := range urls {
-		u = strings.TrimSpace(u)
-		if u == "" {
-			continue
-		}
-		if strings.HasPrefix(u, "igmp://") || strings.HasPrefix(u, "rtp://") {
-			if multicastURL == "" {
-				multicastURL = u
-			}
-		} else if strings.HasPrefix(u, "http://") || strings.HasPrefix(u, "https://") || strings.HasPrefix(u, "rtsp://") || strings.HasPrefix(u, "rtmp://") {
-			if unicastURL == "" {
-				unicastURL = u
-			}
-		}
-	}
-
-	// 单播优先策略 (unicast)
-	if e.iface.AddressType == "unicast" {
-		// 优先级 1: 直接使用单播地址
-		if unicastURL != "" {
-			return transformUnicastURL(unicastURL, e.unicastRules)
-		}
-		// 优先级 2: 仅有组播地址，但有对应的回看单播地址时，使用回看地址替代
-		if multicastURL != "" && catchupURL != "" && !e.isMulticastURL(catchupURL) {
-			return transformUnicastURL(catchupURL, e.unicastRules)
-		}
-		// 优先级 3: 以上都不满足，使用组播地址（根据配置转换协议）
-		if multicastURL != "" {
-			return e.transformMulticastURL(multicastURL, fccIP, fccPort)
-		}
-		return rawURLs
-	}
-
-	// 组播优先策略 (multicast) - 默认
-	if multicastURL != "" {
-		return e.transformMulticastURL(multicastURL, fccIP, fccPort)
-	}
-
-	// 无组播地址时，使用任意现有地址（也应用单播代理规则）
-	if unicastURL != "" {
-		return transformUnicastURL(unicastURL, e.unicastRules)
-	}
-
-	// 兜底返回最原始的值
-	return rawURLs
-}
-
-// --- Per-source config overrides ---
-
-// parseCustomParamsStr parses custom params from a raw JSON string
-func parseCustomParamsStr(raw string) []customParam {
-	if raw == "" {
-		return nil
-	}
-	var params []customParam
-	if err := json.Unmarshal([]byte(raw), &params); err != nil {
-		return nil
-	}
-	var result []customParam
-	for _, p := range params {
-		if strings.TrimSpace(p.Key) != "" {
-			result = append(result, customParam{
-				Key:   strings.TrimSpace(p.Key),
-				Value: strings.TrimSpace(p.Value),
-			})
-		}
-	}
-	return result
-}
-
 // isMulticastURLStr checks if a URL is multicast using the given udpxyURL
 func isMulticastURLStr(url, udpxyURL string) bool {
 	if strings.HasPrefix(url, "igmp://") || strings.HasPrefix(url, "rtp://") {
@@ -611,8 +509,8 @@ func isMulticastURLStr(url, udpxyURL string) bool {
 }
 
 // transformMulticastURLWithConfig transforms a multicast URL using a SourceOutputConfig.
-// Supports both IPv4 (igmp://239.x.x.x:port) and IPv6 (rtp://[ff0e::1]:port) multicast.
-func transformMulticastURLWithConfig(cfg SourceOutputConfig, multicastURL, fccIP, fccPort string) string {
+// params are pre-parsed custom params (parsed once at Engine creation, not per-channel).
+func transformMulticastURLWithConfig(cfg SourceOutputConfig, params []customParam, multicastURL, fccIP, fccPort string) string {
 	switch cfg.MulticastType {
 	case "udpxy":
 		if addr, ok := extractMulticastAddr(multicastURL); ok && cfg.UDPxyURL != "" {
@@ -623,7 +521,7 @@ func transformMulticastURLWithConfig(cfg SourceOutputConfig, multicastURL, fccIP
 					result += "&fcc-type=huawei"
 				}
 			}
-			for _, p := range parseCustomParamsStr(cfg.CustomParams) {
+			for _, p := range params {
 				if strings.Contains(result, "?") {
 					result += "&" + p.Key + "=" + p.Value
 				} else {
@@ -642,8 +540,8 @@ func transformMulticastURLWithConfig(cfg SourceOutputConfig, multicastURL, fccIP
 	return multicastURL
 }
 
-// extractBestURLWithConfig uses a SourceOutputConfig instead of the global iface fields
-func (e *Engine) extractBestURLWithConfig(cfg SourceOutputConfig, unicastRules []UnicastProxyRule, rawURLs, catchupURL, fccIP, fccPort string) string {
+// extractBestURLWithConfig selects the best URL from rawURLs based on the given config.
+func (e *Engine) extractBestURLWithConfig(cfg SourceOutputConfig, unicastRules []UnicastProxyRule, params []customParam, rawURLs, catchupURL, fccIP, fccPort string) string {
 	urls := strings.Split(rawURLs, "|")
 
 	var multicastURL string
@@ -673,14 +571,14 @@ func (e *Engine) extractBestURLWithConfig(cfg SourceOutputConfig, unicastRules [
 			return transformUnicastURL(catchupURL, unicastRules)
 		}
 		if multicastURL != "" {
-			return transformMulticastURLWithConfig(cfg, multicastURL, fccIP, fccPort)
+			return transformMulticastURLWithConfig(cfg, params, multicastURL, fccIP, fccPort)
 		}
 		return rawURLs
 	}
 
 	// multicast priority (default)
 	if multicastURL != "" {
-		return transformMulticastURLWithConfig(cfg, multicastURL, fccIP, fccPort)
+		return transformMulticastURLWithConfig(cfg, params, multicastURL, fccIP, fccPort)
 	}
 
 	if unicastURL != "" {
@@ -738,7 +636,7 @@ func (e *Engine) FormatM3U(channels []AggregatedChannel, requestHost string) str
 			if srcCfg, ok := e.sourceConfigs[ch.SourceID]; ok {
 				isMulticast = isMulticastURLStr(ch.URL, srcCfg.UDPxyURL)
 			} else {
-				isMulticast = e.isMulticastURL(ch.URL)
+				isMulticast = isMulticastURLStr(ch.URL, e.globalSourceCfg.UDPxyURL)
 			}
 			if ch.CatchupSrc != "" && ch.CatchupSrc != ch.URL {
 				// 有专属的 TimeShiftURL，且与直播地址不同，使用 default 模式
@@ -923,98 +821,8 @@ func (e *Engine) AggregateEPG() (*AggregatedEPG, error) {
 }
 
 func (e *Engine) FormatXMLTV(epg *AggregatedEPG) string {
-	if epg == nil {
-		return `<?xml version="1.0" encoding="UTF-8"?>` + "\n<tv generator-info-name=\"iptv-tool\">\n</tv>\n"
-	}
-
-	channelMap := make(map[string]string) // XMLTV channel id -> DisplayName
-	// 维护 XMLTV channel id 的出现顺序
-	var xmltvChIDOrder []string
-	// channelProgs: map[xmltvChID] -> ordered list of programs for output
-	type xmltvProg struct {
-		start string
-		end   string
-		title string
-		desc  string
-	}
-	channelProgs := make(map[string][]xmltvProg)
-
-	for _, key := range epg.ChannelOrder {
-		chEntry := epg.Channels[key]
-
-		displayName := chEntry.ChannelName
-		if chEntry.Alias != "" {
-			displayName = chEntry.Alias
-		}
-
-		// ====== channel id 处理逻辑 ======
-		xmltvChID := chEntry.ChannelID
-		if e.iface.TvgIDMode == "name" {
-			xmltvChID = displayName
-		}
-		if xmltvChID == "" {
-			xmltvChID = displayName
-		}
-
-		// 填充唯一的顶部频道映射
-		if _, exists := channelMap[xmltvChID]; !exists {
-			xmltvChIDOrder = append(xmltvChIDOrder, xmltvChID)
-		}
-		channelMap[xmltvChID] = displayName
-
-		// 对日期排序，确保节目按时间顺序输出
-		dates := make([]string, 0, len(chEntry.DatePrograms))
-		for d := range chEntry.DatePrograms {
-			dates = append(dates, d)
-		}
-		sort.Strings(dates)
-
-		// DatePrograms 已在 AggregateEPG 中按 start time 排重，直接遍历即可
-		for _, date := range dates {
-			for _, prog := range chEntry.DatePrograms[date] {
-				channelProgs[xmltvChID] = append(channelProgs[xmltvChID], xmltvProg{
-					start: prog.StartTime.Format("20060102150405 -0700"),
-					end:   prog.EndTime.Format("20060102150405 -0700"),
-					title: prog.Title,
-					desc:  prog.Desc,
-				})
-			}
-		}
-	}
-
 	var sb strings.Builder
-	sb.WriteString(`<?xml version="1.0" encoding="UTF-8"?>`)
-	sb.WriteString("\n")
-	sb.WriteString(`<tv generator-info-name="iptv-tool">`)
-	sb.WriteString("\n")
-
-	// 1. 生成 <channel> 头部，完全去重，按出现顺序输出
-	for _, chID := range xmltvChIDOrder {
-		dispName := channelMap[chID]
-		sb.WriteString(fmt.Sprintf(`  <channel id="%s">`, xmlEscape(chID)))
-		sb.WriteString("\n")
-		sb.WriteString(fmt.Sprintf(`    <display-name lang="zh">%s</display-name>`, xmlEscape(dispName)))
-		sb.WriteString("\n")
-		sb.WriteString("  </channel>\n")
-	}
-
-	// 2. 生成 <programme> 内容，数据已在聚合阶段排重，按日期顺序输出
-	for _, chID := range xmltvChIDOrder {
-		for _, prog := range channelProgs[chID] {
-			sb.WriteString(fmt.Sprintf(`  <programme start="%s" stop="%s" channel="%s">`,
-				prog.start, prog.end, xmlEscape(chID)))
-			sb.WriteString("\n")
-			sb.WriteString(fmt.Sprintf(`    <title lang="zh">%s</title>`, xmlEscape(prog.title)))
-			sb.WriteString("\n")
-			if prog.desc != "" {
-				sb.WriteString(fmt.Sprintf(`    <desc lang="zh">%s</desc>`, xmlEscape(prog.desc)))
-				sb.WriteString("\n")
-			}
-			sb.WriteString("  </programme>\n")
-		}
-	}
-
-	sb.WriteString("</tv>\n")
+	_ = e.FormatXMLTVToWriter(epg, &sb)
 	return sb.String()
 }
 
