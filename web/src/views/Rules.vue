@@ -5,7 +5,7 @@
         <h3>{{ $t('rules.title') }}</h3>
         <span class="text-secondary">
           {{ $t('rules.total_count', { count: filteredRulesList.length }) }}
-          {{ searchQuery ? $t('rules.filtered') : '' }}
+          {{ searchQuery ? $t('common.filtered') : '' }}
         </span>
       </div>
       <div class="page-header-right">

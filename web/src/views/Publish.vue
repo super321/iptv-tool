@@ -5,7 +5,7 @@
         <h3>{{ $t('publish.title') }}</h3>
         <span class="text-secondary">
           {{ $t('publish.total_count', { count: filteredInterfaces.length }) }}
-          {{ searchQuery ? $t('publish.filtered') : '' }}
+          {{ searchQuery ? $t('common.filtered') : '' }}
         </span>
       </div>
       <div class="page-header-right">
@@ -462,7 +462,7 @@
     <el-dialog v-model="previewVisible" :title="$t('publish.preview_title')" width="900px" append-to-body>
       <el-table :data="previewData" v-loading="previewLoading" height="500px" border stripe size="small">
         <template v-if="form.type === 'live'">
-          <el-table-column prop="TVGId" :label="$t('publish.col_channel_id')" width="140" show-overflow-tooltip />
+          <el-table-column prop="TVGId" :label="$t('common.col_channel_id')" width="140" show-overflow-tooltip />
           <el-table-column prop="Name" :label="$t('publish.col_original_name')" min-width="150" show-overflow-tooltip />
           <el-table-column prop="Alias" :label="$t('publish.col_alias')" min-width="140">
             <template #default="{ row }"><span style="color: var(--el-color-primary); font-weight: bold">{{ row.Alias || '-' }}</span></template>
@@ -487,7 +487,7 @@
         </template>
 
         <template v-else>
-          <el-table-column prop="channel_id" :label="$t('publish.col_channel_id')" min-width="180" show-overflow-tooltip />
+          <el-table-column prop="channel_id" :label="$t('common.col_channel_id')" min-width="180" show-overflow-tooltip />
           <el-table-column prop="original_name" :label="$t('publish.col_original_name')" min-width="150" show-overflow-tooltip />
           <el-table-column prop="alias" :label="$t('publish.col_alias')" min-width="150">
             <template #default="{ row }"><span style="color: var(--el-color-primary); font-weight: bold">{{ row.alias || '-' }}</span></template>

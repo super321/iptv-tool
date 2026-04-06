@@ -54,7 +54,7 @@
           <span class="form-hint" style="margin-left: 12px">{{ $t('settings_detect.timeout_help') }}</span>
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="saveConfig" :loading="saving">{{ $t('settings_detect.save_config') }}</el-button>
+          <el-button type="primary" @click="saveConfig" :loading="saving">{{ $t('common.save_config') }}</el-button>
         </el-form-item>
       </el-form>
     </el-card>

@@ -5,7 +5,7 @@
         <h3>{{ $t('epg_sources.title') }}</h3>
         <span class="text-secondary">
           {{ $t('epg_sources.total_count', { count: filteredSources.length }) }}
-          {{ searchQuery ? $t('epg_sources.filtered') : '' }}
+          {{ searchQuery ? $t('common.filtered') : '' }}
         </span>
       </div>
       <div class="page-header-right">
@@ -60,7 +60,7 @@
           <el-tooltip :content="$t('epg_sources.programs_title')" placement="top" :show-after="500">
             <el-button :icon="Notebook" size="small" circle @click="showPrograms(row)" />
           </el-tooltip>
-          <el-tooltip :content="$t('epg_sources.tooltip_sync')" placement="top" :show-after="500">
+          <el-tooltip :content="$t('common.tooltip_sync')" placement="top" :show-after="500">
             <el-button :icon="Refresh" size="small" circle type="warning" @click="triggerFetch(row)" />
           </el-tooltip>
           <el-tooltip :content="$t('common.edit')" placement="top" :show-after="500">
@@ -95,15 +95,15 @@
         </el-form-item>
 
         <template v-if="form.type === 'network_xmltv'">
-          <el-divider content-position="left">{{ $t('epg_sources.custom_headers') }}</el-divider>
+          <el-divider content-position="left">{{ $t('common.custom_headers') }}</el-divider>
           <div style="margin-bottom: 16px; padding: 0 40px">
             <div v-for="(header, idx) in form.network_headers" :key="idx" style="display: flex; gap: 8px; margin-bottom: 8px">
-              <el-input v-model="header.name" :placeholder="$t('epg_sources.header_name')" style="width: 200px" />
-              <el-input v-model="header.value" :placeholder="$t('epg_sources.header_value')" style="flex: 1" />
+              <el-input v-model="header.name" :placeholder="$t('common.header_name')" style="width: 200px" />
+              <el-input v-model="header.value" :placeholder="$t('common.header_value')" style="flex: 1" />
               <el-button :icon="Delete" circle size="small" @click="form.network_headers.splice(idx, 1)" />
             </div>
             <el-button size="small" @click="form.network_headers.push({ name: '', value: '' })">
-              <el-icon><Plus /></el-icon> {{ $t('epg_sources.add_header') }}
+              <el-icon><Plus /></el-icon> {{ $t('common.add_header') }}
             </el-button>
           </div>
         </template>
@@ -168,12 +168,12 @@
       <div v-if="drillLevel === 1">
         <div style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center">
           <p class="text-secondary" style="margin: 0">
-            {{ $t('epg_sources.channels_total', { count: filteredEpgChannels.length }) }} {{ drillSearch ? $t('epg_sources.channels_filtered') : '' }}
+            {{ $t('common.channels_total', { count: filteredEpgChannels.length }) }} {{ drillSearch ? $t('common.filtered') : '' }}
           </p>
-          <el-input v-model="drillSearch" :placeholder="$t('epg_sources.search_channel')" style="width: 200px" size="small" clearable @input="handleSearchChange" />
+          <el-input v-model="drillSearch" :placeholder="$t('common.search_channel')" style="width: 200px" size="small" clearable @input="handleSearchChange" />
         </div>
         <el-table :data="paginatedEpgChannels" v-loading="drillLoading" max-height="400" border stripe size="small">
-          <el-table-column prop="channel" :label="$t('epg_sources.col_channel_id')" min-width="180" show-overflow-tooltip />
+          <el-table-column prop="channel" :label="$t('common.col_channel_id')" min-width="180" show-overflow-tooltip />
           <el-table-column prop="channel_name" :label="$t('epg_sources.col_channel_name')" min-width="180" show-overflow-tooltip>
             <template #default="{ row }">{{ row.channel_name || row.channel }}</template>
           </el-table-column>

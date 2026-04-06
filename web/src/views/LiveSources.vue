@@ -5,7 +5,7 @@
         <h3>{{ $t('live_sources.title') }}</h3>
         <span class="text-secondary">
           {{ $t('live_sources.total_count', { count: filteredSources.length }) }}
-          {{ searchQuery ? $t('live_sources.filtered') : '' }}
+          {{ searchQuery ? $t('common.filtered') : '' }}
         </span>
       </div>
       <div class="page-header-right">
@@ -59,7 +59,7 @@
           <el-tooltip :content="$t('live_sources.tooltip_channels')" placement="top" :show-after="500">
             <el-button :icon="List" size="small" circle @click="showChannels(row)" />
           </el-tooltip>
-          <el-tooltip :content="$t('live_sources.tooltip_sync')" placement="top" :show-after="500">
+          <el-tooltip :content="$t('common.tooltip_sync')" placement="top" :show-after="500">
             <el-button :icon="Refresh" size="small" circle type="warning" @click="triggerFetch(row)" />
           </el-tooltip>
           <el-tooltip :content="$t('common.edit')" placement="top" :show-after="500">
@@ -95,15 +95,15 @@
         </el-form-item>
 
         <template v-if="form.type === 'network_url'">
-          <el-divider content-position="left">{{ $t('live_sources.custom_headers') }}</el-divider>
+          <el-divider content-position="left">{{ $t('common.custom_headers') }}</el-divider>
           <div style="margin-bottom: 16px; padding: 0 40px">
             <div v-for="(header, idx) in form.network_headers" :key="idx" style="display: flex; gap: 8px; margin-bottom: 8px">
-              <el-input v-model="header.name" :placeholder="$t('live_sources.header_name')" style="width: 200px" />
-              <el-input v-model="header.value" :placeholder="$t('live_sources.header_value')" style="flex: 1" />
+              <el-input v-model="header.name" :placeholder="$t('common.header_name')" style="width: 200px" />
+              <el-input v-model="header.value" :placeholder="$t('common.header_value')" style="flex: 1" />
               <el-button :icon="Delete" circle size="small" @click="form.network_headers.splice(idx, 1)" />
             </div>
             <el-button size="small" @click="form.network_headers.push({ name: '', value: '' })">
-              <el-icon><Plus /></el-icon> {{ $t('live_sources.add_header') }}
+              <el-icon><Plus /></el-icon> {{ $t('common.add_header') }}
             </el-button>
           </div>
         </template>
@@ -148,15 +148,15 @@
             </div>
           </el-form-item>
 
-          <el-divider content-position="left">{{ $t('live_sources.custom_headers') }}</el-divider>
+          <el-divider content-position="left">{{ $t('common.custom_headers') }}</el-divider>
           <div style="margin-bottom: 16px">
             <div v-for="(header, idx) in form.iptv.headersList" :key="idx" style="display: flex; gap: 8px; margin-bottom: 8px">
-              <el-input v-model="header.name" :placeholder="$t('live_sources.header_name')" style="width: 200px" />
-              <el-input v-model="header.value" :placeholder="$t('live_sources.header_value')" style="flex: 1" />
+              <el-input v-model="header.name" :placeholder="$t('common.header_name')" style="width: 200px" />
+              <el-input v-model="header.value" :placeholder="$t('common.header_value')" style="flex: 1" />
               <el-button :icon="Delete" circle size="small" @click="form.iptv.headersList.splice(idx, 1)" />
             </div>
             <el-button size="small" @click="form.iptv.headersList.push({ name: '', value: '' })">
-              <el-icon><Plus /></el-icon> {{ $t('live_sources.add_header') }}
+              <el-icon><Plus /></el-icon> {{ $t('common.add_header') }}
             </el-button>
           </div>
 
@@ -302,13 +302,13 @@
     <el-dialog v-model="channelsVisible" :title="$t('live_sources.channels_title')" width="1100px" destroy-on-close :close-on-click-modal="false">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px">
         <span class="text-secondary">
-          {{ $t('live_sources.channels_total', { count: filteredChannels.length }) }} {{ channelsSearch ? $t('live_sources.channels_filtered') : '' }}
+          {{ $t('common.channels_total', { count: filteredChannels.length }) }} {{ channelsSearch ? $t('common.filtered') : '' }}
           <span v-if="channelsDetecting" style="margin-left: 12px; color: var(--el-color-warning)">
             {{ $t('live_sources.detect_progress', { detected: detectedCount, total: channels.length }) }}
           </span>
         </span>
         <div style="display: flex; gap: 12px; align-items: center">
-          <el-input v-model="channelsSearch" :placeholder="$t('live_sources.search_channel')" style="width: 200px" size="small" clearable @input="handleSearchChange" />
+          <el-input v-model="channelsSearch" :placeholder="$t('common.search_channel')" style="width: 200px" size="small" clearable @input="handleSearchChange" />
           <el-select v-model="detectStrategy" size="small" style="width: 140px">
             <el-option :label="$t('live_sources.detect_strategy_unicast')" value="unicast" />
             <el-option :label="$t('live_sources.detect_strategy_multicast')" value="multicast" />
@@ -319,7 +319,7 @@
         </div>
       </div>
       <el-table :data="paginatedChannels" max-height="400" border stripe size="small" style="user-select: text">
-        <el-table-column prop="tvg_id" :label="$t('live_sources.col_channel_id')" width="150" show-overflow-tooltip />
+        <el-table-column prop="tvg_id" :label="$t('common.col_channel_id')" width="150" show-overflow-tooltip />
         <el-table-column prop="name" :label="$t('live_sources.col_channel_name')" min-width="150" />
         <el-table-column prop="group" :label="$t('live_sources.col_group')" min-width="120" />
         <el-table-column :label="$t('live_sources.col_latency')" width="100" align="center">

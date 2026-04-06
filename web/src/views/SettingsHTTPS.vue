@@ -172,7 +172,7 @@
     <!-- Save Button -->
     <div style="margin-top: 20px; max-width: 700px">
       <el-button type="primary" @click="saveConfig" :loading="saving" size="large">
-        {{ $t('settings_https.save_config') }}
+        {{ $t('common.save_config') }}
       </el-button>
     </div>
   </div>
@@ -252,9 +252,9 @@ function onUploadError(error) {
   uploadingCA.value = false
   try {
     const resp = JSON.parse(error.message)
-    ElMessage.error(resp.error || t('settings_https.upload_failed'))
+    ElMessage.error(resp.error || t('common.upload_failed'))
   } catch {
-    ElMessage.error(t('settings_https.upload_failed'))
+    ElMessage.error(t('common.upload_failed'))
   }
 }
 

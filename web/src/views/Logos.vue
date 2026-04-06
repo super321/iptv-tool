@@ -5,7 +5,7 @@
         <h3 style="margin: 0">{{ $t('logos.title') }}</h3>
         <span style="font-size: 13px; color: var(--el-text-color-secondary)">
           {{ $t('logos.total_count', { count: filteredLogos.length }) }}
-          {{ searchQuery ? $t('logos.filtered') : '' }}
+          {{ searchQuery ? $t('common.filtered') : '' }}
         </span>
       </div>
       <div style="display: flex; align-items: center; gap: 12px">
@@ -149,7 +149,7 @@ async function doBatchUpload(files) {
     }
     await loadLogos()
   } catch {
-    ElMessage.error(t('logos.upload_failed'))
+    ElMessage.error(t('common.upload_failed'))
   } finally {
     uploading.value = false
   }
