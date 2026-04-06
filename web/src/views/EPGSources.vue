@@ -74,7 +74,7 @@
     </el-table>
 
     <!-- Create/Edit Dialog -->
-    <el-dialog v-model="dialogVisible" :title="isEdit ? $t('epg_sources.edit_title') : $t('epg_sources.add_title')" width="580px" destroy-on-close :close-on-click-modal="false">
+    <el-dialog v-if="dialogVisible" v-model="dialogVisible" :title="isEdit ? $t('epg_sources.edit_title') : $t('epg_sources.add_title')" width="580px" :close-on-click-modal="false">
       <el-form :model="form" :rules="formRules" ref="formRef" label-width="110px">
         <el-form-item :label="$t('common.name')" prop="name">
           <el-input v-model.trim="form.name" />
@@ -149,18 +149,18 @@
     <el-dialog v-model="programsVisible" :title="$t('epg_sources.programs_title')" width="750px" destroy-on-close :close-on-click-modal="false">
       <!-- Breadcrumb navigation -->
       <div style="margin-bottom: 16px; display: flex; align-items: center; gap: 4px; color: var(--el-text-color-regular); font-size: 14px">
-        <el-link :underline="false" @click="drillLevel = 1" :type="drillLevel === 1 ? 'primary' : 'default'">
+        <el-link underline="never" @click="drillLevel = 1" :type="drillLevel === 1 ? 'primary' : 'default'">
           {{ $t('epg_sources.channel_list') }}
         </el-link>
         <template v-if="drillLevel >= 2">
           <span style="color: var(--el-text-color-placeholder)">/</span>
-          <el-link :underline="false" @click="drillLevel = 2" :type="drillLevel === 2 ? 'primary' : 'default'">
+          <el-link underline="never" @click="drillLevel = 2" :type="drillLevel === 2 ? 'primary' : 'default'">
             {{ drillChannel }}
           </el-link>
         </template>
         <template v-if="drillLevel === 3">
           <span style="color: var(--el-text-color-placeholder)">/</span>
-          <el-link :underline="false" type="primary">{{ drillDate }}</el-link>
+          <el-link underline="never" type="primary">{{ drillDate }}</el-link>
         </template>
       </div>
 

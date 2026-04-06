@@ -101,7 +101,7 @@
           :page-size="accessStatsPageSize"
           :total="accessStatsTotal"
           layout="total, prev, pager, next"
-          small
+          size="small"
           @current-change="loadAccessStats"
         />
       </div>
@@ -204,7 +204,7 @@
           :page-size="aclPageSize"
           :total="entries.length"
           layout="total, prev, pager, next"
-          small
+          size="small"
         />
       </div>
       <el-empty v-if="entries.length === 0" :description="$t('settings_access_control.no_entries')" :image-size="60" />
@@ -263,7 +263,7 @@
           :page-size="aclPageSize"
           :total="entries.length"
           layout="total, prev, pager, next"
-          small
+          size="small"
         />
       </div>
       <el-empty v-if="entries.length === 0" :description="$t('settings_access_control.no_entries')" :image-size="60" />
@@ -277,7 +277,7 @@
     </div>
 
     <!-- Add Whitelist Entry Dialog -->
-    <el-dialog v-model="addDialogVisible" :title="addDialogTitle" width="520px" @close="resetAddForm" align-center>
+    <el-dialog v-if="addDialogVisible" v-model="addDialogVisible" :title="addDialogTitle" width="520px" @close="resetAddForm" align-center>
       <el-form :model="addForm" label-width="110px" label-position="right">
         <!-- Whitelist: entry type selector -->
         <el-form-item v-if="addListType === 'whitelist'" :label="$t('settings_access_control.entry_type')">

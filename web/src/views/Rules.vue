@@ -48,7 +48,7 @@
     </el-table>
 
     <!-- Create/Edit Dialog -->
-    <el-dialog v-model="dialogVisible" :title="isEdit ? $t('rules.edit_title') : $t('rules.add_title')" width="700px" destroy-on-close :close-on-click-modal="false">
+    <el-dialog v-if="dialogVisible" v-model="dialogVisible" :title="isEdit ? $t('rules.edit_title') : $t('rules.add_title')" width="700px" :close-on-click-modal="false">
       <el-form :model="form" :rules="formRules" ref="formRef" label-width="100px">
         <el-form-item :label="$t('rules.col_rule_name')" prop="name">
           <el-input v-model.trim="form.name" :placeholder="$t('rules.rule_name_placeholder')" />

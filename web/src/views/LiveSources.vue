@@ -73,7 +73,7 @@
     </el-table>
 
     <!-- Create/Edit Dialog -->
-    <el-dialog v-model="dialogVisible" :title="isEdit ? $t('live_sources.edit_title') : $t('live_sources.add_title')" width="680px" destroy-on-close :close-on-click-modal="false">
+    <el-dialog v-if="dialogVisible" v-model="dialogVisible" :title="isEdit ? $t('live_sources.edit_title') : $t('live_sources.add_title')" width="680px" :close-on-click-modal="false">
       <el-form :model="form" :rules="formRules" ref="formRef" label-width="120px">
         <el-form-item :label="$t('common.name')" prop="name">
           <el-input v-model.trim="form.name" />
@@ -166,7 +166,7 @@
               :placeholder="$t('live_sources.auth_params_placeholder')" />
             <div class="help-text">
               {{ $t('live_sources.auth_params_help') }}
-              <el-link type="primary" :underline="false" @click="fillAuthExample" style="font-size: 12px">{{ $t('live_sources.fill_example') }}</el-link>
+              <el-link type="primary" underline="never" @click="fillAuthExample" style="font-size: 12px">{{ $t('live_sources.fill_example') }}</el-link>
             </div>
           </el-form-item>
         </template>
@@ -233,7 +233,7 @@
     </el-dialog>
 
     <!-- Crack Key Dialog -->
-    <el-dialog v-model="crackDialogVisible" :title="$t('live_sources.crack_title')" width="600px" destroy-on-close :close-on-click-modal="false" @close="onCrackDialogClose">
+    <el-dialog v-if="crackDialogVisible" v-model="crackDialogVisible" :title="$t('live_sources.crack_title')" width="600px" :close-on-click-modal="false" @close="onCrackDialogClose">
       <el-form label-width="110px">
         <el-form-item label="Authenticator">
           <el-input v-model="crackAuthenticator" type="textarea" :rows="3"

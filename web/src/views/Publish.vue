@@ -59,7 +59,7 @@
       </el-table-column>
     </el-table>
     <!-- Create/Edit Dialog -->
-    <el-dialog v-model="dialogVisible" :title="isEdit ? $t('publish.edit_title') : $t('publish.add_title')" width="640px" destroy-on-close :close-on-click-modal="false">
+    <el-dialog v-if="dialogVisible" v-model="dialogVisible" :title="isEdit ? $t('publish.edit_title') : $t('publish.add_title')" width="640px" :close-on-click-modal="false">
       <el-form :model="form" :rules="formRules" ref="formRef" label-width="auto">
         <el-tabs v-model="activeTab">
           <!-- Tab 1: Basic Info -->

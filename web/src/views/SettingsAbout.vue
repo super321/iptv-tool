@@ -28,7 +28,7 @@
                   <span>{{ $t('settings_about.already_latest') }}</span>
                 </span>
               </el-tag>
-              <el-link v-else-if="updateStatus === 'available'" type="warning" :underline="false" class="update-available-link" @click="showUpdateDialog = true">
+              <el-link v-else-if="updateStatus === 'available'" type="warning" underline="never" class="update-available-link" @click="showUpdateDialog = true">
                 <span style="display: flex; align-items: center; gap: 2px">
                   <el-icon :size="14"><TopRight /></el-icon>
                   <span>{{ $t('settings_about.new_version_available') }}: {{ latestVersion }}</span>
