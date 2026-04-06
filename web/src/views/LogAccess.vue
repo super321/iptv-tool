@@ -37,12 +37,13 @@
     </div>
     <div class="log-table-wrapper">
       <el-table
-          :data="filteredEntries"
+          :data="displayedEntries"
           stripe
           size="small"
           :empty-text="$t('logs.no_logs')"
           class="access-table"
           height="100%"
+          ref="tableRef"
       >
         <el-table-column prop="time" :label="$t('logs.col_time')" width="170" />
         <el-table-column prop="client_ip" :label="$t('logs.col_ip')" width="150" />
@@ -66,19 +67,29 @@
         <el-table-column prop="user_agent" :label="$t('logs.col_ua')" min-width="200" show-overflow-tooltip />
       </el-table>
     </div>
-    <div class="log-status-bar">
-      <span>{{ $t('logs.total_lines', { count: filteredEntries.length }) }}</span>
-      <span :class="['status-dot', isPaused ? 'paused' : 'live']"></span>
-      <span>{{ isPaused ? $t('logs.status_paused') : $t('logs.status_live') }}</span>
+    <div class="log-footer">
+      <div v-if="hasMore" class="load-more-area">
+        <el-button type="primary" link @click="loadMore" :icon="ArrowDown">
+          {{ $t('logs.load_more', { count: remainingCount }) }}
+        </el-button>
+      </div>
+      <div class="log-status-bar">
+        <span v-if="filteredEntries.length > displayCount">
+          {{ $t('logs.showing_of', { showing: displayedEntries.length, total: filteredEntries.length }) }}
+        </span>
+        <span v-else>{{ $t('logs.total_lines', { count: filteredEntries.length }) }}</span>
+        <span :class="['status-dot', isPaused ? 'paused' : 'live']"></span>
+        <span>{{ isPaused ? $t('logs.status_paused') : $t('logs.status_live') }}</span>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useI18n } from 'vue-i18n'
-import { Delete, Download, VideoPlay, VideoPause, Search } from '@element-plus/icons-vue'
+import { Delete, Download, VideoPlay, VideoPause, Search, ArrowDown } from '@element-plus/icons-vue'
 import api from '../api'
 
 const { t } = useI18n()
@@ -87,7 +98,12 @@ const isPaused = ref(false)
 const lastID = ref(0)
 const ipFilter = ref('')
 const pathFilter = ref('')
+const tableRef = ref(null)
+const PAGE_SIZE = 200
+const displayCount = ref(PAGE_SIZE)
 let timer = null
+let scrollEl = null
+let isLoadingMore = false
 
 const filteredEntries = computed(() => {
   const ip = ipFilter.value.toLowerCase()
@@ -100,12 +116,57 @@ const filteredEntries = computed(() => {
   })
 })
 
+const displayedEntries = computed(() => {
+  return filteredEntries.value.slice(0, displayCount.value)
+})
+
+const hasMore = computed(() => {
+  return displayCount.value < filteredEntries.value.length
+})
+
+const remainingCount = computed(() => {
+  return filteredEntries.value.length - displayCount.value
+})
+
+function loadMore() {
+  displayCount.value = Math.min(
+    displayCount.value + PAGE_SIZE,
+    filteredEntries.value.length
+  )
+}
+
 function statusType(status) {
   if (status >= 200 && status < 300) return 'success'
   if (status >= 300 && status < 400) return 'warning'
   if (status >= 400 && status < 500) return 'danger'
   if (status >= 500) return 'danger'
   return 'info'
+}
+
+function handleTableScroll() {
+  if (!scrollEl || isLoadingMore || !hasMore.value) return
+  if (scrollEl.scrollTop + scrollEl.clientHeight >= scrollEl.scrollHeight - 100) {
+    isLoadingMore = true
+    loadMore()
+    nextTick(() => { isLoadingMore = false })
+  }
+}
+
+// Reset display count when filters change (user is searching, show fresh page)
+watch([ipFilter, pathFilter], () => {
+  displayCount.value = PAGE_SIZE
+})
+
+function setupTableScrollListener() {
+  if (scrollEl) return // Already set up
+  nextTick(() => {
+    if (!tableRef.value) return
+    const el = tableRef.value.$el.querySelector('.el-table__body-wrapper .el-scrollbar__wrap')
+    if (el) {
+      scrollEl = el
+      scrollEl.addEventListener('scroll', handleTableScroll, { passive: true })
+    }
+  })
 }
 
 async function fetchLogs() {
@@ -119,12 +180,11 @@ async function fetchLogs() {
         if (e.id > maxID) maxID = e.id
       }
       lastID.value = maxID
-      // Prepend new entries at the top (they are already newest-first)
-      entries.value.unshift(...data.entries)
-      // Keep max 10000 entries, trim oldest from the end
-      if (entries.value.length > 10000) {
-        entries.value = entries.value.slice(0, 5000)
-      }
+      // Efficient array prepend: create new array in one shot
+      const combined = [...data.entries, ...entries.value]
+      entries.value = combined.length > 5000 ? combined.slice(0, 5000) : combined
+      // Retry scroll listener setup after first data load (table may now have scroll element)
+      if (!scrollEl) setupTableScrollListener()
     }
   } catch {
     // Silently ignore polling errors
@@ -144,6 +204,7 @@ async function clearLogs() {
     await api.delete('/logs/access')
     entries.value = []
     lastID.value = 0
+    displayCount.value = PAGE_SIZE
     ElMessage.success(t('logs.clear_success'))
   } catch {
     // error handled by interceptor
@@ -167,10 +228,14 @@ async function downloadLogs() {
 onMounted(() => {
   fetchLogs()
   timer = setInterval(fetchLogs, 2000)
+  setupTableScrollListener()
 })
 
 onUnmounted(() => {
   if (timer) clearInterval(timer)
+  if (scrollEl) {
+    scrollEl.removeEventListener('scroll', handleTableScroll)
+  }
 })
 </script>
 
@@ -227,6 +292,15 @@ onUnmounted(() => {
   font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
   font-size: 12px;
   color: var(--el-text-color-regular);
+}
+.log-footer {
+  flex-shrink: 0;
+}
+.load-more-area {
+  text-align: center;
+  padding: 6px 0;
+  background: var(--el-bg-color-overlay);
+  border-top: 1px solid var(--el-border-color-lighter);
 }
 .log-status-bar {
   display: flex;

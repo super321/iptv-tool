@@ -651,7 +651,9 @@
       "col_ua": "User-Agent",
       "filter_all": "全部級別",
       "filter_ip": "輸入IP地址過濾",
-      "filter_path": "輸入請求URL過濾"
+      "filter_path": "輸入請求URL過濾",
+      "load_more": "載入更多 (剩餘 {count} 條)",
+      "showing_of": "顯示 {showing} / 共 {total} 條"
     },
     "config_transfer": {
       "title": "資料管理",

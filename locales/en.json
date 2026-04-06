@@ -651,7 +651,9 @@
       "col_ua": "User-Agent",
       "filter_all": "All Levels",
       "filter_ip": "Filter by IP",
-      "filter_path": "Filter by URL"
+      "filter_path": "Filter by URL",
+      "load_more": "Load more ({count} remaining)",
+      "showing_of": "Showing {showing} / {total} entries"
     },
     "config_transfer": {
       "title": "Data Management",

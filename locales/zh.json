@@ -651,7 +651,9 @@
       "col_ua": "User-Agent",
       "filter_all": "全部级别",
       "filter_ip": "输入IP地址过滤",
-      "filter_path": "输入请求URL过滤"
+      "filter_path": "输入请求URL过滤",
+      "load_more": "加载更多 (剩余 {count} 条)",
+      "showing_of": "显示 {showing} / 共 {total} 条"
     },
     "config_transfer": {
       "title": "数据管理",
