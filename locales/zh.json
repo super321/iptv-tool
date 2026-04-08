@@ -263,6 +263,7 @@
       "filter_rule_n": "过滤规则 {n}",
       "target_name": "原始名称",
       "target_alias": "频道别名",
+      "target_group": "频道分组",
       "add_filter_rule": "+ 添加过滤规则",
       "group_help": "频道分组（仅直播生效）。从上到下匹配，命中后归入指定分组。",
       "group_name_placeholder": "分组名称 (如：央视)",

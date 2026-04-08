@@ -79,7 +79,7 @@ type AliasRule struct {
 
 type FilterRule struct {
 	MatchMode model.MatchMode `json:"match_mode"`
-	Target    string          `json:"target"` // "name" or "alias"
+	Target    string          `json:"target"` // "name", "alias", or "group"
 	Pattern   string          `json:"pattern"`
 	regex     *regexp.Regexp
 }
@@ -236,14 +236,19 @@ func (e *Engine) applyAlias(name string) string {
 }
 
 // shouldFilter returns true if the channel should be dropped
-func (e *Engine) shouldFilter(name, alias string) bool {
+func (e *Engine) shouldFilter(name, alias, group string, skipGroupRules bool) bool {
 	for _, fr := range e.filterRules {
+		if skipGroupRules && fr.Target == "group" {
+			continue
+		}
 		targetVal := name
 		if fr.Target == "alias" {
 			targetVal = alias
 			if targetVal == "" {
 				targetVal = name
 			}
+		} else if fr.Target == "group" {
+			targetVal = group
 		}
 
 		if fr.MatchMode == model.MatchModeRegex && fr.regex != nil {
@@ -259,8 +264,10 @@ func (e *Engine) shouldFilter(name, alias string) bool {
 	return false
 }
 
-// applyGroup returns the matched group name or original if not matched
-func (e *Engine) applyGroup(name, alias, originalGroup string) string {
+// applyGroup returns the matched group name.
+// When hasGroupRules is true (group rules are configured), unmatched channels get empty group
+// (source's original group is ignored). When false, the original group is preserved as-is.
+func (e *Engine) applyGroup(name, alias, originalGroup string, hasGroupRules bool) string {
 	for _, g := range e.groupRules {
 		for _, r := range g.Rules {
 			targetVal := name
@@ -282,10 +289,10 @@ func (e *Engine) applyGroup(name, alias, originalGroup string) string {
 			}
 		}
 	}
-	if originalGroup != "" {
-		return originalGroup
+	if hasGroupRules {
+		return ""
 	}
-	return "未分组"
+	return originalGroup
 }
 
 // applyLogo matches the channel against uploaded logos
@@ -345,6 +352,7 @@ func (e *Engine) AggregateLiveChannels() ([]AggregatedChannel, error) {
 
 	var result []AggregatedChannel
 	seen := make(map[string]bool)
+	hasGroupRules := len(e.groupRules) > 0
 
 	for _, ch := range parsedChannels {
 		// Stage 0: Skip channels that have been detected as timeout (latency == -1)
@@ -357,13 +365,13 @@ func (e *Engine) AggregateLiveChannels() ([]AggregatedChannel, error) {
 		// Stage 1: Alias
 		alias := e.applyAlias(ch.Name)
 
-		// Stage 2: Filter
-		if e.shouldFilter(ch.Name, alias) {
+		// Stage 2: Group (before filter, so filter can reference computed group)
+		group := e.applyGroup(ch.Name, alias, ch.Group, hasGroupRules)
+
+		// Stage 3: Filter (can now filter by group name)
+		if e.shouldFilter(ch.Name, alias, group, false) {
 			continue
 		}
-
-		// Stage 3: Group
-		group := e.applyGroup(ch.Name, alias, ch.Group)
 
 		// Stage 4: Logo (Auto-match only)
 		logo := e.applyLogo(ch.Name, alias)
@@ -680,7 +688,9 @@ func (e *Engine) FormatTXT(channels []AggregatedChannel) string {
 
 	var sb strings.Builder
 	for _, group := range groupOrder {
-		sb.WriteString(fmt.Sprintf("%s,#genre#\n", group))
+		if group != "" {
+			sb.WriteString(fmt.Sprintf("%s,#genre#\n", group))
+		}
 		for _, ch := range grouped[group] {
 			displayName := ch.Name
 			if ch.Alias != "" {
@@ -768,7 +778,7 @@ func (e *Engine) AggregateEPG() (*AggregatedEPG, error) {
 			// Stage 1: Alias
 			alias := e.applyAlias(p.ChannelName)
 			// Stage 2: Filter
-			drop := e.shouldFilter(p.ChannelName, alias)
+			drop := e.shouldFilter(p.ChannelName, alias, "", true)
 
 			cache = struct {
 				ShouldDrop bool

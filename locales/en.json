@@ -263,6 +263,7 @@
       "filter_rule_n": "Filter Rule {n}",
       "target_name": "Original Name",
       "target_alias": "Channel Alias",
+      "target_group": "Channel Group",
       "add_filter_rule": "+ Add Filter Rule",
       "group_help": "Channel grouping (live only). Matched top to bottom, assigned to specified group on match.",
       "group_name_placeholder": "Group name (e.g. Central)",

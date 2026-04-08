@@ -122,6 +122,7 @@
                 <el-select v-model="rule.target" size="small" :placeholder="$t('rules.match_target_placeholder')">
                   <el-option :label="$t('rules.target_name')" value="name" />
                   <el-option :label="$t('rules.target_alias')" value="alias" />
+                  <el-option :label="$t('rules.target_group')" value="group" />
                 </el-select>
               </el-col>
               <el-col :span="6">

@@ -263,6 +263,7 @@
       "filter_rule_n": "過濾規則 {n}",
       "target_name": "原始名稱",
       "target_alias": "頻道別名",
+      "target_group": "頻道分組",
       "add_filter_rule": "+ 新增過濾規則",
       "group_help": "頻道分組（僅直播生效）。從上到下比對，命中後歸入指定分組。",
       "group_name_placeholder": "分組名稱 (如：央視)",
