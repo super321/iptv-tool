@@ -45,7 +45,9 @@
             :src="row.url_path"
             style="width: 40px; height: 40px; cursor: pointer"
             fit="contain"
-            :preview-src-list="[row.url_path]"
+            loading="lazy"
+            :preview-src-list="previewSrcList"
+            :initial-index="getPreviewIndex(row)"
             :z-index="3000"
             preview-teleported
             hide-on-click-modal
@@ -87,6 +89,14 @@ const filteredLogos = computed(() => {
   const q = searchQuery.value.toLowerCase()
   return logos.value.filter(item => item.name && item.name.toLowerCase().includes(q))
 })
+
+// 共享预览列表，避免每行创建独立的预览实例
+const previewSrcList = computed(() => filteredLogos.value.map(item => item.url_path))
+
+function getPreviewIndex(row) {
+  const idx = filteredLogos.value.findIndex(item => item.id === row.id)
+  return idx >= 0 ? idx : 0
+}
 
 // 收集批量选择的文件
 let pendingFiles = []
