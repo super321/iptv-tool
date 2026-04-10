@@ -107,6 +107,7 @@ func SetupRouter(scheduler *task.Scheduler, logoDir string, dataDir string, fron
 		authorized.POST("/rules", ruleCtrl.Create)
 		authorized.PUT("/rules/:id", ruleCtrl.Update)
 		authorized.DELETE("/rules/:id", ruleCtrl.Delete)
+		authorized.POST("/rules/test", ruleCtrl.TestRule)
 
 		// Detection Settings
 		settingsCtrl := NewSettingsController(dataDir)

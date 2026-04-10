@@ -192,3 +192,140 @@ func (rc *RuleController) Delete(c *gin.Context) {
 	publish.InvalidateAll()
 	c.JSON(http.StatusOK, gin.H{"message": i18n.T(i18n.Lang(c), "message.rule_deleted")})
 }
+
+// TestRuleRequest is the request body for testing a rule before saving
+type TestRuleRequest struct {
+	Type       model.RuleType  `json:"type" binding:"required,oneof=alias filter group"`
+	Config     json.RawMessage `json:"config" binding:"required"`
+	SourceType string          `json:"source_type" binding:"required,oneof=live epg"`
+	SourceIDs  []uint          `json:"source_ids" binding:"required,min=1"`
+}
+
+// TestRuleOriginalItem represents a single item in the original data
+type TestRuleOriginalItem struct {
+	Name  string `json:"name"`
+	Group string `json:"group"`
+}
+
+// TestRuleAppliedItem represents a single item after rule application
+type TestRuleAppliedItem struct {
+	Name   string `json:"name"`
+	Alias  string `json:"alias"`
+	Group  string `json:"group"`
+	Status string `json:"status"` // "modified", "filtered", "unchanged"
+}
+
+// TestRuleSummary holds aggregated counts
+type TestRuleSummary struct {
+	Total     int `json:"total"`
+	Modified  int `json:"modified"`
+	Filtered  int `json:"filtered"`
+	Unchanged int `json:"unchanged"`
+}
+
+// TestRule applies unsaved rule config to selected data sources and returns a diff
+// POST /api/rules/test
+func (rc *RuleController) TestRule(c *gin.Context) {
+	lang := i18n.Lang(c)
+
+	var req TestRuleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": i18n.T(lang, "error.invalid_params") + ": " + err.Error()})
+		return
+	}
+
+	// Compile rules from the unsaved config
+	engine, err := publish.NewTestEngine(req.Type, req.Config)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": i18n.T(lang, "error.test_rule_invalid_config") + ": " + err.Error()})
+		return
+	}
+
+	// Load channel data from sources
+	type channelItem struct {
+		Name  string
+		Group string
+	}
+	var items []channelItem
+
+	if req.SourceType == "live" {
+		var channels []model.ParsedChannel
+		if err := model.DB.Where("source_id IN ?", req.SourceIDs).Find(&channels).Error; err != nil {
+			slog.Error("TestRule: failed to load live channels", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		// Deduplicate by name to reduce noise
+		seen := make(map[string]bool)
+		for _, ch := range channels {
+			if !seen[ch.Name] {
+				seen[ch.Name] = true
+				items = append(items, channelItem{Name: ch.Name, Group: ch.Group})
+			}
+		}
+	} else {
+		// EPG source: load distinct channel names
+		type epgChannel struct {
+			ChannelName string `gorm:"column:channel_name"`
+		}
+		var epgChannels []epgChannel
+		if err := model.DB.Model(&model.ParsedEPG{}).
+			Select("DISTINCT channel_name").
+			Where("source_id IN ?", req.SourceIDs).
+			Find(&epgChannels).Error; err != nil {
+			slog.Error("TestRule: failed to load EPG channels", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		for _, ch := range epgChannels {
+			if ch.ChannelName != "" {
+				items = append(items, channelItem{Name: ch.ChannelName, Group: ""})
+			}
+		}
+	}
+
+	if len(items) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": i18n.T(lang, "error.test_rule_no_sources")})
+		return
+	}
+
+	// Apply rules and build diff
+	original := make([]TestRuleOriginalItem, 0, len(items))
+	applied := make([]TestRuleAppliedItem, 0, len(items))
+	summary := TestRuleSummary{Total: len(items)}
+
+	for _, item := range items {
+		orig := TestRuleOriginalItem{
+			Name:  item.Name,
+			Group: item.Group,
+		}
+		original = append(original, orig)
+
+		result := engine.TestApplyRules(item.Name, item.Group, req.SourceType == "epg")
+
+		appliedItem := TestRuleAppliedItem{
+			Name:  item.Name,
+			Alias: result.Alias,
+			Group: result.Group,
+		}
+
+		if result.Filtered {
+			appliedItem.Status = "filtered"
+			summary.Filtered++
+		} else if result.Alias != "" || result.Group != item.Group {
+			appliedItem.Status = "modified"
+			summary.Modified++
+		} else {
+			appliedItem.Status = "unchanged"
+			summary.Unchanged++
+		}
+
+		applied = append(applied, appliedItem)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"original": original,
+		"applied":  applied,
+		"summary":  summary,
+	})
+}

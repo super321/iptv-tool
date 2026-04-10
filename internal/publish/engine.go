@@ -206,6 +206,97 @@ func NewEngine(iface model.PublishInterface) (*Engine, error) {
 	return e, nil
 }
 
+// TestRuleResult holds the outcome of applying rules to a single channel
+type TestRuleResult struct {
+	Alias    string
+	Group    string
+	Filtered bool
+}
+
+// NewTestEngine creates a lightweight engine for rule testing.
+// It loads only the provided rule config (not from DB) for a single rule type.
+func NewTestEngine(ruleType model.RuleType, config json.RawMessage) (*Engine, error) {
+	e := &Engine{}
+
+	switch ruleType {
+	case model.RuleTypeAlias:
+		var ar []AliasRule
+		if err := json.Unmarshal(config, &ar); err != nil {
+			return nil, fmt.Errorf("invalid alias config: %w", err)
+		}
+		for i := range ar {
+			if ar[i].MatchMode == model.MatchModeRegex && ar[i].Pattern != "" {
+				compiled, err := regexp.Compile(ar[i].Pattern)
+				if err != nil {
+					return nil, fmt.Errorf("invalid regex in alias rule %d: %w", i+1, err)
+				}
+				ar[i].regex = compiled
+			}
+		}
+		e.aliasRules = ar
+
+	case model.RuleTypeFilter:
+		var fr []FilterRule
+		if err := json.Unmarshal(config, &fr); err != nil {
+			return nil, fmt.Errorf("invalid filter config: %w", err)
+		}
+		for i := range fr {
+			if fr[i].MatchMode == model.MatchModeRegex && fr[i].Pattern != "" {
+				compiled, err := regexp.Compile(fr[i].Pattern)
+				if err != nil {
+					return nil, fmt.Errorf("invalid regex in filter rule %d: %w", i+1, err)
+				}
+				fr[i].regex = compiled
+			}
+		}
+		e.filterRules = fr
+
+	case model.RuleTypeGroup:
+		var gr []GroupRuleConfig
+		if err := json.Unmarshal(config, &gr); err != nil {
+			return nil, fmt.Errorf("invalid group config: %w", err)
+		}
+		for i := range gr {
+			for j := range gr[i].Rules {
+				if gr[i].Rules[j].MatchMode == model.MatchModeRegex && gr[i].Rules[j].Pattern != "" {
+					compiled, err := regexp.Compile(gr[i].Rules[j].Pattern)
+					if err != nil {
+						return nil, fmt.Errorf("invalid regex in group rule %d-%d: %w", i+1, j+1, err)
+					}
+					gr[i].Rules[j].regex = compiled
+				}
+			}
+		}
+		e.groupRules = gr
+
+	default:
+		return nil, fmt.Errorf("unsupported rule type: %s", ruleType)
+	}
+
+	return e, nil
+}
+
+// TestApplyRules applies the loaded test rules to a single channel and returns the result.
+// This mirrors the real aggregation pipeline (alias → group → filter) for consistency.
+// When isEPG is true, group-targeted filter rules are skipped (EPG channels have no group info).
+func (e *Engine) TestApplyRules(name, originalGroup string, isEPG bool) TestRuleResult {
+	// Stage 1: Alias
+	alias := e.applyAlias(name)
+
+	// Stage 2: Group (before filter, so filter can reference computed group)
+	hasGroupRules := len(e.groupRules) > 0
+	group := e.applyGroup(name, alias, originalGroup, hasGroupRules)
+
+	// Stage 3: Filter — skip group rules for EPG (consistent with AggregateEPG)
+	filtered := e.shouldFilter(name, alias, group, isEPG)
+
+	return TestRuleResult{
+		Alias:    alias,
+		Group:    group,
+		Filtered: filtered,
+	}
+}
+
 // buildLogoMap builds an ignore-case map of uploaded logos.
 // Stores relative paths (e.g. /logo/cctv1.png) rather than full URLs,
 // so that the cached data is independent of the client's request host.
