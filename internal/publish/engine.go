@@ -687,7 +687,7 @@ func (e *Engine) extractBestURLWithConfig(cfg SourceOutputConfig, unicastRules [
 	return rawURLs
 }
 
-func (e *Engine) FormatM3U(channels []AggregatedChannel, requestHost string) string {
+func (e *Engine) FormatM3U(channels []AggregatedChannel, requestBaseURL string) string {
 	var sb strings.Builder
 	sb.WriteString("#EXTM3U\n")
 	// Global catchup template (fallback)
@@ -716,7 +716,7 @@ func (e *Engine) FormatM3U(channels []AggregatedChannel, requestHost string) str
 		// 优先级 2: 数据源解析时自带的原始 logo URL（直接使用原始地址）
 		// 优先级 3: 均无 logo，不生成 tvg-logo 属性
 		if ch.Logo != "" {
-			logoURL := fmt.Sprintf("http://%s%s", requestHost, ch.Logo)
+			logoURL := requestBaseURL + ch.Logo
 			sb.WriteString(fmt.Sprintf(` tvg-logo="%s"`, logoURL))
 		} else if ch.SourceLogo != "" {
 			sb.WriteString(fmt.Sprintf(` tvg-logo="%s"`, ch.SourceLogo))

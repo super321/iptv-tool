@@ -10,6 +10,19 @@ import (
 	"iptv-tool-v2/pkg/i18n"
 )
 
+// requestScheme determines the URL scheme (http or https) from the request.
+// It checks X-Forwarded-Proto header first (for reverse proxy setups),
+// then falls back to checking if the connection is TLS.
+func requestScheme(c *gin.Context) string {
+	if proto := c.GetHeader("X-Forwarded-Proto"); proto != "" {
+		return strings.ToLower(proto)
+	}
+	if c.Request.TLS != nil {
+		return "https"
+	}
+	return "http"
+}
+
 // checkUserAgent returns true if reqUA contains at least one of the newline-separated allowed values.
 // Returns false when reqUA is empty or no match is found.
 // NOTE: newline (\n) is used as separator instead of comma, because UA strings may contain commas.
@@ -60,8 +73,9 @@ func LiveHandler(c *gin.Context) {
 	if fwd := c.GetHeader("X-Forwarded-Host"); fwd != "" {
 		requestHost = fwd
 	}
+	requestBaseURL := requestScheme(c) + "://" + requestHost
 
-	serveLive(c, engine, iface, requestHost)
+	serveLive(c, engine, iface, requestBaseURL)
 }
 
 // EPGHandler serves EPG subscription endpoints
@@ -97,11 +111,12 @@ func EPGHandler(c *gin.Context) {
 	if fwd := c.GetHeader("X-Forwarded-Host"); fwd != "" {
 		requestHost = fwd
 	}
+	requestBaseURL := requestScheme(c) + "://" + requestHost
 
-	serveEPG(c, engine, iface, requestHost)
+	serveEPG(c, engine, iface, requestBaseURL)
 }
 
-func serveLive(c *gin.Context, engine *Engine, iface model.PublishInterface, requestHost string) {
+func serveLive(c *gin.Context, engine *Engine, iface model.PublishInterface, requestBaseURL string) {
 	channels, err := LoadOrStoreLiveChannels(iface.ID, engine.AggregateLiveChannels)
 	if err != nil {
 		c.String(http.StatusInternalServerError, "%s: %s", i18n.T(i18n.Lang(c), "publish_handler.channel_agg_failed"), err.Error())
@@ -111,8 +126,8 @@ func serveLive(c *gin.Context, engine *Engine, iface model.PublishInterface, req
 	switch iface.Format {
 	case model.PublishFormatM3U:
 		c.Header("Content-Type", "text/plain; charset=utf-8")
-		// Pass requestHost for logo URL resolution in M3U format
-		c.String(http.StatusOK, engine.FormatM3U(channels, requestHost))
+		// Pass requestBaseURL for logo URL resolution in M3U format
+		c.String(http.StatusOK, engine.FormatM3U(channels, requestBaseURL))
 	case model.PublishFormatTXT:
 		c.Header("Content-Type", "text/plain; charset=utf-8")
 		c.String(http.StatusOK, engine.FormatTXT(channels))
@@ -121,7 +136,7 @@ func serveLive(c *gin.Context, engine *Engine, iface model.PublishInterface, req
 	}
 }
 
-func serveEPG(c *gin.Context, engine *Engine, iface model.PublishInterface, _ string) {
+func serveEPG(c *gin.Context, engine *Engine, iface model.PublishInterface, _ string) { // requestBaseURL unused for EPG
 	epg, err := LoadOrStoreEPGPrograms(iface.ID, engine.AggregateEPG)
 	if err != nil {
 		c.String(http.StatusInternalServerError, "%s: %s", i18n.T(i18n.Lang(c), "publish_handler.epg_agg_failed"), err.Error())
@@ -154,10 +169,11 @@ func serveEPG(c *gin.Context, engine *Engine, iface model.PublishInterface, _ st
 
 // ServeLiveOrEPG dispatches to the appropriate serve function based on interface type.
 // Exported for use by admin download endpoint (bypasses UA check).
-func ServeLiveOrEPG(c *gin.Context, engine *Engine, iface model.PublishInterface, requestHost string) {
+// requestBaseURL should include the scheme, e.g. "https://host:port".
+func ServeLiveOrEPG(c *gin.Context, engine *Engine, iface model.PublishInterface, requestBaseURL string) {
 	if iface.Type == "live" {
-		serveLive(c, engine, iface, requestHost)
+		serveLive(c, engine, iface, requestBaseURL)
 	} else {
-		serveEPG(c, engine, iface, requestHost)
+		serveEPG(c, engine, iface, requestBaseURL)
 	}
 }

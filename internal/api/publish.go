@@ -14,6 +14,19 @@ import (
 	"iptv-tool-v2/pkg/i18n"
 )
 
+// requestSchemeFromContext determines the URL scheme (http or https) from the request.
+// It checks X-Forwarded-Proto header first (for reverse proxy setups),
+// then falls back to checking if the connection is TLS.
+func requestSchemeFromContext(c *gin.Context) string {
+	if proto := c.GetHeader("X-Forwarded-Proto"); proto != "" {
+		return strings.ToLower(proto)
+	}
+	if c.Request.TLS != nil {
+		return "https"
+	}
+	return "http"
+}
+
 // PublishController handles CRUD for publish interfaces
 type PublishController struct {
 	scheduler *task.Scheduler
@@ -461,7 +474,8 @@ func (pc *PublishController) DownloadInterface(c *gin.Context) {
 	if fwd := c.GetHeader("X-Forwarded-Host"); fwd != "" {
 		requestHost = fwd
 	}
+	requestBaseURL := requestSchemeFromContext(c) + "://" + requestHost
 
 	// Serve content directly, bypassing UA check (admin is authenticated via JWT)
-	publish.ServeLiveOrEPG(c, engine, iface, requestHost)
+	publish.ServeLiveOrEPG(c, engine, iface, requestBaseURL)
 }

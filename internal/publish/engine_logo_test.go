@@ -73,7 +73,7 @@ func TestFormatM3U_LogoFallback(t *testing.T) {
 			e := &Engine{
 				iface: model.PublishInterface{},
 			}
-			result := e.FormatM3U(tt.channels, "192.168.1.1:8023")
+			result := e.FormatM3U(tt.channels, "http://192.168.1.1:8023")
 
 			if tt.noTvgLogo {
 				if strings.Contains(result, "tvg-logo") {
