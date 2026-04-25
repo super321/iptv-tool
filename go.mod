@@ -12,14 +12,14 @@ ignore (
 require (
 	github.com/gin-gonic/gin v1.12.0
 	github.com/glebarez/sqlite v1.11.0
-	github.com/go-co-op/gocron/v2 v2.20.0
+	github.com/go-co-op/gocron/v2 v2.21.1
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0
 	github.com/mojocn/base64Captcha v1.3.8
 	github.com/oschwald/geoip2-golang/v2 v2.1.0
-	github.com/pressly/goose/v3 v3.27.0
-	golang.org/x/crypto v0.49.0
-	golang.org/x/text v0.35.0
+	github.com/pressly/goose/v3 v3.27.1
+	golang.org/x/crypto v0.50.0
+	golang.org/x/text v0.36.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gorm.io/gorm v1.31.1
 )
@@ -59,16 +59,16 @@ require (
 	github.com/sethvargo/go-retry v0.3.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.3.1 // indirect
-	go.mongodb.org/mongo-driver/v2 v2.5.0 // indirect
+	go.mongodb.org/mongo-driver/v2 v2.5.1 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/arch v0.25.0 // indirect
-	golang.org/x/image v0.38.0 // indirect
-	golang.org/x/net v0.52.0 // indirect
+	golang.org/x/arch v0.26.0 // indirect
+	golang.org/x/image v0.39.0 // indirect
+	golang.org/x/net v0.53.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/sys v0.43.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
-	modernc.org/libc v1.70.0 // indirect
+	modernc.org/libc v1.72.1 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
-	modernc.org/sqlite v1.48.1 // indirect
+	modernc.org/sqlite v1.49.1 // indirect
 )
