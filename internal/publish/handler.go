@@ -39,6 +39,24 @@ func checkUserAgent(reqUA, allowedValues string) bool {
 	return false
 }
 
+// checkToken returns true if the request carries the correct token.
+// Token is extracted from (in priority order):
+//  1. Query parameter: ?it-token=xxx
+//  2. Cookie: it-token=xxx
+//  3. Header: it-token: xxx
+func checkToken(c *gin.Context, expectedToken string) bool {
+	if token := c.Query("it-token"); token != "" {
+		return token == expectedToken
+	}
+	if token, err := c.Cookie("it-token"); err == nil && token != "" {
+		return token == expectedToken
+	}
+	if token := c.GetHeader("it-token"); token != "" {
+		return token == expectedToken
+	}
+	return false
+}
+
 // Handler serves published subscription endpoints
 // GET /sub/live/:path
 func LiveHandler(c *gin.Context) {
@@ -58,6 +76,14 @@ func LiveHandler(c *gin.Context) {
 	// UA validation
 	if iface.UACheckEnabled {
 		if !checkUserAgent(c.GetHeader("User-Agent"), iface.UAAllowedValues) {
+			c.Status(http.StatusForbidden)
+			return
+		}
+	}
+
+	// Token validation
+	if iface.TokenCheckEnabled && iface.TokenValue != "" {
+		if !checkToken(c, iface.TokenValue) {
 			c.Status(http.StatusForbidden)
 			return
 		}
@@ -96,6 +122,14 @@ func EPGHandler(c *gin.Context) {
 	// UA validation
 	if iface.UACheckEnabled {
 		if !checkUserAgent(c.GetHeader("User-Agent"), iface.UAAllowedValues) {
+			c.Status(http.StatusForbidden)
+			return
+		}
+	}
+
+	// Token validation
+	if iface.TokenCheckEnabled && iface.TokenValue != "" {
+		if !checkToken(c, iface.TokenValue) {
 			c.Status(http.StatusForbidden)
 			return
 		}

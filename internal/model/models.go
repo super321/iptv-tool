@@ -130,6 +130,10 @@ type PublishInterface struct {
 	UACheckEnabled  bool   `json:"ua_check_enabled"`  // Enable User-Agent validation
 	UAAllowedValues string `json:"ua_allowed_values"` // Newline-separated allowed UA substrings (newline avoids conflict with commas in UA strings)
 
+	// Token authentication
+	TokenCheckEnabled bool   `json:"token_check_enabled"` // Enable token authentication
+	TokenValue        string `json:"token_value"`         // Static token value
+
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }

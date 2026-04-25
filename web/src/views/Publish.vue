@@ -441,6 +441,27 @@
               />
             </el-form-item>
 
+            <el-divider style="margin: 12px 0" />
+
+            <el-form-item :label="$t('publish.token_check')">
+              <div style="width: 100%">
+                <el-switch v-model="form.token_check_enabled" />
+                <div class="help-text">
+                  {{ $t('publish.token_check_help') }}
+                </div>
+              </div>
+            </el-form-item>
+            <el-form-item :label="$t('publish.token_value')" v-if="form.token_check_enabled">
+              <el-input
+                v-model.trim="form.token_value"
+                :placeholder="$t('publish.token_value_placeholder')"
+                clearable
+              />
+              <div class="help-text" style="width: 100%; white-space: pre-line">
+                {{ $t('publish.token_usage_hint') }}
+              </div>
+            </el-form-item>
+
             <el-form-item :label="$t('common.status')" v-if="isEdit">
               <el-switch v-model="form.status" />
             </el-form-item>
@@ -538,6 +559,7 @@ const defaultForm = () => ({
   unicast_type: 'original', unicast_proxy_rules_arr: [],
   epg_days: 7, gzip_enabled: false, tvg_id_mode: 'channel_id', filter_invalid_source_ids_arr: [],
   ua_check_enabled: false, ua_allowed_values_text: '',
+  token_check_enabled: false, token_value: '',
   custom_params_arr: [],
   output_config_mode: 'global',
   source_output_configs: {}
@@ -692,6 +714,8 @@ function showEdit(row) {
     epg_days: row.epg_days || null, gzip_enabled: row.gzip_enabled || false,
     ua_check_enabled: row.ua_check_enabled || false,
     ua_allowed_values_text: row.ua_allowed_values || '',
+    token_check_enabled: row.token_check_enabled || false,
+    token_value: row.token_value || '',
     custom_params_arr: row.custom_params ? (() => { try { return JSON.parse(row.custom_params) } catch { return [] } })() : [],
     output_config_mode: configMode,
     source_output_configs: parsedSourceConfigs,
@@ -797,6 +821,8 @@ async function handleSubmit() {
       epg_days: form.epg_days || 0, gzip_enabled: form.gzip_enabled,
       ua_check_enabled: form.ua_check_enabled,
       ua_allowed_values: form.ua_allowed_values_text.split('\n').map(v => v.trim()).filter(v => v).join('\n'),
+      token_check_enabled: form.token_check_enabled,
+      token_value: form.token_value,
     }
     // Validate global unicast proxy: require at least one non-empty rule when proxy mode is selected
     if (form.type === 'live' && form.output_config_mode !== 'per_source' && form.unicast_type === 'proxy') {

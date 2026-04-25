@@ -90,6 +90,8 @@ type CreateInterfaceRequest struct {
 	SourceOutputConfigs    string              `json:"source_output_configs"`
 	UACheckEnabled         bool                `json:"ua_check_enabled"`
 	UAAllowedValues        string              `json:"ua_allowed_values"`
+	TokenCheckEnabled      bool                `json:"token_check_enabled"`
+	TokenValue             string              `json:"token_value"`
 }
 
 // CreateInterface adds a new publish interface
@@ -107,6 +109,7 @@ func (pc *PublishController) CreateInterface(c *gin.Context) {
 	req.Path = strings.TrimSpace(req.Path)
 	req.UDPxyURL = strings.TrimSpace(req.UDPxyURL)
 	req.M3UCatchupTemplate = strings.TrimSpace(req.M3UCatchupTemplate)
+	req.TokenValue = strings.TrimSpace(req.TokenValue)
 
 	// Validate format based on type
 	if req.Type == "live" && (req.Format != model.PublishFormatM3U && req.Format != model.PublishFormatTXT) {
@@ -159,6 +162,8 @@ func (pc *PublishController) CreateInterface(c *gin.Context) {
 		SourceOutputConfigs:    req.SourceOutputConfigs,
 		UACheckEnabled:         req.UACheckEnabled,
 		UAAllowedValues:        req.UAAllowedValues,
+		TokenCheckEnabled:      req.TokenCheckEnabled,
+		TokenValue:             req.TokenValue,
 	}
 
 	if err := model.DB.Create(&iface).Error; err != nil {
@@ -196,6 +201,8 @@ type UpdateInterfaceRequest struct {
 	SourceOutputConfigs    *string              `json:"source_output_configs"`
 	UACheckEnabled         *bool                `json:"ua_check_enabled"`
 	UAAllowedValues        *string              `json:"ua_allowed_values"`
+	TokenCheckEnabled      *bool                `json:"token_check_enabled"`
+	TokenValue             *string              `json:"token_value"`
 }
 
 // UpdateInterface modifies a publish interface
@@ -234,6 +241,9 @@ func (pc *PublishController) UpdateInterface(c *gin.Context) {
 	}
 	if req.M3UCatchupTemplate != nil {
 		*req.M3UCatchupTemplate = strings.TrimSpace(*req.M3UCatchupTemplate)
+	}
+	if req.TokenValue != nil {
+		*req.TokenValue = strings.TrimSpace(*req.TokenValue)
 	}
 
 	updates := make(map[string]interface{})
@@ -320,6 +330,12 @@ func (pc *PublishController) UpdateInterface(c *gin.Context) {
 	}
 	if req.UAAllowedValues != nil {
 		updates["ua_allowed_values"] = *req.UAAllowedValues
+	}
+	if req.TokenCheckEnabled != nil {
+		updates["token_check_enabled"] = *req.TokenCheckEnabled
+	}
+	if req.TokenValue != nil {
+		updates["token_value"] = *req.TokenValue
 	}
 
 	if len(updates) > 0 {
