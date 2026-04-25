@@ -106,11 +106,22 @@
 
         <!-- Type: Filter -->
         <template v-if="form.type === 'filter'">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-            <span class="text-secondary">{{ $t('rules.filter_help') }}</span>
-            <el-button size="small" type="success" @click="startAIGenerate('filter')" :icon="MagicStick">
-              {{ $t('rules.ai_generate') }}
-            </el-button>
+          <div style="margin-bottom: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+              <div>
+                <div style="margin-bottom: 8px;">
+                  <span style="font-weight: 500; color: var(--el-text-color-regular); margin-right: 12px;">{{ $t('rules.filter_mode') }}</span>
+                  <el-radio-group v-model="filterMode" size="small">
+                    <el-radio value="blacklist">{{ $t('rules.filter_mode_blacklist') }}</el-radio>
+                    <el-radio value="whitelist">{{ $t('rules.filter_mode_whitelist') }}</el-radio>
+                  </el-radio-group>
+                </div>
+                <span class="text-secondary">{{ filterMode === 'whitelist' ? $t('rules.filter_help_whitelist') : $t('rules.filter_help_blacklist') }}</span>
+              </div>
+              <el-button size="small" type="success" @click="startAIGenerate('filter')" :icon="MagicStick" style="flex-shrink: 0;">
+                {{ $t('rules.ai_generate') }}
+              </el-button>
+            </div>
           </div>
           <div v-for="(rule, idx) in filterConfig" :key="idx" class="rule-box">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
@@ -242,6 +253,10 @@
           <span class="test-summary-label">{{ $t('rules.test_summary_filtered') }}</span>
           <span class="test-summary-value">{{ testResult.summary.filtered }}</span>
         </div>
+        <div class="test-summary-item test-summary-kept">
+          <span class="test-summary-label">{{ $t('rules.test_summary_kept') }}</span>
+          <span class="test-summary-value">{{ testResult.summary.total - testResult.summary.filtered }}</span>
+        </div>
         <div class="test-summary-item test-summary-unchanged">
           <span class="test-summary-label">{{ $t('rules.test_summary_unchanged') }}</span>
           <span class="test-summary-value">{{ testResult.summary.unchanged }}</span>
@@ -254,6 +269,7 @@
           <el-radio-button value="all">{{ $t('rules.test_filter_all') }}</el-radio-button>
           <el-radio-button value="modified">{{ $t('rules.test_filter_modified') }}</el-radio-button>
           <el-radio-button value="filtered">{{ $t('rules.test_filter_filtered') }}</el-radio-button>
+          <el-radio-button value="kept">{{ $t('rules.test_filter_kept') }}</el-radio-button>
         </el-radio-group>
         <el-input v-model="testSearchQuery" :placeholder="$t('rules.test_search_placeholder')" style="width: 220px" clearable :prefix-icon="Search" size="small" />
       </div>
@@ -475,6 +491,7 @@ const formRules = computed(() => ({
 // Config states
 const aliasConfig = ref([])
 const filterConfig = ref([])
+const filterMode = ref('blacklist') // 'blacklist' or 'whitelist'
 const groupConfig = ref([])
 
 // --- AI Generate states (unified for all rule types) ---
@@ -582,6 +599,7 @@ function onTypeChange() {
   aliasConfig.value = []
   filterConfig.value = []
   groupConfig.value = []
+  filterMode.value = 'blacklist'
   if (form.type === 'alias') aliasConfig.value.push({ match_mode: 'regex', pattern: '', replacement: '' })
   if (form.type === 'filter') filterConfig.value.push({ target: 'name', match_mode: 'regex', pattern: '' })
   if (form.type === 'group') groupConfig.value.push({ group_name: '', rules: [{ target: 'name', match_mode: 'regex', pattern: '' }] })
@@ -609,13 +627,22 @@ function showEdit(row) {
   aliasConfig.value = []
   filterConfig.value = []
   groupConfig.value = []
+  filterMode.value = 'blacklist'
 
-  let parsed = []
-  try { parsed = JSON.parse(row.config) } catch (e) { parsed = [] }
+  let parsed
+  try { parsed = JSON.parse(row.config) } catch (e) { parsed = null }
 
-  if (row.type === 'alias') aliasConfig.value = parsed
-  if (row.type === 'filter') filterConfig.value = parsed
-  if (row.type === 'group') groupConfig.value = parsed
+  if (row.type === 'alias') aliasConfig.value = Array.isArray(parsed) ? parsed : []
+  if (row.type === 'filter') {
+    // New format: { filter_mode, rules }
+    if (parsed && !Array.isArray(parsed) && parsed.rules) {
+      filterMode.value = parsed.filter_mode || 'blacklist'
+      filterConfig.value = parsed.rules
+    } else {
+      filterConfig.value = Array.isArray(parsed) ? parsed : []
+    }
+  }
+  if (row.type === 'group') groupConfig.value = Array.isArray(parsed) ? parsed : []
 
   dialogVisible.value = true
 }
@@ -623,11 +650,12 @@ function showEdit(row) {
 async function handleSubmit() {
   await formRef.value.validate()
   
-  let configData = []
+  let configData
   if (form.type === 'alias') {
     configData = aliasConfig.value.filter(r => r.pattern.trim())
   } else if (form.type === 'filter') {
-    configData = filterConfig.value.filter(r => r.pattern.trim())
+    const rules = filterConfig.value.filter(r => r.pattern.trim())
+    configData = { filter_mode: filterMode.value, rules }
   } else if (form.type === 'group') {
     configData = groupConfig.value.filter(g => g.group_name.trim()).map(g => ({
       group_name: g.group_name,
@@ -635,7 +663,10 @@ async function handleSubmit() {
     })).filter(g => g.rules.length > 0)
   }
 
-  if (configData.length === 0) {
+  const isEmpty = form.type === 'filter'
+    ? (!configData.rules || configData.rules.length === 0)
+    : (Array.isArray(configData) && configData.length === 0)
+  if (isEmpty) {
     ElMessage.warning(t('rules.config_empty'))
     return
   }
@@ -898,7 +929,8 @@ function buildCurrentConfig() {
   if (form.type === 'alias') {
     return aliasConfig.value.filter(r => r.pattern.trim())
   } else if (form.type === 'filter') {
-    return filterConfig.value.filter(r => r.pattern.trim())
+    const rules = filterConfig.value.filter(r => r.pattern.trim())
+    return { filter_mode: filterMode.value, rules }
   } else if (form.type === 'group') {
     return groupConfig.value.filter(g => g.group_name.trim()).map(g => ({
       group_name: g.group_name,
@@ -910,7 +942,10 @@ function buildCurrentConfig() {
 
 async function openTestSourceDialog() {
   const config = buildCurrentConfig()
-  if (config.length === 0) {
+  const configEmpty = form.type === 'filter'
+    ? (!config.rules || config.rules.length === 0)
+    : (Array.isArray(config) && config.length === 0)
+  if (configEmpty) {
     ElMessage.warning(t('rules.test_config_empty'))
     return
   }
@@ -961,7 +996,10 @@ function onTestSourceTypeChange() {
 
 async function executeTest() {
   const config = buildCurrentConfig()
-  if (config.length === 0) {
+  const testConfigEmpty = form.type === 'filter'
+    ? (!config.rules || config.rules.length === 0)
+    : (Array.isArray(config) && config.length === 0)
+  if (testConfigEmpty) {
     ElMessage.warning(t('rules.test_config_empty'))
     return
   }
@@ -1003,6 +1041,8 @@ const filteredTestResults = computed(() => {
     items = items.filter((_, idx) => testResult.applied[idx]?.status === 'modified')
   } else if (testFilterMode.value === 'filtered') {
     items = items.filter((_, idx) => testResult.applied[idx]?.status === 'filtered')
+  } else if (testFilterMode.value === 'kept') {
+    items = items.filter((_, idx) => testResult.applied[idx]?.status !== 'filtered')
   }
 
   // Filter by search
@@ -1106,6 +1146,10 @@ function testRowClass(appliedItem) {
 
 .test-summary-filtered .test-summary-value {
   color: var(--el-color-danger);
+}
+
+.test-summary-kept .test-summary-value {
+  color: var(--el-color-primary);
 }
 
 .test-summary-unchanged .test-summary-value {

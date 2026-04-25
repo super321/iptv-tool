@@ -128,17 +128,18 @@ func TestApplyGroup(t *testing.T) {
 
 func TestShouldFilterWithGroup(t *testing.T) {
 	tests := []struct {
-		name           string
-		filterRules    []FilterRule
-		chName         string
-		alias          string
-		group          string
-		skipGroupRules bool
-		wantDrop       bool
+		name                 string
+		blacklistFilterRules []FilterRule
+		whitelistFilterRules []FilterRule
+		chName               string
+		alias                string
+		group                string
+		skipGroupRules       bool
+		wantDrop             bool
 	}{
 		{
 			name: "filter_by_name_match",
-			filterRules: []FilterRule{
+			blacklistFilterRules: []FilterRule{
 				{Target: "name", MatchMode: model.MatchModeString, Pattern: "购物"},
 			},
 			chName:   "购物频道",
@@ -148,7 +149,7 @@ func TestShouldFilterWithGroup(t *testing.T) {
 		},
 		{
 			name: "filter_by_name_no_match",
-			filterRules: []FilterRule{
+			blacklistFilterRules: []FilterRule{
 				{Target: "name", MatchMode: model.MatchModeString, Pattern: "购物"},
 			},
 			chName:   "CCTV1",
@@ -158,7 +159,7 @@ func TestShouldFilterWithGroup(t *testing.T) {
 		},
 		{
 			name: "filter_by_group_match",
-			filterRules: []FilterRule{
+			blacklistFilterRules: []FilterRule{
 				{Target: "group", MatchMode: model.MatchModeString, Pattern: "购物"},
 			},
 			chName:   "东方购物1",
@@ -168,7 +169,7 @@ func TestShouldFilterWithGroup(t *testing.T) {
 		},
 		{
 			name: "filter_by_group_no_match",
-			filterRules: []FilterRule{
+			blacklistFilterRules: []FilterRule{
 				{Target: "group", MatchMode: model.MatchModeString, Pattern: "购物"},
 			},
 			chName:   "CCTV1",
@@ -178,7 +179,7 @@ func TestShouldFilterWithGroup(t *testing.T) {
 		},
 		{
 			name: "filter_by_group_regex_match_empty",
-			filterRules: []FilterRule{
+			blacklistFilterRules: []FilterRule{
 				{Target: "group", MatchMode: model.MatchModeRegex, Pattern: "^$", regex: regexp.MustCompile("^$")},
 			},
 			chName:   "未知频道",
@@ -188,7 +189,7 @@ func TestShouldFilterWithGroup(t *testing.T) {
 		},
 		{
 			name: "filter_by_group_regex_does_not_match_nonempty",
-			filterRules: []FilterRule{
+			blacklistFilterRules: []FilterRule{
 				{Target: "group", MatchMode: model.MatchModeRegex, Pattern: "^$", regex: regexp.MustCompile("^$")},
 			},
 			chName:   "CCTV1",
@@ -198,7 +199,7 @@ func TestShouldFilterWithGroup(t *testing.T) {
 		},
 		{
 			name: "filter_by_alias_fallback_to_name",
-			filterRules: []FilterRule{
+			blacklistFilterRules: []FilterRule{
 				{Target: "alias", MatchMode: model.MatchModeString, Pattern: "test"},
 			},
 			chName:   "test_channel",
@@ -208,7 +209,7 @@ func TestShouldFilterWithGroup(t *testing.T) {
 		},
 		{
 			name: "filter_by_group_does_not_affect_name",
-			filterRules: []FilterRule{
+			blacklistFilterRules: []FilterRule{
 				{Target: "group", MatchMode: model.MatchModeString, Pattern: "央视"},
 			},
 			chName:   "央视新闻",
@@ -219,7 +220,7 @@ func TestShouldFilterWithGroup(t *testing.T) {
 		// EPG context tests: skipGroupRules=true should skip group-target rules
 		{
 			name: "epg_skip_group_regex_empty",
-			filterRules: []FilterRule{
+			blacklistFilterRules: []FilterRule{
 				{Target: "group", MatchMode: model.MatchModeRegex, Pattern: "^$", regex: regexp.MustCompile("^$")},
 			},
 			chName:         "CCTV1",
@@ -230,7 +231,7 @@ func TestShouldFilterWithGroup(t *testing.T) {
 		},
 		{
 			name: "epg_skip_group_string",
-			filterRules: []FilterRule{
+			blacklistFilterRules: []FilterRule{
 				{Target: "group", MatchMode: model.MatchModeString, Pattern: "央视"},
 			},
 			chName:         "CCTV1",
@@ -241,7 +242,7 @@ func TestShouldFilterWithGroup(t *testing.T) {
 		},
 		{
 			name: "epg_still_applies_name_filter",
-			filterRules: []FilterRule{
+			blacklistFilterRules: []FilterRule{
 				{Target: "group", MatchMode: model.MatchModeRegex, Pattern: "^$", regex: regexp.MustCompile("^$")},
 				{Target: "name", MatchMode: model.MatchModeString, Pattern: "购物"},
 			},
@@ -255,11 +256,114 @@ func TestShouldFilterWithGroup(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			e := &Engine{filterRules: tt.filterRules}
+			e := &Engine{blacklistFilterRules: tt.blacklistFilterRules, whitelistFilterRules: tt.whitelistFilterRules}
 			got := e.shouldFilter(tt.chName, tt.alias, tt.group, tt.skipGroupRules)
 			if got != tt.wantDrop {
 				t.Errorf("shouldFilter(%q, %q, %q, %v) = %v, want %v",
 					tt.chName, tt.alias, tt.group, tt.skipGroupRules, got, tt.wantDrop)
+			}
+		})
+	}
+}
+
+func TestShouldFilterWhitelist(t *testing.T) {
+	tests := []struct {
+		name                 string
+		blacklistFilterRules []FilterRule
+		whitelistFilterRules []FilterRule
+		chName               string
+		alias                string
+		group                string
+		wantDrop             bool
+	}{
+		{
+			name: "whitelist_match_keeps_channel",
+			whitelistFilterRules: []FilterRule{
+				{Target: "name", MatchMode: model.MatchModeString, Pattern: "cctv"},
+			},
+			chName:   "CCTV1",
+			wantDrop: false,
+		},
+		{
+			name: "whitelist_no_match_drops_channel",
+			whitelistFilterRules: []FilterRule{
+				{Target: "name", MatchMode: model.MatchModeString, Pattern: "cctv"},
+			},
+			chName:   "湖南卫视",
+			wantDrop: true,
+		},
+		{
+			name: "whitelist_regex_match",
+			whitelistFilterRules: []FilterRule{
+				{Target: "name", MatchMode: model.MatchModeRegex, Pattern: "^CCTV", regex: regexp.MustCompile("^CCTV")},
+			},
+			chName:   "CCTV5",
+			wantDrop: false,
+		},
+		{
+			name: "whitelist_regex_no_match",
+			whitelistFilterRules: []FilterRule{
+				{Target: "name", MatchMode: model.MatchModeRegex, Pattern: "^CCTV", regex: regexp.MustCompile("^CCTV")},
+			},
+			chName:   "湖南卫视",
+			wantDrop: true,
+		},
+		{
+			name: "whitelist_multiple_rules_any_match_keeps",
+			whitelistFilterRules: []FilterRule{
+				{Target: "name", MatchMode: model.MatchModeString, Pattern: "cctv"},
+				{Target: "name", MatchMode: model.MatchModeString, Pattern: "卫视"},
+			},
+			chName:   "湖南卫视",
+			wantDrop: false,
+		},
+		{
+			name: "mixed_whitelist_pass_blacklist_drops",
+			whitelistFilterRules: []FilterRule{
+				{Target: "name", MatchMode: model.MatchModeString, Pattern: "卫视"},
+			},
+			blacklistFilterRules: []FilterRule{
+				{Target: "name", MatchMode: model.MatchModeString, Pattern: "购物"},
+			},
+			chName:   "家有购物卫视",
+			wantDrop: true, // passes whitelist (has "卫视"), but blacklisted (has "购物")
+		},
+		{
+			name: "mixed_whitelist_pass_blacklist_keeps",
+			whitelistFilterRules: []FilterRule{
+				{Target: "name", MatchMode: model.MatchModeString, Pattern: "卫视"},
+			},
+			blacklistFilterRules: []FilterRule{
+				{Target: "name", MatchMode: model.MatchModeString, Pattern: "购物"},
+			},
+			chName:   "湖南卫视",
+			wantDrop: false, // passes whitelist, not blacklisted
+		},
+		{
+			name: "mixed_whitelist_drops_before_blacklist",
+			whitelistFilterRules: []FilterRule{
+				{Target: "name", MatchMode: model.MatchModeString, Pattern: "cctv"},
+			},
+			blacklistFilterRules: []FilterRule{
+				{Target: "name", MatchMode: model.MatchModeString, Pattern: "购物"},
+			},
+			chName:   "湖南卫视",
+			wantDrop: true, // not in whitelist, dropped before blacklist check
+		},
+		{
+			name:     "no_rules_keeps_channel",
+			chName:   "CCTV1",
+			wantDrop: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := &Engine{blacklistFilterRules: tt.blacklistFilterRules, whitelistFilterRules: tt.whitelistFilterRules}
+			got := e.shouldFilter(tt.chName, tt.alias, tt.group, false)
+			if got != tt.wantDrop {
+				t.Errorf("shouldFilter(%q, %q, %q) = %v, want %v",
+					tt.chName, tt.alias, tt.group, got, tt.wantDrop)
 			}
 		})
 	}

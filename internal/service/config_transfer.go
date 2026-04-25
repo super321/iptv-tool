@@ -719,6 +719,11 @@ func (s *ConfigTransferService) importRules(data *ImportParsedData, ruleIDMap ma
 	for _, rule := range data.Rules {
 		oldID := rule.ID
 
+		// Migrate old-format filter config (plain JSON array) to new format
+		if rule.Type == "filter" {
+			rule.Config = migrateFilterRuleConfig(rule.Config)
+		}
+
 		var existing model.AggregationRule
 		err := model.DB.Where("name = ?", rule.Name).First(&existing).Error
 		if err == nil {
@@ -746,6 +751,32 @@ func (s *ConfigTransferService) importRules(data *ImportParsedData, ruleIDMap ma
 	}
 
 	return mr
+}
+
+// migrateFilterRuleConfig converts old-format filter rule config (plain JSON array)
+// to the new object format with filter_mode. If already in new format, returns as-is.
+func migrateFilterRuleConfig(config string) string {
+	trimmed := strings.TrimSpace(config)
+	if trimmed == "" || strings.HasPrefix(trimmed, "{") {
+		return config // Already new format or empty
+	}
+	if strings.HasPrefix(trimmed, "[") {
+		// Old format: wrap array into new object with blacklist mode
+		var arr json.RawMessage
+		if err := json.Unmarshal([]byte(trimmed), &arr); err != nil {
+			return config // Invalid JSON, return as-is
+		}
+		newConfig := map[string]interface{}{
+			"filter_mode": "blacklist",
+			"rules":       arr,
+		}
+		data, err := json.Marshal(newConfig)
+		if err != nil {
+			return config
+		}
+		return string(data)
+	}
+	return config
 }
 
 func (s *ConfigTransferService) importPublish(data *ImportParsedData, liveIDMap, epgIDMap, ruleIDMap map[uint]uint) ModuleResult {

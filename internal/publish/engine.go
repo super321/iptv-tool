@@ -84,6 +84,15 @@ type FilterRule struct {
 	regex     *regexp.Regexp
 }
 
+// FilterConfig is the top-level config for filter type rules.
+// filter_mode controls the matching semantics:
+//   - "blacklist" (default): matched channels are dropped
+//   - "whitelist": only matched channels are kept
+type FilterConfig struct {
+	FilterMode string       `json:"filter_mode"` // "blacklist" or "whitelist"
+	Rules      []FilterRule `json:"rules"`
+}
+
 type GroupRuleConfig struct {
 	GroupName string `json:"group_name"`
 	Rules     []struct {
@@ -96,17 +105,18 @@ type GroupRuleConfig struct {
 
 // Engine handles the aggregation logic
 type Engine struct {
-	iface              model.PublishInterface
-	aliasRules         []AliasRule
-	filterRules        []FilterRule
-	groupRules         []GroupRuleConfig
-	logoMapCache       map[string]string           // Maps lowercased logo name to url_path
-	sourceConfigs      map[uint]SourceOutputConfig // Per-source output configs (nil = all global)
-	unicastRules       []UnicastProxyRule          // Pre-compiled global unicast proxy rules
-	sourceUnicastRules map[uint][]UnicastProxyRule // Pre-compiled per-source unicast proxy rules
-	globalSourceCfg    SourceOutputConfig          // Global config as SourceOutputConfig (unified code path)
-	globalCustomParams []customParam               // Pre-parsed global custom params
-	sourceCustomParams map[uint][]customParam      // Pre-parsed per-source custom params
+	iface                model.PublishInterface
+	aliasRules           []AliasRule
+	blacklistFilterRules []FilterRule
+	whitelistFilterRules []FilterRule
+	groupRules           []GroupRuleConfig
+	logoMapCache         map[string]string           // Maps lowercased logo name to url_path
+	sourceConfigs        map[uint]SourceOutputConfig // Per-source output configs (nil = all global)
+	unicastRules         []UnicastProxyRule          // Pre-compiled global unicast proxy rules
+	sourceUnicastRules   map[uint][]UnicastProxyRule // Pre-compiled per-source unicast proxy rules
+	globalSourceCfg      SourceOutputConfig          // Global config as SourceOutputConfig (unified code path)
+	globalCustomParams   []customParam               // Pre-parsed global custom params
+	sourceCustomParams   map[uint][]customParam      // Pre-parsed per-source custom params
 }
 
 // NewEngine creates a new publish engine for the given interface
@@ -177,14 +187,14 @@ func NewEngine(iface model.PublishInterface) (*Engine, error) {
 						e.aliasRules = append(e.aliasRules, ar...)
 					}
 				case model.RuleTypeFilter:
-					var fr []FilterRule
-					if json.Unmarshal([]byte(r.Config), &fr) == nil {
-						for i := range fr {
-							if fr[i].MatchMode == model.MatchModeRegex {
-								fr[i].regex, _ = regexp.Compile(fr[i].Pattern)
-							}
+					var fc FilterConfig
+					if json.Unmarshal([]byte(r.Config), &fc) == nil {
+						compiled := compileFilterRules(fc.Rules)
+						if fc.FilterMode == "whitelist" {
+							e.whitelistFilterRules = append(e.whitelistFilterRules, compiled...)
+						} else {
+							e.blacklistFilterRules = append(e.blacklistFilterRules, compiled...)
 						}
-						e.filterRules = append(e.filterRules, fr...)
 					}
 				case model.RuleTypeGroup:
 					var gr []GroupRuleConfig
@@ -236,20 +246,24 @@ func NewTestEngine(ruleType model.RuleType, config json.RawMessage) (*Engine, er
 		e.aliasRules = ar
 
 	case model.RuleTypeFilter:
-		var fr []FilterRule
-		if err := json.Unmarshal(config, &fr); err != nil {
+		var fc FilterConfig
+		if err := json.Unmarshal(config, &fc); err != nil {
 			return nil, fmt.Errorf("invalid filter config: %w", err)
 		}
-		for i := range fr {
-			if fr[i].MatchMode == model.MatchModeRegex && fr[i].Pattern != "" {
-				compiled, err := regexp.Compile(fr[i].Pattern)
+		for i := range fc.Rules {
+			if fc.Rules[i].MatchMode == model.MatchModeRegex && fc.Rules[i].Pattern != "" {
+				compiled, err := regexp.Compile(fc.Rules[i].Pattern)
 				if err != nil {
 					return nil, fmt.Errorf("invalid regex in filter rule %d: %w", i+1, err)
 				}
-				fr[i].regex = compiled
+				fc.Rules[i].regex = compiled
 			}
 		}
-		e.filterRules = fr
+		if fc.FilterMode == "whitelist" {
+			e.whitelistFilterRules = fc.Rules
+		} else {
+			e.blacklistFilterRules = fc.Rules
+		}
 
 	case model.RuleTypeGroup:
 		var gr []GroupRuleConfig
@@ -326,32 +340,65 @@ func (e *Engine) applyAlias(name string) string {
 	return ""
 }
 
-// shouldFilter returns true if the channel should be dropped
-func (e *Engine) shouldFilter(name, alias, group string, skipGroupRules bool) bool {
-	for _, fr := range e.filterRules {
-		if skipGroupRules && fr.Target == "group" {
-			continue
-		}
-		targetVal := name
-		if fr.Target == "alias" {
-			targetVal = alias
-			if targetVal == "" {
-				targetVal = name
-			}
-		} else if fr.Target == "group" {
-			targetVal = group
-		}
-
-		if fr.MatchMode == model.MatchModeRegex && fr.regex != nil {
-			if fr.regex.MatchString(targetVal) {
-				return true
-			}
-		} else if fr.MatchMode == model.MatchModeString {
-			if strings.Contains(strings.ToLower(targetVal), strings.ToLower(fr.Pattern)) {
-				return true
-			}
+// compileFilterRules pre-compiles regex patterns in a slice of FilterRule.
+func compileFilterRules(rules []FilterRule) []FilterRule {
+	for i := range rules {
+		if rules[i].MatchMode == model.MatchModeRegex {
+			rules[i].regex, _ = regexp.Compile(rules[i].Pattern)
 		}
 	}
+	return rules
+}
+
+// matchesFilterRule checks whether the given values match a single filter rule.
+func matchesFilterRule(fr FilterRule, name, alias, group string, skipGroupRules bool) bool {
+	if skipGroupRules && fr.Target == "group" {
+		return false
+	}
+	targetVal := name
+	if fr.Target == "alias" {
+		targetVal = alias
+		if targetVal == "" {
+			targetVal = name
+		}
+	} else if fr.Target == "group" {
+		targetVal = group
+	}
+
+	if fr.MatchMode == model.MatchModeRegex && fr.regex != nil {
+		return fr.regex.MatchString(targetVal)
+	} else if fr.MatchMode == model.MatchModeString {
+		return strings.Contains(strings.ToLower(targetVal), strings.ToLower(fr.Pattern))
+	}
+	return false
+}
+
+// shouldFilter returns true if the channel should be dropped.
+// Whitelist rules are checked first: the channel must match at least one
+// whitelist rule to be kept. Then blacklist rules are checked: matching
+// any blacklist rule causes the channel to be dropped.
+func (e *Engine) shouldFilter(name, alias, group string, skipGroupRules bool) bool {
+	// Stage 1: Whitelist check — channel must match at least one whitelist rule
+	if len(e.whitelistFilterRules) > 0 {
+		matched := false
+		for _, fr := range e.whitelistFilterRules {
+			if matchesFilterRule(fr, name, alias, group, skipGroupRules) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return true // Not in whitelist → drop
+		}
+	}
+
+	// Stage 2: Blacklist check — matching any blacklist rule drops the channel
+	for _, fr := range e.blacklistFilterRules {
+		if matchesFilterRule(fr, name, alias, group, skipGroupRules) {
+			return true
+		}
+	}
+
 	return false
 }
 
