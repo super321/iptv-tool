@@ -257,11 +257,15 @@ func (s *DetectService) detectSingleChannel(ffprobePath string, url string, time
 		probeURL = "rtp://" + strings.TrimPrefix(probeURL, "igmp://")
 	}
 
-	// ffprobe -v quiet -print_format json -show_streams [-rtsp_transport tcp] -i <url>
-	args := []string{"-v", "quiet", "-print_format", "json", "-show_streams"}
+	// ffprobe-level timeout as safety net, slightly longer than Go context timeout.
+	// This ensures ffprobe self-terminates even if OS process kill is delayed.
+	ffprobeTimeoutUs := strconv.Itoa((timeoutSec + 2) * 1_000_000) // microseconds
+
+	// ffprobe -v quiet -print_format json -show_streams -rw_timeout <us> [-rtsp_transport tcp -timeout <us>] -i <url>
+	args := []string{"-v", "quiet", "-print_format", "json", "-show_streams", "-rw_timeout", ffprobeTimeoutUs}
 	// Force TCP transport for RTSP streams (default UDP is unreliable)
 	if strings.HasPrefix(probeURL, "rtsp://") {
-		args = append(args, "-rtsp_transport", "tcp")
+		args = append(args, "-rtsp_transport", "tcp", "-timeout", ffprobeTimeoutUs)
 	}
 	args = append(args, "-i", probeURL)
 	cmd := exec.CommandContext(ctx, ffprobePath, args...)
