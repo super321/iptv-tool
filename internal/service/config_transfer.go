@@ -66,10 +66,17 @@ type ImportParsedData struct {
 	Logos          []ExportLogo               `json:"-"`
 	LogoFiles      map[string][]byte          `json:"-"` // fileName -> fileBytes
 	Rules          []model.AggregationRule    `json:"-"`
-	PublishIfaces  []model.PublishInterface   `json:"-"`
+	PublishIfaces  []ImportPublishInterface   `json:"-"`
 	DetectSettings map[string]string          `json:"-"` // key -> value
 	ACLMode        string                     `json:"-"`
 	ACLEntries     []model.AccessControlEntry `json:"-"`
+}
+
+// ImportPublishInterface wraps model.PublishInterface with legacy fields for backward compatibility.
+// Old exports use filter_invalid_source_ids (comma-separated), new exports use detect_filter_config (JSON).
+type ImportPublishInterface struct {
+	model.PublishInterface
+	LegacyFilterInvalidSourceIDs string `json:"filter_invalid_source_ids"`
 }
 
 // ModuleResult reports the import outcome for a single module.
@@ -782,11 +789,18 @@ func migrateFilterRuleConfig(config string) string {
 func (s *ConfigTransferService) importPublish(data *ImportParsedData, liveIDMap, epgIDMap, ruleIDMap map[uint]uint) ModuleResult {
 	mr := ModuleResult{Module: ModulePublish, Total: len(data.PublishIfaces)}
 
-	for _, iface := range data.PublishIfaces {
+	for _, importIface := range data.PublishIfaces {
+		iface := importIface.PublishInterface
+
+		// Migrate legacy filter_invalid_source_ids to detect_filter_config
+		if iface.DetectFilterConfig == "" && importIface.LegacyFilterInvalidSourceIDs != "" {
+			iface.DetectFilterConfig = migrateFilterInvalidToDetectConfig(importIface.LegacyFilterInvalidSourceIDs)
+		}
+
 		// Remap SourceIDs
 		if iface.Type == "live" {
 			iface.SourceIDs = remapIDList(iface.SourceIDs, liveIDMap)
-			iface.FilterInvalidSourceIDs = remapIDList(iface.FilterInvalidSourceIDs, liveIDMap)
+			iface.DetectFilterConfig = remapDetectFilterConfig(iface.DetectFilterConfig, liveIDMap)
 			iface.SourceOutputConfigs = remapJSONObjectKeys(iface.SourceOutputConfigs, liveIDMap)
 		} else if iface.Type == "epg" {
 			iface.SourceIDs = remapIDList(iface.SourceIDs, epgIDMap)
@@ -800,27 +814,27 @@ func (s *ConfigTransferService) importPublish(data *ImportParsedData, liveIDMap,
 		if err == nil {
 			// Overwrite
 			updates := map[string]interface{}{
-				"description":               iface.Description,
-				"path":                      iface.Path,
-				"type":                      iface.Type,
-				"format":                    iface.Format,
-				"source_ids":                iface.SourceIDs,
-				"rule_ids":                  iface.RuleIDs,
-				"tvg_id_mode":               iface.TvgIDMode,
-				"status":                    iface.Status,
-				"epg_days":                  iface.EPGDays,
-				"gzip_enabled":              iface.GzipEnabled,
-				"address_type":              iface.AddressType,
-				"multicast_type":            iface.MulticastType,
-				"udpxy_url":                 iface.UDPxyURL,
-				"fcc_enabled":               iface.FCCEnabled,
-				"fcc_type":                  iface.FCCType,
-				"custom_params":             iface.CustomParams,
-				"m3u_catchup_template":      iface.M3UCatchupTemplate,
-				"filter_invalid_source_ids": iface.FilterInvalidSourceIDs,
-				"source_output_configs":     iface.SourceOutputConfigs,
-				"ua_check_enabled":          iface.UACheckEnabled,
-				"ua_allowed_values":         iface.UAAllowedValues,
+				"description":           iface.Description,
+				"path":                  iface.Path,
+				"type":                  iface.Type,
+				"format":                iface.Format,
+				"source_ids":            iface.SourceIDs,
+				"rule_ids":              iface.RuleIDs,
+				"tvg_id_mode":           iface.TvgIDMode,
+				"status":                iface.Status,
+				"epg_days":              iface.EPGDays,
+				"gzip_enabled":          iface.GzipEnabled,
+				"address_type":          iface.AddressType,
+				"multicast_type":        iface.MulticastType,
+				"udpxy_url":             iface.UDPxyURL,
+				"fcc_enabled":           iface.FCCEnabled,
+				"fcc_type":              iface.FCCType,
+				"custom_params":         iface.CustomParams,
+				"m3u_catchup_template":  iface.M3UCatchupTemplate,
+				"detect_filter_config":  iface.DetectFilterConfig,
+				"source_output_configs": iface.SourceOutputConfigs,
+				"ua_check_enabled":      iface.UACheckEnabled,
+				"ua_allowed_values":     iface.UAAllowedValues,
 			}
 			if err := model.DB.Model(&existing).Updates(updates).Error; err != nil {
 				mr.Failed++
@@ -978,6 +992,64 @@ func remapJSONObjectKeys(jsonStr string, idMap map[uint]uint) string {
 	data, err := json.Marshal(newObj)
 	if err != nil {
 		return jsonStr
+	}
+	return string(data)
+}
+
+// migrateFilterInvalidToDetectConfig converts the old comma-separated
+// filter_invalid_source_ids string to the new detect_filter_config JSON format.
+func migrateFilterInvalidToDetectConfig(oldIDs string) string {
+	if oldIDs == "" {
+		return ""
+	}
+	parts := strings.Split(oldIDs, ",")
+	var sourceIDs []uint
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		id, err := strconv.ParseUint(p, 10, 32)
+		if err != nil {
+			continue
+		}
+		sourceIDs = append(sourceIDs, uint(id))
+	}
+	if len(sourceIDs) == 0 {
+		return ""
+	}
+	cfg := model.DetectFilter{
+		SourceIDs:           sourceIDs,
+		MinResolutionWidth:  0,
+		MinResolutionHeight: 0,
+	}
+	data, err := json.Marshal(cfg)
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
+
+// remapDetectFilterConfig remaps the source_ids inside a detect_filter_config
+// JSON string using the provided ID mapping.
+func remapDetectFilterConfig(configJSON string, idMap map[uint]uint) string {
+	if configJSON == "" {
+		return ""
+	}
+	var cfg model.DetectFilter
+	if err := json.Unmarshal([]byte(configJSON), &cfg); err != nil {
+		return configJSON // Return as-is if invalid
+	}
+	var newIDs []uint
+	for _, oldID := range cfg.SourceIDs {
+		if newID, ok := idMap[oldID]; ok {
+			newIDs = append(newIDs, newID)
+		}
+	}
+	cfg.SourceIDs = newIDs
+	data, err := json.Marshal(cfg)
+	if err != nil {
+		return configJSON
 	}
 	return string(data)
 }

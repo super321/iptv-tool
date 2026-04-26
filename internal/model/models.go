@@ -106,14 +106,14 @@ type PublishInterface struct {
 	GzipEnabled bool `json:"gzip_enabled"` // For XMLTV
 
 	// Live specific
-	AddressType            string `json:"address_type"`                                            // multicast, unicast
-	MulticastType          string `json:"multicast_type"`                                          // udpxy, rtp, igmp
-	UDPxyURL               string `gorm:"column:udpxy_url" json:"udpxy_url"`                       // e.g., http://192.168.1.1:4022
-	FCCEnabled             bool   `json:"fcc_enabled"`                                             // Enable FCC (Fast Channel Change) for rtp2httpd
-	FCCType                string `json:"fcc_type"`                                                // telecom (default) or huawei
-	CustomParams           string `json:"custom_params"`                                           // JSON array of {key, value} for custom proxy URL params
-	M3UCatchupTemplate     string `gorm:"column:m3u_catchup_template" json:"m3u_catchup_template"` // e.g., playseek=${(b)yyyyMMddHHmmss}-${(e)yyyyMMddHHmmss}
-	FilterInvalidSourceIDs string `json:"filter_invalid_source_ids"`                               // Comma-separated source IDs that should filter timeout channels
+	AddressType        string `json:"address_type"`                                            // multicast, unicast
+	MulticastType      string `json:"multicast_type"`                                          // udpxy, rtp, igmp
+	UDPxyURL           string `gorm:"column:udpxy_url" json:"udpxy_url"`                       // e.g., http://192.168.1.1:4022
+	FCCEnabled         bool   `json:"fcc_enabled"`                                             // Enable FCC (Fast Channel Change) for rtp2httpd
+	FCCType            string `json:"fcc_type"`                                                // telecom (default) or huawei
+	CustomParams       string `json:"custom_params"`                                           // JSON array of {key, value} for custom proxy URL params
+	M3UCatchupTemplate string `gorm:"column:m3u_catchup_template" json:"m3u_catchup_template"` // e.g., playseek=${(b)yyyyMMddHHmmss}-${(e)yyyyMMddHHmmss}
+	DetectFilterConfig string `json:"detect_filter_config"`                                    // JSON: DetectFilter config for detection-based channel filtering
 
 	// Unicast protocol conversion (live type only)
 	UnicastType       string `json:"unicast_type"`        // original (default), proxy
@@ -136,6 +136,15 @@ type PublishInterface struct {
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// DetectFilter holds detection-based channel filtering configuration for a publish interface.
+// SourceIDs lists which live sources should have detection filtering enabled.
+// MinResolutionWidth/Height set the global minimum video resolution threshold (0 = disabled).
+type DetectFilter struct {
+	SourceIDs           []uint `json:"source_ids"`
+	MinResolutionWidth  int    `json:"min_resolution_width"`
+	MinResolutionHeight int    `json:"min_resolution_height"`
 }
 
 // RuleType represents the type of publish rule

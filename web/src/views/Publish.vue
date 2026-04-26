@@ -106,20 +106,29 @@
               </el-select>
             </el-form-item>
 
-            <!-- 已选直播数据源的过滤无效数据开关 -->
-            <el-form-item v-if="form.type === 'live' && form.source_ids_arr.length > 0" :label="$t('publish.filter_invalid')">
+            <!-- 已选直播数据源的检测过滤开关 -->
+            <el-form-item v-if="form.type === 'live' && form.source_ids_arr.length > 0" :label="$t('publish.detect_filter')">
               <div style="width: 100%">
                 <div class="help-text" style="margin-bottom: 8px; margin-top: 0">
-                  {{ $t('publish.filter_invalid_help') }}
+                  {{ $t('publish.detect_filter_help') }}
                 </div>
                 <div v-for="srcId in form.source_ids_arr" :key="srcId"
                   style="display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; margin-bottom: 4px; background: var(--el-fill-color-light); border-radius: 4px;">
                   <span style="font-size: 13px;">{{ getSourceName(srcId) }}</span>
                   <el-switch
-                    :model-value="form.filter_invalid_source_ids_arr.includes(srcId)"
+                    :model-value="form.detect_filter.source_ids.includes(srcId)"
                     @change="(val) => toggleFilterInvalid(srcId, val)"
                     size="small"
                   />
+                </div>
+                <div style="margin-top: 12px; display: flex; align-items: center; gap: 8px;">
+                  <span style="font-size: 13px; white-space: nowrap;">{{ $t('publish.min_resolution') }}</span>
+                  <el-input-number v-model="form.detect_filter.min_resolution_width" :min="0" :max="7680" :step="1" controls-position="right" style="width: 110px" size="small" />
+                  <span style="font-size: 13px;">×</span>
+                  <el-input-number v-model="form.detect_filter.min_resolution_height" :min="0" :max="4320" :step="1" controls-position="right" style="width: 110px" size="small" />
+                </div>
+                <div class="help-text" style="margin-top: 4px">
+                  {{ $t('publish.min_resolution_help') }}
                 </div>
               </div>
             </el-form-item>
@@ -557,7 +566,8 @@ const defaultForm = () => ({
   address_type: 'multicast', multicast_type: 'igmp', udpxy_url: '', fcc_enabled: false, fcc_type: 'telecom',
   m3u_catchup_template: '',
   unicast_type: 'original', unicast_proxy_rules_arr: [],
-  epg_days: 7, gzip_enabled: false, tvg_id_mode: 'channel_id', filter_invalid_source_ids_arr: [],
+  epg_days: 7, gzip_enabled: false, tvg_id_mode: 'channel_id',
+  detect_filter: { source_ids: [], min_resolution_width: 0, min_resolution_height: 0 },
   ua_check_enabled: false, ua_allowed_values_text: '',
   token_check_enabled: false, token_value: '',
   custom_params_arr: [],
@@ -606,7 +616,7 @@ async function fetchRules() {
 function onTypeChange(newType) {
   form.format = newType === 'live' ? 'm3u' : 'xmltv'
   form.source_ids_arr = []
-  form.filter_invalid_source_ids_arr = []
+  form.detect_filter = { source_ids: [], min_resolution_width: 0, min_resolution_height: 0 }
 
   // 类型切换时，清洗掉已选择的不兼容规则 (比如原本选了分组，现在切到EPG，就把分组ID剔除掉)
   if (newType === 'epg') {
@@ -618,9 +628,9 @@ function onTypeChange(newType) {
 }
 function onSourceChange(newIds) {
   // 新选择的源默认加入过滤列表，已移除的源从过滤列表中清除
-  const added = newIds.filter(id => !form.filter_invalid_source_ids_arr.includes(id))
-  form.filter_invalid_source_ids_arr = form.filter_invalid_source_ids_arr.filter(id => newIds.includes(id))
-  form.filter_invalid_source_ids_arr.push(...added)
+  const added = newIds.filter(id => !form.detect_filter.source_ids.includes(id))
+  form.detect_filter.source_ids = form.detect_filter.source_ids.filter(id => newIds.includes(id))
+  form.detect_filter.source_ids.push(...added)
 
   // Sync per-source output configs: add defaults for new sources, remove stale ones
   for (const id of newIds) {
@@ -653,11 +663,11 @@ function getSourceName(srcId) {
 }
 function toggleFilterInvalid(srcId, val) {
   if (val) {
-    if (!form.filter_invalid_source_ids_arr.includes(srcId)) {
-      form.filter_invalid_source_ids_arr.push(srcId)
+    if (!form.detect_filter.source_ids.includes(srcId)) {
+      form.detect_filter.source_ids.push(srcId)
     }
   } else {
-    form.filter_invalid_source_ids_arr = form.filter_invalid_source_ids_arr.filter(id => id !== srcId)
+    form.detect_filter.source_ids = form.detect_filter.source_ids.filter(id => id !== srcId)
   }
 }
 function showCreate() {
@@ -698,11 +708,26 @@ function showEdit(row) {
       }
     } catch {}
   }
+  // Parse detect_filter_config (new format) or fall back to legacy filter_invalid_source_ids
+  let detectFilter = { source_ids: [], min_resolution_width: 0, min_resolution_height: 0 }
+  if (row.detect_filter_config) {
+    try {
+      const parsed = JSON.parse(row.detect_filter_config)
+      detectFilter = {
+        source_ids: parsed.source_ids || [],
+        min_resolution_width: parsed.min_resolution_width || 0,
+        min_resolution_height: parsed.min_resolution_height || 0
+      }
+    } catch {}
+  } else if (row.filter_invalid_source_ids) {
+    // Legacy backward compatibility
+    detectFilter.source_ids = parseIds(row.filter_invalid_source_ids)
+  }
   Object.assign(form, {
     name: row.name, description: row.description || '', path: row.path, type: row.type, format: row.format,
     source_ids_arr: parseIds(row.source_ids),
     rule_ids_arr: parseIds(row.rule_ids),
-    filter_invalid_source_ids_arr: parseIds(row.filter_invalid_source_ids),
+    detect_filter: detectFilter,
     status: row.status,
     tvg_id_mode: row.tvg_id_mode || 'channel_id',
     address_type: row.address_type || 'multicast',
@@ -752,7 +777,7 @@ async function handlePreview() {
       fcc_enabled: form.fcc_enabled,
       fcc_type: form.fcc_type,
       custom_params: JSON.stringify(form.custom_params_arr.filter(p => p.key.trim())),
-      filter_invalid_source_ids: form.filter_invalid_source_ids_arr.join(','),
+      detect_filter_config: JSON.stringify(form.detect_filter),
       unicast_type: form.unicast_type,
       unicast_proxy_rules: JSON.stringify(form.unicast_proxy_rules_arr.filter(r => r.pattern.trim()))
     }
@@ -809,7 +834,7 @@ async function handleSubmit() {
       name: form.name, description: form.description, path: form.path, type: form.type, format: form.format,
       source_ids: form.source_ids_arr.join(','), 
       rule_ids: form.rule_ids_arr.join(','),
-      filter_invalid_source_ids: form.filter_invalid_source_ids_arr.join(','),
+      detect_filter_config: JSON.stringify(form.detect_filter),
       tvg_id_mode: form.tvg_id_mode,
       address_type: form.address_type,
       multicast_type: form.multicast_type,

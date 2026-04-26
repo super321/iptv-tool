@@ -67,31 +67,31 @@ func (pc *PublishController) GetInterface(c *gin.Context) {
 
 // CreateInterfaceRequest is the request body for creating a publish interface
 type CreateInterfaceRequest struct {
-	Name                   string              `json:"name" binding:"required"`
-	Description            string              `json:"description"`
-	Path                   string              `json:"path" binding:"required"`
-	Type                   string              `json:"type" binding:"required,oneof=live epg"`
-	Format                 model.PublishFormat `json:"format" binding:"required"`
-	SourceIDs              string              `json:"source_ids"`
-	RuleIDs                string              `json:"rule_ids"`
-	TvgIDMode              string              `json:"tvg_id_mode"`
-	EPGDays                int                 `json:"epg_days"`
-	GzipEnabled            bool                `json:"gzip_enabled"`
-	AddressType            string              `json:"address_type"`
-	MulticastType          string              `json:"multicast_type"`
-	UDPxyURL               string              `json:"udpxy_url"`
-	FCCEnabled             bool                `json:"fcc_enabled"`
-	FCCType                string              `json:"fcc_type"`
-	CustomParams           string              `json:"custom_params"`
-	M3UCatchupTemplate     string              `json:"m3u_catchup_template"`
-	UnicastType            string              `json:"unicast_type"`
-	UnicastProxyRules      string              `json:"unicast_proxy_rules"`
-	FilterInvalidSourceIDs string              `json:"filter_invalid_source_ids"`
-	SourceOutputConfigs    string              `json:"source_output_configs"`
-	UACheckEnabled         bool                `json:"ua_check_enabled"`
-	UAAllowedValues        string              `json:"ua_allowed_values"`
-	TokenCheckEnabled      bool                `json:"token_check_enabled"`
-	TokenValue             string              `json:"token_value"`
+	Name                string              `json:"name" binding:"required"`
+	Description         string              `json:"description"`
+	Path                string              `json:"path" binding:"required"`
+	Type                string              `json:"type" binding:"required,oneof=live epg"`
+	Format              model.PublishFormat `json:"format" binding:"required"`
+	SourceIDs           string              `json:"source_ids"`
+	RuleIDs             string              `json:"rule_ids"`
+	TvgIDMode           string              `json:"tvg_id_mode"`
+	EPGDays             int                 `json:"epg_days"`
+	GzipEnabled         bool                `json:"gzip_enabled"`
+	AddressType         string              `json:"address_type"`
+	MulticastType       string              `json:"multicast_type"`
+	UDPxyURL            string              `json:"udpxy_url"`
+	FCCEnabled          bool                `json:"fcc_enabled"`
+	FCCType             string              `json:"fcc_type"`
+	CustomParams        string              `json:"custom_params"`
+	M3UCatchupTemplate  string              `json:"m3u_catchup_template"`
+	UnicastType         string              `json:"unicast_type"`
+	UnicastProxyRules   string              `json:"unicast_proxy_rules"`
+	DetectFilterConfig  string              `json:"detect_filter_config"`
+	SourceOutputConfigs string              `json:"source_output_configs"`
+	UACheckEnabled      bool                `json:"ua_check_enabled"`
+	UAAllowedValues     string              `json:"ua_allowed_values"`
+	TokenCheckEnabled   bool                `json:"token_check_enabled"`
+	TokenValue          string              `json:"token_value"`
 }
 
 // CreateInterface adds a new publish interface
@@ -138,32 +138,32 @@ func (pc *PublishController) CreateInterface(c *gin.Context) {
 	}
 
 	iface := model.PublishInterface{
-		Name:                   req.Name,
-		Description:            req.Description,
-		Path:                   req.Path,
-		Type:                   req.Type,
-		Format:                 req.Format,
-		SourceIDs:              req.SourceIDs,
-		RuleIDs:                req.RuleIDs,
-		TvgIDMode:              req.TvgIDMode,
-		Status:                 true,
-		EPGDays:                req.EPGDays,
-		GzipEnabled:            req.GzipEnabled,
-		AddressType:            req.AddressType,
-		MulticastType:          req.MulticastType,
-		UDPxyURL:               req.UDPxyURL,
-		FCCEnabled:             req.FCCEnabled,
-		FCCType:                req.FCCType,
-		CustomParams:           req.CustomParams,
-		M3UCatchupTemplate:     req.M3UCatchupTemplate,
-		UnicastType:            req.UnicastType,
-		UnicastProxyRules:      req.UnicastProxyRules,
-		FilterInvalidSourceIDs: req.FilterInvalidSourceIDs,
-		SourceOutputConfigs:    req.SourceOutputConfigs,
-		UACheckEnabled:         req.UACheckEnabled,
-		UAAllowedValues:        req.UAAllowedValues,
-		TokenCheckEnabled:      req.TokenCheckEnabled,
-		TokenValue:             req.TokenValue,
+		Name:                req.Name,
+		Description:         req.Description,
+		Path:                req.Path,
+		Type:                req.Type,
+		Format:              req.Format,
+		SourceIDs:           req.SourceIDs,
+		RuleIDs:             req.RuleIDs,
+		TvgIDMode:           req.TvgIDMode,
+		Status:              true,
+		EPGDays:             req.EPGDays,
+		GzipEnabled:         req.GzipEnabled,
+		AddressType:         req.AddressType,
+		MulticastType:       req.MulticastType,
+		UDPxyURL:            req.UDPxyURL,
+		FCCEnabled:          req.FCCEnabled,
+		FCCType:             req.FCCType,
+		CustomParams:        req.CustomParams,
+		M3UCatchupTemplate:  req.M3UCatchupTemplate,
+		UnicastType:         req.UnicastType,
+		UnicastProxyRules:   req.UnicastProxyRules,
+		DetectFilterConfig:  req.DetectFilterConfig,
+		SourceOutputConfigs: req.SourceOutputConfigs,
+		UACheckEnabled:      req.UACheckEnabled,
+		UAAllowedValues:     req.UAAllowedValues,
+		TokenCheckEnabled:   req.TokenCheckEnabled,
+		TokenValue:          req.TokenValue,
 	}
 
 	if err := model.DB.Create(&iface).Error; err != nil {
@@ -178,31 +178,31 @@ func (pc *PublishController) CreateInterface(c *gin.Context) {
 
 // UpdateInterfaceRequest is the request body for updating a publish interface
 type UpdateInterfaceRequest struct {
-	Name                   *string              `json:"name"`
-	Description            *string              `json:"description"`
-	Path                   *string              `json:"path"`
-	Format                 *model.PublishFormat `json:"format"`
-	SourceIDs              *string              `json:"source_ids"`
-	RuleIDs                *string              `json:"rule_ids"`
-	TvgIDMode              *string              `json:"tvg_id_mode"`
-	Status                 *bool                `json:"status"`
-	EPGDays                *int                 `json:"epg_days"`
-	GzipEnabled            *bool                `json:"gzip_enabled"`
-	AddressType            *string              `json:"address_type"`
-	MulticastType          *string              `json:"multicast_type"`
-	UDPxyURL               *string              `json:"udpxy_url"`
-	FCCEnabled             *bool                `json:"fcc_enabled"`
-	FCCType                *string              `json:"fcc_type"`
-	CustomParams           *string              `json:"custom_params"`
-	M3UCatchupTemplate     *string              `json:"m3u_catchup_template"`
-	UnicastType            *string              `json:"unicast_type"`
-	UnicastProxyRules      *string              `json:"unicast_proxy_rules"`
-	FilterInvalidSourceIDs *string              `json:"filter_invalid_source_ids"`
-	SourceOutputConfigs    *string              `json:"source_output_configs"`
-	UACheckEnabled         *bool                `json:"ua_check_enabled"`
-	UAAllowedValues        *string              `json:"ua_allowed_values"`
-	TokenCheckEnabled      *bool                `json:"token_check_enabled"`
-	TokenValue             *string              `json:"token_value"`
+	Name                *string              `json:"name"`
+	Description         *string              `json:"description"`
+	Path                *string              `json:"path"`
+	Format              *model.PublishFormat `json:"format"`
+	SourceIDs           *string              `json:"source_ids"`
+	RuleIDs             *string              `json:"rule_ids"`
+	TvgIDMode           *string              `json:"tvg_id_mode"`
+	Status              *bool                `json:"status"`
+	EPGDays             *int                 `json:"epg_days"`
+	GzipEnabled         *bool                `json:"gzip_enabled"`
+	AddressType         *string              `json:"address_type"`
+	MulticastType       *string              `json:"multicast_type"`
+	UDPxyURL            *string              `json:"udpxy_url"`
+	FCCEnabled          *bool                `json:"fcc_enabled"`
+	FCCType             *string              `json:"fcc_type"`
+	CustomParams        *string              `json:"custom_params"`
+	M3UCatchupTemplate  *string              `json:"m3u_catchup_template"`
+	UnicastType         *string              `json:"unicast_type"`
+	UnicastProxyRules   *string              `json:"unicast_proxy_rules"`
+	DetectFilterConfig  *string              `json:"detect_filter_config"`
+	SourceOutputConfigs *string              `json:"source_output_configs"`
+	UACheckEnabled      *bool                `json:"ua_check_enabled"`
+	UAAllowedValues     *string              `json:"ua_allowed_values"`
+	TokenCheckEnabled   *bool                `json:"token_check_enabled"`
+	TokenValue          *string              `json:"token_value"`
 }
 
 // UpdateInterface modifies a publish interface
@@ -313,8 +313,8 @@ func (pc *PublishController) UpdateInterface(c *gin.Context) {
 	if req.M3UCatchupTemplate != nil {
 		updates["m3u_catchup_template"] = *req.M3UCatchupTemplate
 	}
-	if req.FilterInvalidSourceIDs != nil {
-		updates["filter_invalid_source_ids"] = *req.FilterInvalidSourceIDs
+	if req.DetectFilterConfig != nil {
+		updates["detect_filter_config"] = *req.DetectFilterConfig
 	}
 	if req.SourceOutputConfigs != nil {
 		updates["source_output_configs"] = *req.SourceOutputConfigs
@@ -371,19 +371,19 @@ func (pc *PublishController) DeleteInterface(c *gin.Context) {
 
 // PreviewRequest is the request body for previewing the publish output
 type PreviewRequest struct {
-	Type                   string `json:"type" binding:"required"`
-	SourceIDs              string `json:"source_ids"`
-	RuleIDs                string `json:"rule_ids"`
-	AddressType            string `json:"address_type"`
-	MulticastType          string `json:"multicast_type"`
-	UDPxyURL               string `json:"udpxy_url"`
-	FCCEnabled             bool   `json:"fcc_enabled"`
-	FCCType                string `json:"fcc_type"`
-	CustomParams           string `json:"custom_params"`
-	UnicastType            string `json:"unicast_type"`
-	UnicastProxyRules      string `json:"unicast_proxy_rules"`
-	FilterInvalidSourceIDs string `json:"filter_invalid_source_ids"`
-	SourceOutputConfigs    string `json:"source_output_configs"`
+	Type                string `json:"type" binding:"required"`
+	SourceIDs           string `json:"source_ids"`
+	RuleIDs             string `json:"rule_ids"`
+	AddressType         string `json:"address_type"`
+	MulticastType       string `json:"multicast_type"`
+	UDPxyURL            string `json:"udpxy_url"`
+	FCCEnabled          bool   `json:"fcc_enabled"`
+	FCCType             string `json:"fcc_type"`
+	CustomParams        string `json:"custom_params"`
+	UnicastType         string `json:"unicast_type"`
+	UnicastProxyRules   string `json:"unicast_proxy_rules"`
+	DetectFilterConfig  string `json:"detect_filter_config"`
+	SourceOutputConfigs string `json:"source_output_configs"`
 }
 
 // PreviewInterface generates a dry-run preview of the aggregated channels/epgs
@@ -397,19 +397,19 @@ func (pc *PublishController) PreviewInterface(c *gin.Context) {
 
 	// Create a dummy interface purely for the engine to consume IDs
 	dummyIface := model.PublishInterface{
-		Type:                   req.Type,
-		SourceIDs:              req.SourceIDs,
-		RuleIDs:                req.RuleIDs,
-		AddressType:            req.AddressType,
-		MulticastType:          req.MulticastType,
-		UDPxyURL:               req.UDPxyURL,
-		FCCEnabled:             req.FCCEnabled,
-		FCCType:                req.FCCType,
-		CustomParams:           req.CustomParams,
-		UnicastType:            req.UnicastType,
-		UnicastProxyRules:      req.UnicastProxyRules,
-		FilterInvalidSourceIDs: req.FilterInvalidSourceIDs,
-		SourceOutputConfigs:    req.SourceOutputConfigs,
+		Type:                req.Type,
+		SourceIDs:           req.SourceIDs,
+		RuleIDs:             req.RuleIDs,
+		AddressType:         req.AddressType,
+		MulticastType:       req.MulticastType,
+		UDPxyURL:            req.UDPxyURL,
+		FCCEnabled:          req.FCCEnabled,
+		FCCType:             req.FCCType,
+		CustomParams:        req.CustomParams,
+		UnicastType:         req.UnicastType,
+		UnicastProxyRules:   req.UnicastProxyRules,
+		DetectFilterConfig:  req.DetectFilterConfig,
+		SourceOutputConfigs: req.SourceOutputConfigs,
 	}
 
 	eng, err := publish.NewEngine(dummyIface)

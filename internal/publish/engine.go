@@ -117,6 +117,9 @@ type Engine struct {
 	globalSourceCfg      SourceOutputConfig          // Global config as SourceOutputConfig (unified code path)
 	globalCustomParams   []customParam               // Pre-parsed global custom params
 	sourceCustomParams   map[uint][]customParam      // Pre-parsed per-source custom params
+	detectFilterSet      map[uint]bool               // Source IDs that have detection filtering enabled
+	minResWidth          int                         // Minimum video resolution width (0 = disabled)
+	minResHeight         int                         // Minimum video resolution height (0 = disabled)
 }
 
 // NewEngine creates a new publish engine for the given interface
@@ -165,6 +168,21 @@ func NewEngine(iface model.PublishInterface) (*Engine, error) {
 		e.sourceCustomParams = make(map[uint][]customParam, len(e.sourceConfigs))
 		for id, cfg := range e.sourceConfigs {
 			e.sourceCustomParams[id] = parseCustomParams(cfg.CustomParams)
+		}
+	}
+
+	// Parse detect filter config
+	if iface.DetectFilterConfig != "" {
+		var df model.DetectFilter
+		if err := json.Unmarshal([]byte(iface.DetectFilterConfig), &df); err == nil {
+			if len(df.SourceIDs) > 0 {
+				e.detectFilterSet = make(map[uint]bool, len(df.SourceIDs))
+				for _, id := range df.SourceIDs {
+					e.detectFilterSet[id] = true
+				}
+			}
+			e.minResWidth = df.MinResolutionWidth
+			e.minResHeight = df.MinResolutionHeight
 		}
 	}
 
@@ -482,22 +500,30 @@ func (e *Engine) AggregateLiveChannels() ([]AggregatedChannel, error) {
 	// For Auto-logo, load map once (stores relative paths)
 	e.buildLogoMap()
 
-	// Build set of source IDs that should filter timeout channels
-	filterInvalidSet := make(map[uint]bool)
-	for _, id := range parseSourceIDs(e.iface.FilterInvalidSourceIDs) {
-		filterInvalidSet[id] = true
-	}
-
 	var result []AggregatedChannel
 	seen := make(map[string]bool)
 	hasGroupRules := len(e.groupRules) > 0
 
 	for _, ch := range parsedChannels {
-		// Stage 0: Skip channels that have been detected as timeout (latency == -1)
-		// Only filter if the channel's source is in the filter-invalid set
-		// Channels that have not been detected (latency == nil) are NOT filtered
-		if ch.Latency != nil && *ch.Latency == -1 && filterInvalidSet[ch.SourceID] {
-			continue
+		// Stage 0: Detection-based filtering (timeout + resolution)
+		// Only applies when the channel's source is in the detect filter set
+		if e.detectFilterSet[ch.SourceID] {
+			// 0a: Skip channels detected as timeout (latency == -1)
+			// Channels not yet detected (latency == nil) are NOT filtered
+			if ch.Latency != nil && *ch.Latency == -1 {
+				continue
+			}
+			// 0b: Skip channels below minimum resolution threshold
+			// Only applies when min resolution is configured (>0) AND the channel
+			// has been detected with a valid video resolution value
+			if (e.minResWidth > 0 || e.minResHeight > 0) &&
+				ch.VideoResolution != nil && *ch.VideoResolution != "" {
+				if w, h, ok := parseResolution(*ch.VideoResolution); ok {
+					if w < e.minResWidth || h < e.minResHeight {
+						continue
+					}
+				}
+			}
 		}
 
 		// Stage 1: Alias
@@ -566,6 +592,24 @@ func (e *Engine) AggregateLiveChannels() ([]AggregatedChannel, error) {
 type customParam struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
+}
+
+// parseResolution parses a video resolution string like "1920x1080" into width and height.
+// Returns ok=false if the format is invalid.
+func parseResolution(s string) (w, h int, ok bool) {
+	ws, hs, found := strings.Cut(s, "x")
+	if !found {
+		return 0, 0, false
+	}
+	wi, err := strconv.Atoi(ws)
+	if err != nil {
+		return 0, 0, false
+	}
+	hi, err := strconv.Atoi(hs)
+	if err != nil {
+		return 0, 0, false
+	}
+	return wi, hi, true
 }
 
 // parseCustomParams parses a JSON string of custom params into a slice.
